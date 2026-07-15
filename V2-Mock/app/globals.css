@@ -1,0 +1,191 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sage-text);
+  --font-mono: var(--font-roboto-mono);
+  --font-heading: var(--font-sage-headline);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-soft: var(--success-soft);
+  --color-destructive-bg: var(--destructive-bg);
+  --color-destructive-tint: var(--destructive-tint);
+  --color-warning-bg: var(--warning-bg);
+  --color-line: var(--line);
+  --color-link: var(--link);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Sage brand palette (per official brand guidelines):
+ * Primary: Brilliant Green #00D639, Black #000000, White #FFFFFF.
+ * Extended Warm: Cherry #4A1828, Terra #A13829, Amber #E98709 (+ tints 10-99).
+ * Extended Cool: Jade #00A65C, Teal #006362, Navy #00293F (+ tints 10-99).
+ * Neutrals: Neutral10 #1B1B1B ... Neutral99 #FAFAFA.
+ * Accessibility rule: white-on-black or black-on-white as the primary pairing.
+ * Brilliant green text on black is accessible used sparingly; green should not
+ * sit under white text (white-on-green fails their own contrast guidance), so
+ * solid green fills pair with black text, not white.
+ */
+/* v2: prototype "white stage" palette — Hero H2 green #008A21 as the light-mode
+   accent (accessible on white), Brilliant Green #00D639 reserved for dark mode. */
+:root {
+  --background: #fafafa;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #008a21;
+  --primary-foreground: #ffffff;
+  --primary-soft: #f2fef7;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #000000;
+  --muted: #f0f0f0;
+  --muted-foreground: #5e5e5e;
+  --accent: #f0f0f0;
+  --accent-foreground: #000000;
+  --destructive: #c94633;
+  --destructive-foreground: #ffffff;
+  --destructive-bg: #ffdcd1;
+  --destructive-tint: #fff7f5;
+  --warning: #c15708;
+  --warning-foreground: #ffffff;
+  --warning-bg: #fff0c3;
+  --success: #008a21;
+  --success-bg: #c4fcd8;
+  --success-soft: #f2fef7;
+  --link: #006716;
+  --line: #c6c6c6;
+  --border: #e2e2e2;
+  --input: #e2e2e2;
+  --ring: #008a21;
+  --chart-1: #00af2d;
+  --chart-2: #008a21;
+  --chart-3: #006716;
+  --chart-4: #00460c;
+  --chart-5: #5e5e5e;
+  --radius: 0.625rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #00d639;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #f0f0f0;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #e2e2e2;
+  --sidebar-ring: #00d639;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #1b1b1b;
+  --card-foreground: #ffffff;
+  --popover: #1b1b1b;
+  --popover-foreground: #ffffff;
+  --primary: #00d639;
+  --primary-foreground: #000000;
+  --primary-soft: rgba(0, 214, 57, 0.14);
+  --secondary: #303030;
+  --secondary-foreground: #ffffff;
+  --muted: #303030;
+  --muted-foreground: #ababab;
+  --accent: #303030;
+  --accent-foreground: #ffffff;
+  /* Terra70, not the base Terra swatch: base Terra (#A13829) is only 3.1:1
+     against black, below WCAG AA. Terra70 is brand-correct (same hue family,
+     official tint) and reads at 7.4:1 on black. */
+  --destructive: #ea7961;
+  --destructive-foreground: #000000;
+  --destructive-bg: rgba(224, 88, 62, 0.18);
+  --destructive-tint: rgba(224, 88, 62, 0.07);
+  --warning: #efab2f;
+  --warning-foreground: #000000;
+  --warning-bg: rgba(233, 135, 9, 0.16);
+  --success: #00d639;
+  --success-bg: rgba(0, 214, 57, 0.16);
+  --success-soft: rgba(0, 214, 57, 0.07);
+  --link: #00ca71;
+  --line: #474747;
+  --border: #303030;
+  --input: oklch(1 0 0 / 15%);
+  --ring: #00d63980;
+  --chart-1: #44ed90;
+  --chart-2: #00a65c;
+  --chart-3: #006362;
+  --chart-4: #00293f;
+  --chart-5: #ababab;
+  --sidebar: #1b1b1b;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #00d639;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #303030;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: #00d63980;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Sage Intelligence's hero treatment (not the core corporate brand spec):
+   a purple-to-green radial gradient on black, per the Sage Brain product UI. */
+.hero-gradient {
+  background-image:
+    radial-gradient(ellipse 50% 60% at 8% 0%, rgba(124, 58, 237, 0.55), transparent 70%),
+    radial-gradient(ellipse 60% 70% at 100% 10%, rgba(0, 214, 57, 0.45), transparent 70%);
+  background-color: var(--background);
+  background-repeat: no-repeat;
+}

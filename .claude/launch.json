@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "v2-mock",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "V2-Mock", "dev"],
+      "autoPort": true
+    }
+  ]
+}

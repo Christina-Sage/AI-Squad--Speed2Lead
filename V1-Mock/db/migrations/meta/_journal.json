@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1782267439919,
+      "tag": "0000_outgoing_sumo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782270244910,
+      "tag": "0001_fixed_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782445339830,
+      "tag": "0002_ambitious_hammerhead",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DisambiguationList, type DisambiguationMatch } from "@/components/search/disambiguation-list";
+
+export function SearchForm() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [matches, setMatches] = useState<DisambiguationMatch[] | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    setMatches(null);
+
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+
+      if (data.matchType === "single") {
+        router.push(`/account/${data.accountId}?q=${encodeURIComponent(query)}`);
+        return;
+      }
+
+      if (data.matchType === "multiple") {
+        setMatches(data.matches);
+        return;
+      }
+
+      setError(`No account found for "${query}".`);
+    } catch {
+      setError("Something went wrong while searching. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 text-left">
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2 rounded-full border border-white/15 bg-black/40 p-1.5 pl-4 shadow-lg backdrop-blur"
+      >
+        <Search className="size-4 shrink-0 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Enter Domain, Global Account ID, or Account Name"
+          className="h-9 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
+        />
+        <Button type="submit" disabled={loading} size="lg" className="rounded-full px-5">
+          {loading ? "Analyzing..." : "Analyze Account"}
+        </Button>
+      </form>
+      <p className="text-center text-xs text-muted-foreground">
+        Examples: abc.org &middot; 0015Y00002ABC123 &middot; ABC Foundation
+      </p>
+
+      {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      {matches && <DisambiguationList matches={matches} originalQuery={query} />}
+    </div>
+  );
+}

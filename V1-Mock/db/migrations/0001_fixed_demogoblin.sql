@@ -1,0 +1,1 @@
+ALTER TABLE "audit_log" ADD COLUMN "team" text DEFAULT 'BDR' NOT NULL;

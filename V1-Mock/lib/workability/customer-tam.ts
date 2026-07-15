@@ -1,0 +1,56 @@
+import type { AccountType, TamStatus } from "@/lib/salesforce/types";
+
+export type CustomerStatus = "PASS" | "WARNING" | "BLOCKED";
+export type TamValidationStatus = "PASS" | "WARNING";
+
+export interface CustomerTamResult {
+  customerStatus: CustomerStatus;
+  tamStatus: TamValidationStatus;
+  reasonCodes: string[];
+}
+
+export const CUSTOMER_TAM_BLANK = "CUSTOMER_TAM_BLANK";
+export const CUSTOMER_EXPIRED_TAM = "CUSTOMER_EXPIRED_TAM";
+export const TAM_EXPIRED = "TAM_EXPIRED";
+
+export function evaluateCustomerTam(type: AccountType, tam: TamStatus): CustomerTamResult {
+  const isCustomer = type === "Customer";
+
+  if (isCustomer && tam === null) {
+    return {
+      customerStatus: "BLOCKED",
+      tamStatus: "WARNING",
+      reasonCodes: [CUSTOMER_TAM_BLANK],
+    };
+  }
+
+  if (isCustomer && tam === "Expired Intacct TAM") {
+    return {
+      customerStatus: "WARNING",
+      tamStatus: "WARNING",
+      reasonCodes: [CUSTOMER_EXPIRED_TAM],
+    };
+  }
+
+  if (!isCustomer && tam === null) {
+    return {
+      customerStatus: "PASS",
+      tamStatus: "PASS",
+      reasonCodes: [],
+    };
+  }
+
+  if (!isCustomer && tam === "Expired Intacct TAM") {
+    return {
+      customerStatus: "PASS",
+      tamStatus: "WARNING",
+      reasonCodes: [TAM_EXPIRED],
+    };
+  }
+
+  return {
+    customerStatus: "PASS",
+    tamStatus: "PASS",
+    reasonCodes: [],
+  };
+}
