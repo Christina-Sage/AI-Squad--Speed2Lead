@@ -10,14 +10,16 @@ export const CHECK_BASE_DELAY_MS = 260;
 export const CHECK_STEP_MS = 300;
 export const VERDICT_EXTRA_MS = 150;
 
-export function analyzedKey(accountId: string) {
-  return `dedupe-analyzed-${accountId}`;
+export function analyzedKey(entityId: string) {
+  return `dedupe-analyzed-${entityId}`;
 }
 
 function badgeFor(check: DedupeCheck): { text: string; cls: string } {
   const green = "bg-success-bg text-success";
   const red = "bg-destructive-bg text-destructive";
   const amber = "bg-warning-bg text-warning";
+  const grey = "bg-muted text-muted-foreground";
+  if (check.state === "na") return { text: "N/A", cls: grey };
   if (check.badgeType === "yn") {
     return check.state === "fail" ? { text: "Yes", cls: red } : { text: "No", cls: green };
   }
@@ -26,6 +28,12 @@ function badgeFor(check: DedupeCheck): { text: string; cls: string } {
   return { text: "Pass", cls: green };
 }
 
+/**
+ * Shared "Can I work it?" verdict banner + animated six-check checklist. Used by
+ * both the account detail and the SDR lead detail (build-plan step 6). Account
+ * actions render by default; pass `actions` to supply entity-specific controls
+ * (e.g. for a lead).
+ */
 export function DedupeChecklist({
   accountId,
   checks,
@@ -35,6 +43,10 @@ export function DedupeChecklist({
   ownerName,
   isCurrentOwner,
   salesforceUrl,
+  title = "Can I work it?",
+  subtitle = "Six-check compact checklist",
+  runningTitle = "Running the six checks…",
+  actions,
 }: {
   accountId: string;
   checks: DedupeCheck[];
@@ -44,6 +56,10 @@ export function DedupeChecklist({
   ownerName: string;
   isCurrentOwner: boolean;
   salesforceUrl: string;
+  title?: string;
+  subtitle?: string;
+  runningTitle?: string;
+  actions?: React.ReactNode;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -128,7 +144,7 @@ export function DedupeChecklist({
         </div>
         <div>
           <h3 className="font-heading text-base font-black tracking-[0.3px]">
-            {!done ? "Running the six checks…" : finalStatus}
+            {!done ? runningTitle : finalStatus}
           </h3>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
             {!done
@@ -145,8 +161,8 @@ export function DedupeChecklist({
       {/* Checklist card */}
       <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <h2 className="text-[15.5px] font-semibold">Can I work it?</h2>
-          <span className="text-[12.5px] text-muted-foreground">Six-check compact checklist</span>
+          <h2 className="text-[15.5px] font-semibold">{title}</h2>
+          <span className="text-[12.5px] text-muted-foreground">{subtitle}</span>
           <span className="flex-1" />
           {done && (
             <span
@@ -182,10 +198,20 @@ export function DedupeChecklist({
                           ? "bg-destructive-bg text-destructive"
                           : check.state === "warn"
                             ? "bg-warning-bg text-warning"
-                            : "bg-success-bg text-success"
+                            : check.state === "na"
+                              ? "bg-muted text-muted-foreground"
+                              : "bg-success-bg text-success"
                     }`}
                   >
-                    {shown ? (check.state === "fail" ? "✕" : check.state === "warn" ? "!" : "✓") : ""}
+                    {shown
+                      ? check.state === "fail"
+                        ? "✕"
+                        : check.state === "warn"
+                          ? "!"
+                          : check.state === "na"
+                            ? "–"
+                            : "✓"
+                      : ""}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-[13.5px] font-semibold">
@@ -218,53 +244,57 @@ export function DedupeChecklist({
               done ? "opacity-100" : "opacity-0"
             }`}
           >
-            {ok ? (
+            {actions ?? (
               <>
-                {isCurrentOwner ? (
-                  <button
-                    disabled
-                    className="inline-flex items-center gap-1.5 rounded-[9px] bg-success-bg px-4 py-2 text-[13.5px] font-semibold text-success"
-                  >
-                    ✓ Assigned to you
-                  </button>
+                {ok ? (
+                  <>
+                    {isCurrentOwner ? (
+                      <button
+                        disabled
+                        className="inline-flex items-center gap-1.5 rounded-[9px] bg-success-bg px-4 py-2 text-[13.5px] font-semibold text-success"
+                      >
+                        ✓ Assigned to you
+                      </button>
+                    ) : (
+                      <button
+                        onClick={assignToMe}
+                        disabled={assigning}
+                        className="inline-flex items-center gap-1.5 rounded-[9px] border border-primary bg-primary px-4 py-2 text-[13.5px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-45"
+                      >
+                        {assigning ? "Assigning…" : "Assign to me"}
+                      </button>
+                    )}
+                    <Link
+                      href={`/account/${accountId}/work-it`}
+                      className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
+                    >
+                      Work it →
+                    </Link>
+                  </>
                 ) : (
                   <button
-                    onClick={assignToMe}
-                    disabled={assigning}
-                    className="inline-flex items-center gap-1.5 rounded-[9px] border border-primary bg-primary px-4 py-2 text-[13.5px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-45"
+                    onClick={() => toast(`Routed to ${ownerName} with your note`)}
+                    className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
                   >
-                    {assigning ? "Assigning…" : "Assign to me"}
+                    Notify owner / request handoff
                   </button>
                 )}
-                <Link
-                  href={`/account/${accountId}/work-it`}
+                <a
+                  href={salesforceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
                 >
-                  Work it →
-                </Link>
+                  Open in CRM
+                </a>
+                {failLabels.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Blocked by: {failLabels.join(", ")}
+                  </span>
+                )}
+                {assignError && <span className="text-xs text-destructive">{assignError}</span>}
               </>
-            ) : (
-              <button
-                onClick={() => toast(`Routed to ${ownerName} with your note`)}
-                className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
-              >
-                Notify owner / request handoff
-              </button>
             )}
-            <a
-              href={salesforceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
-            >
-              Open in CRM
-            </a>
-            {failLabels.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                Blocked by: {failLabels.join(", ")}
-              </span>
-            )}
-            {assignError && <span className="text-xs text-destructive">{assignError}</span>}
           </div>
         </div>
       </div>

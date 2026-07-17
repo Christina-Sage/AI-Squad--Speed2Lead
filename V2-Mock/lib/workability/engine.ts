@@ -16,10 +16,13 @@ export type FinalStatus = "WORKABLE" | "WORKABLE WITH REVIEW" | "NOT WORKABLE";
 
 export type RoeScope = "Contacts" | "Leads" | "Leads + Contacts";
 
-export type CheckState = "pass" | "warn" | "fail";
+// "na" is used by the lead-level checklist when an account-dependent check
+// cannot run (no linked account). The account engine never emits "na".
+export type CheckState = "pass" | "warn" | "fail" | "na";
 
 export interface DedupeCheck {
-  key: "customer" | "tam" | "roe" | "openOpp" | "dqOpp" | "partner";
+  /** Account keys plus lead-level keys (dup, assoc, suppression). */
+  key: string;
   label: string;
   question: string;
   /** "pf" renders Pass/Fail badges, "yn" renders No/Yes (yes = blocking). */
@@ -333,6 +336,8 @@ export function blockedByLabel(result: WorkabilityResult): string {
           return "DQ opp cooling-off";
         case "partner":
           return "Partner deal registration";
+        default:
+          return c.label;
       }
     })
     .join(" + ");

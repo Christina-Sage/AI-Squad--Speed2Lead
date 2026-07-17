@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { DisambiguationList, type DisambiguationMatch } from "@/components/search/disambiguation-list";
 
 export function SearchForm() {
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +29,15 @@ export function SearchForm() {
       const data = await res.json();
 
       if (data.matchType === "single") {
-        router.push(`/account/${data.accountId}?q=${encodeURIComponent(query)}`);
+        // Open the result inline in the worklist feed (build-plan step 7). The
+        // WorklistExplorer listens for this event; the standalone /account route
+        // still resolves for pasted/bookmarked links (step 8).
+        window.dispatchEvent(
+          new CustomEvent("dedupe:open-detail", {
+            detail: { kind: "account", id: data.accountId, label: query },
+          }),
+        );
+        setQuery("");
         return;
       }
 
@@ -58,7 +64,7 @@ export function SearchForm() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter Domain, Global Account ID, or Account Name"
+          placeholder="Enter Website/Domain"
           className="h-9 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
         />
         <Button type="submit" disabled={loading} size="lg" className="rounded-[9px] px-5">

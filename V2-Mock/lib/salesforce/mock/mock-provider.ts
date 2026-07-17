@@ -1,4 +1,5 @@
 import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Contact } from "@/lib/salesforce/types";
+import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
 import { detectSearchType } from "@/lib/salesforce/provider";
@@ -125,6 +126,40 @@ export class MockSalesforceProvider implements SalesforceProvider {
         industry: resolved.industry,
       };
     });
+  }
+
+  async listSdrLeads(): Promise<SdrLeadListItem[]> {
+    const store = getMockStore();
+    return store.sdrLeads.map((lead) => {
+      const account = lead.accountId ? store.accounts.get(lead.accountId) ?? null : null;
+      return {
+        id: lead.id,
+        name: lead.name,
+        title: lead.title,
+        accountId: lead.accountId,
+        accountName: account?.name ?? null,
+        domain: account?.domain ?? null,
+        priorityGroup: lead.priorityGroup,
+        score: lead.score,
+        fit: lead.fit,
+        intent: lead.intent,
+        workability: lead.workability,
+      };
+    });
+  }
+
+  async getSdrLead(leadId: string): Promise<SdrLead | null> {
+    const store = getMockStore();
+    return store.sdrLeads.find((l) => l.id === leadId) ?? null;
+  }
+
+  async getSdrLeadBundle(
+    leadId: string,
+  ): Promise<{ lead: SdrLead; accountBundle: AccountBundle | null } | null> {
+    const lead = await this.getSdrLead(leadId);
+    if (!lead) return null;
+    const accountBundle = lead.accountId ? await this.getAccountBundle(lead.accountId) : null;
+    return { lead, accountBundle };
   }
 
   async addContact(
