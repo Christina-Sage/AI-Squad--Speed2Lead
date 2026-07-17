@@ -1,4 +1,5 @@
 import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Contact } from "@/lib/salesforce/types";
+import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { OutreachPush } from "@/lib/outreach";
 import { MockSalesforceProvider } from "@/lib/salesforce/mock/mock-provider";
 
@@ -27,6 +28,11 @@ export interface SalesforceProvider {
   assignToMe(accountId: string, userId: string, userName: string): Promise<Account>;
   updateAbmStatus(accountId: string, abmNurtureStatus: string | null): Promise<Account>;
   listAccounts(): Promise<AccountListItem[]>;
+  /** SDR worklist leads (build-plan step 5). */
+  listSdrLeads(): Promise<SdrLeadListItem[]>;
+  getSdrLead(leadId: string): Promise<SdrLead | null>;
+  /** A lead plus its linked account bundle (null bundle when the lead has no account). */
+  getSdrLeadBundle(leadId: string): Promise<{ lead: SdrLead; accountBundle: AccountBundle | null } | null>;
   addContact(accountId: string, input: NewContactInput, ownerId: string, ownerName: string): Promise<Contact>;
   applyHygieneField(accountId: string, field: string): Promise<void>;
   pushToOutreach(accountId: string, push: OutreachPush): Promise<void>;
@@ -46,12 +52,9 @@ export function detectSearchType(query: string): SearchType {
   return "account_name";
 }
 
-const DEFAULT_INSTANCE_URL = "https://yourcompany.lightning.force.com";
-
-export function buildSalesforceAccountUrl(accountId: string): string {
-  const instanceUrl = process.env.SALESFORCE_INSTANCE_URL ?? DEFAULT_INSTANCE_URL;
-  return `${instanceUrl.replace(/\/$/, "")}/lightning/r/Account/${accountId}/view`;
-}
+// Re-exported from the DB-free urls module so server callers can keep importing
+// these from the provider, while client components import from lib/salesforce/urls.
+export { buildSalesforceAccountUrl, buildSalesforceLeadUrl } from "@/lib/salesforce/urls";
 
 export function getSalesforceProvider(): SalesforceProvider {
   const providerName = process.env.SALESFORCE_PROVIDER ?? "mock";

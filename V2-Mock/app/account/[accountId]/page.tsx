@@ -11,21 +11,7 @@ import { scoreAccount } from "@/lib/scoring/scoring";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { writeAuditLog } from "@/lib/audit/audit-log";
-import { DedupeChecklist } from "@/components/results/dedupe-checklist";
-import { ScoringCard } from "@/components/results/scoring-card";
-import { OwnerEditor } from "@/components/results/owner-editor";
-import { AbmStatusEditor } from "@/components/results/abm-status-editor";
-
-function SummaryField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="mb-0.5 block text-[11px] tracking-[0.5px] text-muted-foreground uppercase">
-        {label}
-      </label>
-      <div className="text-[13.5px] font-bold">{children}</div>
-    </div>
-  );
-}
+import { AccountDetailView } from "@/components/results/account-detail-view";
 
 export default async function AccountPage({
   params,
@@ -81,59 +67,12 @@ export default async function AccountPage({
         </span>
       </div>
 
-      <DedupeChecklist
-        accountId={result.account_id}
-        checks={result.checks}
-        finalStatus={result.final_status}
-        reason={result.reason}
-        recommendation={result.recommendation}
-        ownerName={result.owner}
-        isCurrentOwner={result.owner === demoUser.name}
+      <AccountDetailView
+        result={result}
+        score={score}
+        demoUserName={demoUser.name}
         salesforceUrl={buildSalesforceAccountUrl(result.account_id)}
       />
-
-      <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">
-        <div className="border-b border-border px-5 py-4">
-          <h2 className="text-[15.5px] font-semibold">Account Summary</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 p-5 md:grid-cols-4">
-          <SummaryField label="Account Name">
-            <a
-              href={buildSalesforceAccountUrl(result.account_id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-link hover:underline"
-            >
-              {result.account_name}
-            </a>
-          </SummaryField>
-          <SummaryField label="Domain">
-            <a
-              href={`https://${result.domain}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-link hover:underline"
-            >
-              {result.domain}
-            </a>
-          </SummaryField>
-          <SummaryField label="Industry">{result.industry}</SummaryField>
-          <SummaryField label="Type">{result.type}</SummaryField>
-          <SummaryField label="TAM">{result.tam_status}</SummaryField>
-          <SummaryField label="Owner">
-            <OwnerEditor accountId={result.account_id} currentOwnerName={result.owner} />
-          </SummaryField>
-          <SummaryField label="ABM Account Status">
-            <AbmStatusEditor
-              accountId={result.account_id}
-              currentStatus={result.abm_nurture_status}
-            />
-          </SummaryField>
-          <SummaryField label="Team">{result.team}</SummaryField>
-        </div>
-      </div>
-
-      {score && <ScoringCard accountId={result.account_id} score={score} />}
     </div>
   );
 }

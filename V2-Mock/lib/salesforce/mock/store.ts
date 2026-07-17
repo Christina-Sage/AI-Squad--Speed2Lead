@@ -1,7 +1,9 @@
 import type { Account, ActivityRecord, Contact, Lead, Opportunity } from "@/lib/salesforce/types";
+import type { SdrLead } from "@/lib/leads/types";
 import type { OutreachPush } from "@/lib/outreach";
 import { ACCOUNTS } from "@/lib/salesforce/mock/fixtures/accounts";
 import { LEADS } from "@/lib/salesforce/mock/fixtures/leads";
+import { SDR_LEADS } from "@/lib/salesforce/mock/fixtures/sdr-leads";
 import { CONTACTS } from "@/lib/salesforce/mock/fixtures/contacts";
 import { OPPORTUNITIES } from "@/lib/salesforce/mock/fixtures/opportunities";
 import { ACTIVITIES } from "@/lib/salesforce/mock/fixtures/activities";
@@ -13,6 +15,9 @@ declare global {
 class MockStore {
   accounts = new Map<string, Account>(ACCOUNTS.map((a) => [a.id, structuredClone(a)]));
   leads: Lead[] = structuredClone(LEADS);
+  // SDR worklist leads (build-plan step 5). Kept separate from `leads` so they do
+  // not affect account-level ROE evaluation.
+  sdrLeads: SdrLead[] = structuredClone(SDR_LEADS);
   contacts: Contact[] = structuredClone(CONTACTS);
   opportunities: Opportunity[] = structuredClone(OPPORTUNITIES);
   activities: ActivityRecord[] = structuredClone(ACTIVITIES);

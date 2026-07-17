@@ -5,11 +5,13 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import "./globals.css";
 import { DemoUserSwitcher } from "@/components/layout/demo-user-switcher";
+import { PrioritySwitcher } from "@/components/layout/priority-switcher";
 import { ProductSwitcher } from "@/components/layout/product-switcher";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { ToastProvider } from "@/components/ui/toaster";
 import { DEMO_USER_COOKIE, getDemoUser } from "@/lib/auth/demo-user";
+import { PRIORITY_COOKIE, getCurrentPriority } from "@/lib/priority";
 import { PRODUCT_COOKIE, getCurrentProduct } from "@/lib/products";
 import { TEAM_COOKIE, getCurrentTeam } from "@/lib/teams";
 
@@ -59,6 +61,7 @@ export default async function RootLayout({
   const currentUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
   const currentProduct = getCurrentProduct(cookieStore.get(PRODUCT_COOKIE)?.value);
   const currentTeam = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
+  const currentPriority = getCurrentPriority(cookieStore.get(PRIORITY_COOKIE)?.value);
 
   return (
     <html
@@ -84,6 +87,7 @@ export default async function RootLayout({
               <div className="flex items-center gap-3">
                 <ProductSwitcher currentProduct={currentProduct} />
                 <TeamSwitcher currentTeam={currentTeam} />
+                {currentTeam === "SDR" && <PrioritySwitcher currentPriority={currentPriority} />}
                 <DemoUserSwitcher currentUserId={currentUser.id} />
                 <ThemeToggle />
               </div>
