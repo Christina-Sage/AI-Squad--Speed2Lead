@@ -47,6 +47,10 @@ export function DedupeChecklist({
   subtitle = "Six-check compact checklist",
   runningTitle = "Running the six checks…",
   actions,
+  onWorkIt,
+  collapsible = false,
+  collapsed = false,
+  onToggleCollapsed,
 }: {
   accountId: string;
   checks: DedupeCheck[];
@@ -60,6 +64,14 @@ export function DedupeChecklist({
   subtitle?: string;
   runningTitle?: string;
   actions?: React.ReactNode;
+  // When provided, the "Work it" affordance becomes an in-page button (calls
+  // onWorkIt) instead of a link to the standalone /work-it route.
+  onWorkIt?: () => void;
+  // Accordion mode: once you're working the record, the checklist collapses to
+  // a header you can re-expand. Defaults keep the standalone/lead views intact.
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -117,7 +129,9 @@ export function DedupeChecklist({
 
   return (
     <>
-      {/* Verdict banner */}
+      {/* Verdict banner — hidden once collapsed into the Work-it accordion
+          (the card header below carries the verdict pill there). */}
+      {!collapsible && (
       <div
         className={`mb-5 flex items-start gap-3.5 rounded-[14px] border px-5 py-4 ${
           !done
@@ -157,12 +171,15 @@ export function DedupeChecklist({
           </p>
         </div>
       </div>
+      )}
 
       {/* Checklist card */}
       <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <h2 className="text-[15.5px] font-semibold">{title}</h2>
-          <span className="text-[12.5px] text-muted-foreground">{subtitle}</span>
+          <span className="text-[12.5px] text-muted-foreground">
+            {collapsible && collapsed ? "Six checks — tap to expand" : subtitle}
+          </span>
           <span className="flex-1" />
           {done && (
             <span
@@ -177,7 +194,18 @@ export function DedupeChecklist({
               {ok ? (finalStatus === "WORKABLE WITH REVIEW" ? "Review" : "Workable") : "Don’t work"}
             </span>
           )}
+          {collapsible && (
+            <button
+              onClick={onToggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? "Expand the six checks" : "Collapse the six checks"}
+              className="flex size-7 items-center justify-center rounded-full border border-border text-muted-foreground hover:bg-accent"
+            >
+              {collapsed ? "▸" : "▾"}
+            </button>
+          )}
         </div>
+        {(!collapsible || !collapsed) && (
         <div className="p-5">
           <div className="overflow-hidden rounded-[11px] border border-border">
             {checks.map((check, i) => {
@@ -264,12 +292,21 @@ export function DedupeChecklist({
                         {assigning ? "Assigning…" : "Assign to me"}
                       </button>
                     )}
-                    <Link
-                      href={`/account/${accountId}/work-it`}
-                      className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
-                    >
-                      Work it →
-                    </Link>
+                    {onWorkIt ? (
+                      <button
+                        onClick={onWorkIt}
+                        className="inline-flex items-center gap-1.5 rounded-[9px] border border-primary bg-primary px-4 py-2 text-[13.5px] font-semibold text-primary-foreground hover:brightness-110"
+                      >
+                        Work it ⚡
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/account/${accountId}/work-it`}
+                        className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
+                      >
+                        Work it →
+                      </Link>
+                    )}
                   </>
                 ) : (
                   <button
@@ -297,6 +334,7 @@ export function DedupeChecklist({
             )}
           </div>
         </div>
+        )}
       </div>
     </>
   );

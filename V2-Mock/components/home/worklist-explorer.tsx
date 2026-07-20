@@ -4,9 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
-import { AccountDetailView } from "@/components/results/account-detail-view";
 import { LeadDetailView } from "@/components/results/lead-detail-view";
-import { WorkItReveal } from "@/components/workit/work-it-reveal";
+import { AccountFocusView } from "@/components/workit/account-focus-view";
 
 export interface AccountRow {
   id: string;
@@ -259,17 +258,12 @@ export function WorklistExplorer({
             )}
             {focus.error && <div className="py-6 text-sm text-destructive">{focus.error}</div>}
             {!focus.loading && !focus.error && focus.account && (
-              <>
-                <AccountDetailView
-                  result={focus.account.result}
-                  score={focus.account.score}
-                  demoUserName={demoUserName}
-                  salesforceUrl={focus.account.salesforceUrl}
-                />
-                {/* Workable accounts get the in-page Work-it reveal; blocked
-                    accounts (score === null) have nothing to work. */}
-                {focus.account.score !== null && <WorkItReveal accountId={focus.id} />}
-              </>
+              <AccountFocusView
+                result={focus.account.result}
+                score={focus.account.score}
+                demoUserName={demoUserName}
+                salesforceUrl={focus.account.salesforceUrl}
+              />
             )}
             {!focus.loading && !focus.error && focus.lead && (
               <LeadDetailView
