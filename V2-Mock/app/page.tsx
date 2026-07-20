@@ -76,6 +76,7 @@ export default async function Home({
       id: l.id,
       name: l.name,
       title: l.title,
+      accountId: l.accountId,
       accountName: l.accountName,
       domain: l.domain,
       fit: l.fit,

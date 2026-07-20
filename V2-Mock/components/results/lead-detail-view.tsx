@@ -28,10 +28,20 @@ export function LeadDetailView({
   result,
   score,
   salesforceUrl,
+  onWorkIt,
+  collapsible,
+  collapsed,
+  onToggleCollapsed,
 }: {
   result: LeadWorkabilityResult;
   score: AccountScore;
   salesforceUrl?: string;
+  // Same in-page focus wiring as the account view: "Work it" becomes an
+  // in-page action and the checks collapse once you're working the lead.
+  onWorkIt?: () => void;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) {
   const toast = useToast();
   const crmUrl = salesforceUrl ?? buildSalesforceLeadUrl(result.lead_id);
@@ -39,10 +49,18 @@ export function LeadDetailView({
 
   const actions = (
     <>
+      {ok && onWorkIt && (
+        <button
+          onClick={onWorkIt}
+          className="inline-flex items-center gap-1.5 rounded-[9px] border border-primary bg-primary px-4 py-2 text-[13.5px] font-semibold text-primary-foreground hover:brightness-110"
+        >
+          Work it ⚡
+        </button>
+      )}
       {ok ? (
         <button
           onClick={() => toast("Lead assigned to you")}
-          className="inline-flex items-center gap-1.5 rounded-[9px] border border-primary bg-primary px-4 py-2 text-[13.5px] font-semibold text-primary-foreground hover:brightness-110"
+          className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-4 py-2 text-[13.5px] font-semibold hover:border-muted-foreground"
         >
           Assign lead to me
         </button>
@@ -80,6 +98,9 @@ export function LeadDetailView({
         subtitle="Lead-level six-check checklist"
         runningTitle="Running the lead checks…"
         actions={actions}
+        collapsible={collapsible}
+        collapsed={collapsed}
+        onToggleCollapsed={onToggleCollapsed}
       />
 
       <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">

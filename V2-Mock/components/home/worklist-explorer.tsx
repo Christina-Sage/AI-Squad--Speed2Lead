@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
-import { LeadDetailView } from "@/components/results/lead-detail-view";
 import { AccountFocusView } from "@/components/workit/account-focus-view";
+import { LeadFocusView } from "@/components/workit/lead-focus-view";
 
 export interface AccountRow {
   id: string;
@@ -33,6 +33,7 @@ export interface LeadRow {
   id: string;
   name: string;
   title: string;
+  accountId: string | null;
   accountName: string | null;
   domain: string | null;
   fit: number;
@@ -101,6 +102,9 @@ export function WorklistExplorer({
   const [focus, setFocus] = useState<Focus | null>(null);
   // Guards against out-of-order fetches when the focus changes mid-request.
   const seq = useRef(0);
+  // Moves keyboard focus to the record when one opens (a11y).
+  const backBtnRef = useRef<HTMLButtonElement>(null);
+  const focusedKey = focus ? `${focus.kind}-${focus.id}` : null;
 
   const scrollToTop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -208,29 +212,55 @@ export function WorklistExplorer({
     return () => window.removeEventListener("popstate", onPop);
   }, [loadFocus]);
 
+  // When a record opens, move keyboard focus to its Back button so keyboard and
+  // screen-reader users land on the new view instead of staying on the row.
+  useEffect(() => {
+    if (focusedKey) backBtnRef.current?.focus();
+  }, [focusedKey]);
+
   const workableSub =
     mode === "leads"
       ? `SDR leads${priorityLabel ? ` in ${priorityLabel}` : ""}, ranked by “Should I work it?” score`
       : `Ranked by “Should I work it?” score — Fit 40% · Intent 35% · Workability 25%`;
 
-  // Worked-state (accounts only; leads land in Phase 4). Worked rows keep their
-  // place in the DOM (we map the accountRows prop directly — mapping a derived
-  // array here trips the compiler's ref rule on the row click handler) but sink
-  // to the bottom visually via CSS `order`, and unworked rows re-rank 1..N.
+  // Worked-state. Worked rows keep their DOM position (we map the row props
+  // directly — mapping a derived array trips the compiler's ref rule on the row
+  // click handler) but sink to the bottom visually via CSS `order`, and unworked
+  // rows re-rank 1..N. A lead counts worked if it — or its linked account — was
+  // worked today (working the account works the lead).
+  const leadOutcome = (l: LeadRow): "pushed" | "not_fit" | undefined =>
+    workedMap[l.id] ?? (l.accountId ? workedMap[l.accountId] : undefined);
+
   const unworkedAccts = accountRows.filter((a) => !workedMap[a.id]);
-  const workedCount = accountRows.length - unworkedAccts.length;
   const rankById = new Map(unworkedAccts.map((a, i) => [a.id, i + 1]));
-  const justWorked =
-    justWorkedId && workedMap[justWorkedId]
-      ? accountRows.find((a) => a.id === justWorkedId) ?? null
-      : null;
-  const nextUp = unworkedAccts[0] ?? null;
+  const unworkedLeads = leadRows.filter((l) => !leadOutcome(l));
+  const leadRankById = new Map(unworkedLeads.map((l, i) => [l.id, i + 1]));
+
+  const isLeads = mode === "leads";
+  const activeTotal = isLeads ? leadRows.length : accountRows.length;
+  const activeWorkedCount = activeTotal - (isLeads ? unworkedLeads.length : unworkedAccts.length);
+
+  // "Next up" banner after working a record. justWorkedId is an account id (or a
+  // lead id for freemail leads); match it to the active list to name it.
+  const justWorkedName = !justWorkedId
+    ? null
+    : isLeads
+      ? leadRows.find((l) => (l.id === justWorkedId || l.accountId === justWorkedId) && leadOutcome(l))?.name ??
+        null
+      : (workedMap[justWorkedId] ? accountRows.find((a) => a.id === justWorkedId)?.name ?? null : null);
+  const justWorkedOutcome = !justWorkedId
+    ? undefined
+    : isLeads
+      ? leadOutcome(leadRows.find((l) => l.id === justWorkedId || l.accountId === justWorkedId) ?? ({} as LeadRow))
+      : workedMap[justWorkedId];
+  const nextUpName = (isLeads ? unworkedLeads[0] : unworkedAccts[0])?.name ?? null;
 
   // ---- Focused record: the worklist steps aside for a single record. ----
   if (focus) {
     return (
       <div id="worklist-focus" className="scroll-mt-20">
         <button
+          ref={backBtnRef}
           onClick={backToWorklist}
           className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[12.5px] font-semibold hover:border-muted-foreground"
         >
@@ -266,7 +296,7 @@ export function WorklistExplorer({
               />
             )}
             {!focus.loading && !focus.error && focus.lead && (
-              <LeadDetailView
+              <LeadFocusView
                 result={focus.lead.result}
                 score={focus.lead.score}
                 salesforceUrl={focus.lead.salesforceUrl}
@@ -286,22 +316,22 @@ export function WorklistExplorer({
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
           <h2 className="text-[15.5px] font-semibold">Today&rsquo;s Worklist</h2>
           <span className="text-[12.5px] text-muted-foreground">{workableSub}</span>
-          {mode === "accounts" && accountRows.length > 0 && (
+          {activeTotal > 0 && (
             <span className="ml-auto text-[12.5px] font-semibold text-muted-foreground">
-              {workedCount} of {accountRows.length} worked
+              {activeWorkedCount} of {activeTotal} worked
             </span>
           )}
         </div>
 
-        {mode === "accounts" && justWorked && (
+        {justWorkedName && (
           <div className="flex items-center gap-2.5 border-b border-border bg-primary-soft px-5 py-3 text-[13px]">
             <span className="font-heading text-[15px] font-black text-primary">✓</span>
             <div>
-              <b>{justWorked.name}</b> worked —{" "}
-              {workedMap[justWorked.id] === "pushed" ? "pushed to Outreach" : "marked Not a Fit"}.{" "}
-              {nextUp ? (
+              <b>{justWorkedName}</b> worked —{" "}
+              {justWorkedOutcome === "not_fit" ? "marked Not a Fit" : "pushed to Outreach"}.{" "}
+              {nextUpName ? (
                 <>
-                  Next up: <b>{nextUp.name}</b>.
+                  Next up: <b>{nextUpName}</b>.
                 </>
               ) : (
                 "That’s everyone on your list — nice work."
@@ -313,34 +343,53 @@ export function WorklistExplorer({
         {mode === "leads"
           ? leadRows.length === 0
             ? <div className="px-5 py-4 text-[13px] text-muted-foreground">No leads in this priority group.</div>
-            : leadRows.map((lead, i) => (
-                <button
-                  key={lead.id}
-                  onClick={() => openFocus("lead", lead.id, lead.name)}
-                  className="flex w-full items-center gap-3.5 border-t border-border px-5 py-3 text-left first:border-t-0 hover:bg-background"
-                >
-                  <div className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-primary-soft text-[12.5px] font-bold text-primary">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold">{lead.name}</div>
-                    {lead.accountName && (
-                      <div className="text-xs text-muted-foreground">
-                        {lead.accountName}
-                        {lead.domain ? ` · ${lead.domain}` : ""}
-                      </div>
+            : (
+              <div className="flex flex-col">
+                {leadRows.map((lead) => (
+                  <button
+                    key={lead.id}
+                    onClick={() => openFocus("lead", lead.id, lead.name)}
+                    style={{ order: leadOutcome(lead) ? 1 : 0 }}
+                    className={`flex w-full items-center gap-3.5 border-t border-border px-5 py-3 text-left hover:bg-background ${
+                      leadOutcome(lead) ? "opacity-55 hover:opacity-100" : ""
+                    }`}
+                  >
+                    <div
+                      className={`flex size-[26px] shrink-0 items-center justify-center rounded-full text-[12.5px] font-bold ${
+                        leadOutcome(lead) ? "bg-success-bg text-success" : "bg-primary-soft text-primary"
+                      }`}
+                    >
+                      {leadOutcome(lead) ? "✓" : leadRankById.get(lead.id)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold">{lead.name}</div>
+                      {lead.accountName && (
+                        <div className="text-xs text-muted-foreground">
+                          {lead.accountName}
+                          {lead.domain ? ` · ${lead.domain}` : ""}
+                        </div>
+                      )}
+                    </div>
+                    {leadOutcome(lead) ? (
+                      <span className="rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
+                        {leadOutcome(lead) === "pushed" ? "Worked · Pushed" : "Worked · Not a fit"}
+                      </span>
+                    ) : (
+                      <>
+                        <div className="hidden items-center gap-2.5 md:flex">
+                          <MiniBar label="Fit" value={lead.fit} />
+                          <MiniBar label="Intent" value={lead.intent} />
+                          <MiniBar label="Work" value={lead.workability} />
+                        </div>
+                        <div className="w-14 shrink-0 text-center">
+                          <b className="text-[17px]">{lead.score}</b>
+                        </div>
+                      </>
                     )}
-                  </div>
-                  <div className="hidden items-center gap-2.5 md:flex">
-                    <MiniBar label="Fit" value={lead.fit} />
-                    <MiniBar label="Intent" value={lead.intent} />
-                    <MiniBar label="Work" value={lead.workability} />
-                  </div>
-                  <div className="w-14 shrink-0 text-center">
-                    <b className="text-[17px]">{lead.score}</b>
-                  </div>
-                </button>
-              ))
+                  </button>
+                ))}
+              </div>
+            )
           : (
             <div className="flex flex-col">
               {accountRows.map((acct) => (
