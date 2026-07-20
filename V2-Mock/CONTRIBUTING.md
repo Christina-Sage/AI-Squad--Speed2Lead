@@ -1,4 +1,4 @@
-# Contributing — Dedupe Engine V2 Mock
+# Contributing — WorkIt V2 Mock
 
 A short guide for the AI Squad. Most of us work inside Claude, so the trickiest part is usually **getting Git to push as *you* rather than as Claude's integration** — that's covered first.
 

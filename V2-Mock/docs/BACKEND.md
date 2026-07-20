@@ -1,6 +1,6 @@
-# Dedupe Engine V2 — How the Back End Works
+# WorkIt V2 — How the Back End Works
 
-This document explains what happens behind the scenes when you use the Dedupe Engine, in plain language. It's organized the same way you experience the app: search an account, get a verdict, see a score, work the account.
+This document explains what happens behind the scenes when you use WorkIt, in plain language. It's organized the same way you experience the app: search an account, get a verdict, see a score, work the account.
 
 ---
 
@@ -206,7 +206,7 @@ Everything runs through interfaces designed for real integrations, but most sour
 
 ```
                         ┌─────────────────────────────┐
-                        │      Dedupe Engine (Vercel)  │
+                        │      WorkIt (Vercel)         │
                         │  pages · API routes · engine │
                         └──────────────┬──────────────┘
            ┌───────────────┬───────────┼────────────┬───────────────┐
