@@ -6,6 +6,7 @@ import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
 import { AccountDetailView } from "@/components/results/account-detail-view";
 import { LeadDetailView } from "@/components/results/lead-detail-view";
+import { WorkItReveal } from "@/components/workit/work-it-reveal";
 
 export interface AccountRow {
   id: string;
@@ -180,9 +181,13 @@ export function WorklistExplorer({
   }, [openFocus]);
 
   // Deep link on mount: #account-<id> / #lead-<id> focuses that record.
+  // Deferred to a rAF so the loading setState lands after the initial commit
+  // (avoids a synchronous setState in the effect body).
   useEffect(() => {
     const h = parseHash();
-    if (h) loadFocus(h.kind, h.id, h.id);
+    if (!h) return;
+    const raf = requestAnimationFrame(() => loadFocus(h.kind, h.id, h.id));
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -237,12 +242,17 @@ export function WorklistExplorer({
             )}
             {focus.error && <div className="py-6 text-sm text-destructive">{focus.error}</div>}
             {!focus.loading && !focus.error && focus.account && (
-              <AccountDetailView
-                result={focus.account.result}
-                score={focus.account.score}
-                demoUserName={demoUserName}
-                salesforceUrl={focus.account.salesforceUrl}
-              />
+              <>
+                <AccountDetailView
+                  result={focus.account.result}
+                  score={focus.account.score}
+                  demoUserName={demoUserName}
+                  salesforceUrl={focus.account.salesforceUrl}
+                />
+                {/* Workable accounts get the in-page Work-it reveal; blocked
+                    accounts (score === null) have nothing to work. */}
+                {focus.account.score !== null && <WorkItReveal accountId={focus.id} />}
+              </>
             )}
             {!focus.loading && !focus.error && focus.lead && (
               <LeadDetailView
