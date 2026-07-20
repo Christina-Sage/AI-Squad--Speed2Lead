@@ -87,6 +87,8 @@ export function WorklistExplorer({
   accountRows = [],
   leadRows = [],
   blockedRows = [],
+  workedMap = {},
+  justWorkedId = null,
 }: {
   mode: "accounts" | "leads";
   demoUserName: string;
@@ -94,6 +96,8 @@ export function WorklistExplorer({
   accountRows?: AccountRow[];
   leadRows?: LeadRow[];
   blockedRows?: BlockedRow[];
+  workedMap?: Record<string, "pushed" | "not_fit">;
+  justWorkedId?: string | null;
 }) {
   const [focus, setFocus] = useState<Focus | null>(null);
   // Guards against out-of-order fetches when the focus changes mid-request.
@@ -210,6 +214,19 @@ export function WorklistExplorer({
       ? `SDR leads${priorityLabel ? ` in ${priorityLabel}` : ""}, ranked by “Should I work it?” score`
       : `Ranked by “Should I work it?” score — Fit 40% · Intent 35% · Workability 25%`;
 
+  // Worked-state (accounts only; leads land in Phase 4). Worked rows keep their
+  // place in the DOM (we map the accountRows prop directly — mapping a derived
+  // array here trips the compiler's ref rule on the row click handler) but sink
+  // to the bottom visually via CSS `order`, and unworked rows re-rank 1..N.
+  const unworkedAccts = accountRows.filter((a) => !workedMap[a.id]);
+  const workedCount = accountRows.length - unworkedAccts.length;
+  const rankById = new Map(unworkedAccts.map((a, i) => [a.id, i + 1]));
+  const justWorked =
+    justWorkedId && workedMap[justWorkedId]
+      ? accountRows.find((a) => a.id === justWorkedId) ?? null
+      : null;
+  const nextUp = unworkedAccts[0] ?? null;
+
   // ---- Focused record: the worklist steps aside for a single record. ----
   if (focus) {
     return (
@@ -275,7 +292,29 @@ export function WorklistExplorer({
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
           <h2 className="text-[15.5px] font-semibold">Today&rsquo;s Worklist</h2>
           <span className="text-[12.5px] text-muted-foreground">{workableSub}</span>
+          {mode === "accounts" && accountRows.length > 0 && (
+            <span className="ml-auto text-[12.5px] font-semibold text-muted-foreground">
+              {workedCount} of {accountRows.length} worked
+            </span>
+          )}
         </div>
+
+        {mode === "accounts" && justWorked && (
+          <div className="flex items-center gap-2.5 border-b border-border bg-primary-soft px-5 py-3 text-[13px]">
+            <span className="font-heading text-[15px] font-black text-primary">✓</span>
+            <div>
+              <b>{justWorked.name}</b> worked —{" "}
+              {workedMap[justWorked.id] === "pushed" ? "pushed to Outreach" : "marked Not a Fit"}.{" "}
+              {nextUp ? (
+                <>
+                  Next up: <b>{nextUp.name}</b>.
+                </>
+              ) : (
+                "That’s everyone on your list — nice work."
+              )}
+            </div>
+          </div>
+        )}
 
         {mode === "leads"
           ? leadRows.length === 0
@@ -308,42 +347,61 @@ export function WorklistExplorer({
                   </div>
                 </button>
               ))
-          : accountRows.map((acct, i) => (
-              <button
-                key={acct.id}
-                onClick={() => openFocus("account", acct.id, acct.name)}
-                className="flex w-full items-center gap-3.5 border-t border-border px-5 py-3 text-left first:border-t-0 hover:bg-background"
-              >
-                <div className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-primary-soft text-[12.5px] font-bold text-primary">
-                  {i + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold">
-                    {acct.name}{" "}
-                    {acct.finalStatus === "WORKABLE WITH REVIEW" ? (
-                      <span className="ml-1.5 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-warning uppercase">
-                        Review
-                      </span>
-                    ) : (
-                      <span className="ml-1.5 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
-                        Workable
-                      </span>
-                    )}
+          : (
+            <div className="flex flex-col">
+              {accountRows.map((acct) => (
+                <button
+                  key={acct.id}
+                  onClick={() => openFocus("account", acct.id, acct.name)}
+                  style={{ order: workedMap[acct.id] ? 1 : 0 }}
+                  className={`flex w-full items-center gap-3.5 border-t border-border px-5 py-3 text-left hover:bg-background ${
+                    workedMap[acct.id] ? "opacity-55 hover:opacity-100" : ""
+                  }`}
+                >
+                  <div
+                    className={`flex size-[26px] shrink-0 items-center justify-center rounded-full text-[12.5px] font-bold ${
+                      workedMap[acct.id] ? "bg-success-bg text-success" : "bg-primary-soft text-primary"
+                    }`}
+                  >
+                    {workedMap[acct.id] ? "✓" : rankById.get(acct.id)}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {acct.domain} · {acct.industry} · {acct.type}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold">
+                      {acct.name}{" "}
+                      {acct.finalStatus === "WORKABLE WITH REVIEW" ? (
+                        <span className="ml-1.5 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-warning uppercase">
+                          Review
+                        </span>
+                      ) : (
+                        <span className="ml-1.5 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
+                          Workable
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {acct.domain} · {acct.industry} · {acct.type}
+                    </div>
                   </div>
-                </div>
-                <div className="hidden items-center gap-2.5 md:flex">
-                  <MiniBar label="Fit" value={acct.fit} />
-                  <MiniBar label="Intent" value={acct.intent} />
-                  <MiniBar label="Work" value={acct.workability} />
-                </div>
-                <div className="w-14 shrink-0 text-center">
-                  <b className="text-[17px]">{acct.priority}</b>
-                </div>
-              </button>
-            ))}
+                  {workedMap[acct.id] ? (
+                    <span className="rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
+                      {workedMap[acct.id] === "pushed" ? "Worked · Pushed" : "Worked · Not a fit"}
+                    </span>
+                  ) : (
+                    <>
+                      <div className="hidden items-center gap-2.5 md:flex">
+                        <MiniBar label="Fit" value={acct.fit} />
+                        <MiniBar label="Intent" value={acct.intent} />
+                        <MiniBar label="Work" value={acct.workability} />
+                      </div>
+                      <div className="w-14 shrink-0 text-center">
+                        <b className="text-[17px]">{acct.priority}</b>
+                      </div>
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
       </div>
 
       {/* Blocked by de-dupe */}

@@ -12,13 +12,25 @@ import { scoreAccount } from "@/lib/scoring/scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { getCurrentPriority, PRIORITY_COOKIE } from "@/lib/priority";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
+import { getWorkedToday } from "@/lib/audit/worked";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ worked?: string }>;
+}) {
   const provider = getSalesforceProvider();
   const cookieStore = await cookies();
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
   const priority = getCurrentPriority(cookieStore.get(PRIORITY_COOKIE)?.value);
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
+
+  // Today's worked accounts (pushed / not-a-fit), derived from the audit log.
+  const worked = await getWorkedToday(demoUser.id);
+  const workedMap: Record<string, "pushed" | "not_fit"> = Object.fromEntries(
+    Array.from(worked, ([id, entry]) => [id, entry.outcome]),
+  );
+  const justWorkedId = (await searchParams).worked ?? null;
 
   // Account worklist (all teams): workable ranked by score, plus the blocked list.
   const accounts = await provider.listAccounts();
@@ -94,6 +106,8 @@ export default async function Home() {
         accountRows={accountRows}
         leadRows={leadRows}
         blockedRows={blockedRows}
+        workedMap={workedMap}
+        justWorkedId={justWorkedId}
       />
     </div>
   );

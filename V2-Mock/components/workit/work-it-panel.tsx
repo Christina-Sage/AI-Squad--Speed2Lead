@@ -6,6 +6,14 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
 import type { OutreachPush } from "@/lib/outreach";
+import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
+
+// After a record is worked (pushed or marked not-a-fit) we return to the
+// worklist, which re-derives worked-state server-side and shows the "next up"
+// banner. A full navigation is what refreshes that server-derived state.
+function returnToWorklist(accountId: string) {
+  window.location.assign(`/?worked=${encodeURIComponent(accountId)}`);
+}
 
 export interface PanelContact {
   name: string;
@@ -92,6 +100,7 @@ export function WorkItPanel({
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
   const [push, setPush] = useState<OutreachPush | null>(initialPush);
   const [sequence, setSequence] = useState(sequences[0]);
+  const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
 
   function isAdded(c: PanelContact): boolean {
@@ -179,10 +188,34 @@ export function WorkItPanel({
         return;
       }
       setPush(data.push);
-      toast(`${names.length} contact${names.length > 1 ? "s" : ""} pushed to “${sequence}”`);
+      toast(
+        `${names.length} contact${names.length > 1 ? "s" : ""} pushed to “${sequence}” — back to your worklist`,
+      );
+      returnToWorklist(accountId);
     } catch {
       toast("Failed to push to Outreach");
-    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function markNotAFit() {
+    setBusy("notfit");
+    try {
+      const res = await fetch("/api/not-a-fit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId, reason: notFitReason }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast(data.error ?? "Failed to mark Not a Fit");
+        setBusy(null);
+        return;
+      }
+      toast(`Marked “Not a Fit” — ${notFitReason}`);
+      returnToWorklist(accountId);
+    } catch {
+      toast("Failed to mark Not a Fit");
       setBusy(null);
     }
   }
@@ -463,6 +496,32 @@ export function WorkItPanel({
             </div>
           </div>
         )}
+      </Card>
+
+      <Card title="Not the right account?" sub="Mark it worked without pushing — logged with a reason">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={notFitReason}
+            onChange={(e) => setNotFitReason(e.target.value)}
+            className="rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
+          >
+            {NOT_A_FIT_REASONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={markNotAFit}
+            disabled={busy === "notfit"}
+            className="rounded-[9px] border border-destructive bg-transparent px-4 py-2 text-[13.5px] font-semibold text-destructive hover:bg-destructive-bg disabled:opacity-45"
+          >
+            {busy === "notfit" ? "Marking…" : "Mark “Not a Fit”"}
+          </button>
+          <span className="text-[12.5px] text-muted-foreground">
+            Removes it from today’s worklist — no outreach sent.
+          </span>
+        </div>
       </Card>
     </>
   );

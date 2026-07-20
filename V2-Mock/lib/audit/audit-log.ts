@@ -15,7 +15,14 @@ export interface AuditLogEntry {
   finalStatus?: string | null;
   reason?: string | null;
   reasonCodes?: string[] | null;
-  action: "SEARCH" | "ASSIGN_TO_ME" | "ASSIGN_OWNER" | "ADD_CONTACT" | "APPLY_HYGIENE" | "PUSH_OUTREACH";
+  action:
+    | "SEARCH"
+    | "ASSIGN_TO_ME"
+    | "ASSIGN_OWNER"
+    | "ADD_CONTACT"
+    | "APPLY_HYGIENE"
+    | "PUSH_OUTREACH"
+    | "NOT_A_FIT";
   assignmentDetails?: Record<string, unknown> | null;
 }
 
