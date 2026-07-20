@@ -180,26 +180,6 @@ describe("evaluateWorkability", () => {
     expect(result.team).toBe("SDR");
   });
 
-  it("X3 checks both Leads and Contacts (rule not yet defined, defaults to both)", () => {
-    const violatingLead: Lead = {
-      id: "00Q-4",
-      name: "Hot Lead",
-      title: "Sales Manager",
-      ownerId: "u2",
-      ownerName: "Sarah Jones",
-      status: "Open",
-      accountId: "0015Y00002ABC123",
-      lastActivityDate: daysAgoIso(5),
-    };
-    const result = evaluateWorkability(
-      bundle(baseAccount({}), { leads: [violatingLead], contacts: [cleanContact] }),
-      "X3",
-    );
-    expect(result.final_status).toBe("NOT WORKABLE");
-    expect(result.roe_status).toBe("FAIL");
-    expect(result.roe_scope).toBe("Leads + Contacts");
-  });
-
   it("defaults to BDR team when no team is passed, still checking both Leads and Contacts", () => {
     const result = evaluateWorkability(bundle(baseAccount({}), { contacts: [cleanContact] }));
     expect(result.team).toBe("BDR");

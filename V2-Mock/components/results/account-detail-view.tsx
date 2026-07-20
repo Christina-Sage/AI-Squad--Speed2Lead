@@ -29,11 +29,21 @@ export function AccountDetailView({
   score,
   demoUserName,
   salesforceUrl,
+  onWorkIt,
+  collapsible,
+  collapsed,
+  onToggleCollapsed,
 }: {
   result: WorkabilityResult;
   score: AccountScore | null;
   demoUserName: string;
   salesforceUrl?: string;
+  // Forwarded to the checklist so the in-page focus view can turn "Work it"
+  // into an in-page action and collapse the checks once you're working it.
+  onWorkIt?: () => void;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }) {
   const crmUrl = salesforceUrl ?? buildSalesforceAccountUrl(result.account_id);
 
@@ -48,6 +58,10 @@ export function AccountDetailView({
         ownerName={result.owner}
         isCurrentOwner={result.owner === demoUserName}
         salesforceUrl={crmUrl}
+        onWorkIt={onWorkIt}
+        collapsible={collapsible}
+        collapsed={collapsed}
+        onToggleCollapsed={onToggleCollapsed}
       />
 
       <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">

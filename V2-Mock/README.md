@@ -1,4 +1,4 @@
-# Dedupe Engine — V2 Mock (AI Squad Prototype UI)
+# WorkIt — V2 Mock (AI Squad Prototype UI)
 
 V2 keeps all V1 functionality (mock Salesforce provider, workability engine, ProPublica/website research, audit log, demo user / team / product switchers) and recreates the AI Squad prototype UI (`dedupe-engine-prototype.html`) on top of it.
 

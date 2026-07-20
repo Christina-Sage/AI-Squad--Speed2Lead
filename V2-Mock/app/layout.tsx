@@ -38,7 +38,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dedupe Engine — AI Squad Prototype",
+  title: "WorkIt — AI Squad Prototype",
   description: "Instant Salesforce account workability checks",
 };
 
@@ -78,7 +78,7 @@ export default async function RootLayout({
             <div className="flex items-center gap-5 px-7 py-3">
               <Link href="/" className="flex items-center gap-2 font-heading text-[15px] font-black whitespace-nowrap">
                 <span className="inline-block size-[9px] rounded-full bg-primary" />
-                <span>Dedupe Engine</span>
+                <span>WorkIt</span>
               </Link>
               <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
                 AI Squad Prototype
