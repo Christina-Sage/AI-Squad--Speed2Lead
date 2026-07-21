@@ -64,7 +64,7 @@ export function SearchForm() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter Website/Domain"
+          placeholder="Enter Website/Domain, Global Account ID, or Account Name"
           className="h-9 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
         />
         <Button type="submit" disabled={loading} size="lg" className="rounded-[9px] px-5">
