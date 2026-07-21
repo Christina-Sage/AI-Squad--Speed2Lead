@@ -106,6 +106,19 @@ export function WorklistExplorer({
   const backBtnRef = useRef<HTMLButtonElement>(null);
   const focusedKey = focus ? `${focus.kind}-${focus.id}` : null;
 
+  // Account-list import (paste/CSV) filters Today's Worklist to the matches.
+  const [importIds, setImportIds] = useState<Set<string> | null>(null);
+  const [importReport, setImportReport] = useState<
+    { total: number; matched: number; notFound: string[] } | null
+  >(null);
+  // Latest rows for the import matcher (the listener is registered once).
+  const rowsRef = useRef({ accountRows, blockedRows });
+  rowsRef.current = { accountRows, blockedRows };
+  const clearImport = useCallback(() => {
+    setImportIds(null);
+    setImportReport(null);
+  }, []);
+
   const scrollToTop = useCallback(() => {
     requestAnimationFrame(() => {
       const node = document.getElementById("worklist-focus");
@@ -187,6 +200,41 @@ export function WorklistExplorer({
     return () => window.removeEventListener("dedupe:open-detail", onOpen as EventListener);
   }, [openFocus]);
 
+  // Account-list import (from AccountImport): match the identifiers against the
+  // current rows, filter the worklist to them, and leave any focused record.
+  useEffect(() => {
+    function onImport(e: Event) {
+      const identifiers = (e as CustomEvent<{ identifiers: string[] }>).detail?.identifiers ?? [];
+      if (!identifiers.length) return;
+      const all = [...rowsRef.current.accountRows, ...rowsRef.current.blockedRows];
+      const matched = new Set<string>();
+      const notFound: string[] = [];
+      for (const raw of identifiers) {
+        const q = raw.toLowerCase();
+        const hit = all.find(
+          (a) =>
+            a.id.toLowerCase() === q ||
+            a.domain.toLowerCase() === q ||
+            a.name.toLowerCase() === q ||
+            a.name.toLowerCase().includes(q),
+        );
+        if (hit) matched.add(hit.id);
+        else notFound.push(raw);
+      }
+      setImportIds(matched);
+      setImportReport({ total: identifiers.length, matched: matched.size, notFound });
+      // Leave any focused record so the filtered worklist is visible.
+      if (window.location.hash) {
+        window.history.pushState({}, "", window.location.pathname + window.location.search);
+      }
+      seq.current++;
+      setFocus(null);
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    }
+    window.addEventListener("workit:import-accounts", onImport as EventListener);
+    return () => window.removeEventListener("workit:import-accounts", onImport as EventListener);
+  }, []);
+
   // Deep link on mount: #account-<id> / #lead-<id> focuses that record.
   // Deferred to a rAF so the loading setState lands after the initial commit
   // (avoids a synchronous setState in the effect body).
@@ -231,13 +279,19 @@ export function WorklistExplorer({
   const leadOutcome = (l: LeadRow): "pushed" | "not_fit" | undefined =>
     workedMap[l.id] ?? (l.accountId ? workedMap[l.accountId] : undefined);
 
-  const unworkedAccts = accountRows.filter((a) => !workedMap[a.id]);
+  // An active import filters the account worklist to the matched ids (and forces
+  // the account view even from SDR mode, since it's an account list).
+  const importActive = importIds !== null;
+  const acctVisible = (id: string) => !importActive || importIds!.has(id);
+  const visibleAcctCount = accountRows.filter((a) => acctVisible(a.id)).length;
+
+  const unworkedAccts = accountRows.filter((a) => !workedMap[a.id] && acctVisible(a.id));
   const rankById = new Map(unworkedAccts.map((a, i) => [a.id, i + 1]));
   const unworkedLeads = leadRows.filter((l) => !leadOutcome(l));
   const leadRankById = new Map(unworkedLeads.map((l, i) => [l.id, i + 1]));
 
-  const isLeads = mode === "leads";
-  const activeTotal = isLeads ? leadRows.length : accountRows.length;
+  const isLeads = mode === "leads" && !importActive;
+  const activeTotal = isLeads ? leadRows.length : visibleAcctCount;
   const activeWorkedCount = activeTotal - (isLeads ? unworkedLeads.length : unworkedAccts.length);
 
   // "Next up" banner after working a record. justWorkedId is an account id (or a
@@ -311,6 +365,30 @@ export function WorklistExplorer({
   // ---- Worklist (default). ----
   return (
     <div id="worklist-focus" className="scroll-mt-20">
+      {importActive && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[12px] border border-primary/40 bg-primary-soft px-4 py-2.5 text-[13px]">
+          <span className="font-heading font-black text-primary">Imported list</span>
+          <span className="text-muted-foreground">
+            Showing {importReport?.matched ?? 0} of {importReport?.total ?? 0} identifier
+            {(importReport?.total ?? 0) === 1 ? "" : "s"}
+            {importReport && importReport.notFound.length > 0 && (
+              <>
+                {" "}
+                · {importReport.notFound.length} not found:{" "}
+                {importReport.notFound.slice(0, 5).join(", ")}
+                {importReport.notFound.length > 5 ? "…" : ""}
+              </>
+            )}
+          </span>
+          <span className="flex-1" />
+          <button
+            onClick={clearImport}
+            className="rounded-[9px] border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold hover:border-muted-foreground"
+          >
+            Clear import
+          </button>
+        </div>
+      )}
       {/* Today's Worklist */}
       <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
@@ -340,7 +418,7 @@ export function WorklistExplorer({
           </div>
         )}
 
-        {mode === "leads"
+        {isLeads
           ? leadRows.length === 0
             ? <div className="px-5 py-4 text-[13px] text-muted-foreground">No leads in this priority group.</div>
             : (
@@ -390,9 +468,13 @@ export function WorklistExplorer({
                 ))}
               </div>
             )
-          : (
+          : importActive && visibleAcctCount === 0
+            ? <div className="px-5 py-4 text-[13px] text-muted-foreground">None of the imported accounts are in the current worklist. Check the &ldquo;not found&rdquo; list above, or clear the import.</div>
+            : (
             <div className="flex flex-col">
-              {accountRows.map((acct) => (
+              {accountRows.map((acct) => {
+                if (!acctVisible(acct.id)) return null;
+                return (
                 <button
                   key={acct.id}
                   onClick={() => openFocus("account", acct.id, acct.name)}
@@ -442,7 +524,8 @@ export function WorklistExplorer({
                     </>
                   )}
                 </button>
-              ))}
+                );
+              })}
             </div>
           )}
       </div>
@@ -455,7 +538,9 @@ export function WorklistExplorer({
             Failed one or more of the six checks — open for the evidence
           </span>
         </div>
-        {blockedRows.map((acct) => (
+        {blockedRows.map((acct) => {
+          if (!acctVisible(acct.id)) return null;
+          return (
           <button
             key={acct.id}
             onClick={() => openFocus("account", acct.id, acct.name)}
@@ -477,7 +562,8 @@ export function WorklistExplorer({
             </div>
             <div className="text-[11.5px] text-destructive">{acct.blockedBy}</div>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

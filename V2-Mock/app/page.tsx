@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { SearchForm } from "@/components/search/search-form";
+import { AccountImport } from "@/components/home/account-import";
 import {
   WorklistExplorer,
   type AccountRow,
@@ -95,8 +96,11 @@ export default async function Home({
           One verdict, with evidence, in under a minute — instead of 5 minutes across Salesforce,
           Fusion and VAR checks.
         </p>
-        <div className="mx-auto mt-5 max-w-[560px]">
-          <SearchForm />
+        <div className="mx-auto mt-5 flex max-w-[640px] items-start gap-2">
+          <div className="flex-1">
+            <SearchForm />
+          </div>
+          <AccountImport />
         </div>
       </div>
 
