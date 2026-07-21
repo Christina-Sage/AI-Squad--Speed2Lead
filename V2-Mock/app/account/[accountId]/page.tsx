@@ -33,7 +33,8 @@ export default async function AccountPage({
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
 
-  const result = evaluateWorkability(bundle, team);
+  const duplicates = await provider.findDuplicateAccounts(accountId);
+  const result = evaluateWorkability(bundle, team, duplicates);
   const score = scoreAccount(bundle, result);
   const searchInput = q ?? result.domain;
 

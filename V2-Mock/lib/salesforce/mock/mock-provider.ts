@@ -2,6 +2,7 @@ import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Conta
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
+import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { detectSearchType } from "@/lib/salesforce/provider";
 import { getMockStore } from "@/lib/salesforce/mock/store";
 import {
@@ -126,6 +127,13 @@ export class MockSalesforceProvider implements SalesforceProvider {
         industry: resolved.industry,
       };
     });
+  }
+
+  async findDuplicateAccounts(accountId: string): Promise<DuplicateMatch[]> {
+    const store = getMockStore();
+    const account = store.accounts.get(accountId);
+    if (!account) return [];
+    return findDuplicates(account, Array.from(store.accounts.values()));
   }
 
   async listSdrLeads(): Promise<SdrLeadListItem[]> {

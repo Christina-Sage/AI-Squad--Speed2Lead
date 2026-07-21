@@ -31,6 +31,10 @@ export interface Account {
   industry: string;
   type: AccountType;
   tam: TamStatus;
+  /** Parent account name, if this account rolls up to one (duplicate signal). */
+  parentAccount?: string | null;
+  /** Billing/HQ location or address (duplicate signal). */
+  location?: string | null;
   /** 6sense Account Buying Stage from Global SF; null = not set. */
   buyingStage?: BuyingStage | null;
   /** Rating field from Global SF — drives the P1/P2/P3 priority tier. */

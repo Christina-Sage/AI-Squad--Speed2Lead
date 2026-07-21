@@ -20,7 +20,8 @@ export async function GET(
   const cookieStore = await cookies();
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
 
-  const result = evaluateWorkability(bundle, team);
+  const duplicates = await provider.findDuplicateAccounts(accountId);
+  const result = evaluateWorkability(bundle, team, duplicates);
   const score = scoreAccount(bundle, result);
   // Returns result + score + CRM URL so the inline feed renders the same shared
   // AccountDetailView as the standalone route (build-plan step 7).

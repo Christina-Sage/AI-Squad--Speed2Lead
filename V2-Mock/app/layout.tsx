@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 const THEME_INIT = `(function(){try{var t=localStorage.getItem("theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
 
 const BUSINESS_CASES: [string, string][] = [
-  ["#1 De-dupe — “Can I work it?”", "Six-check verdict on the account page (compact checklist)."],
+  ["#1 De-dupe — “Can I work it?”", "Workability verdict incl. duplicate-account detection (compact checklist)."],
   ["#2 Scoring — “Should I work it?”", "Fit + Intent + Workability score and the ranked home worklist."],
   ["#3 Push to Outreach", "Sequence push with revenue & growth signals on the Work-it page."],
   ["#4 Contacts & data hygiene", "Found ICP contacts → add to SFDC; suggested field updates."],

@@ -21,7 +21,9 @@ function badgeFor(check: DedupeCheck): { text: string; cls: string } {
   const grey = "bg-muted text-muted-foreground";
   if (check.state === "na") return { text: "N/A", cls: grey };
   if (check.badgeType === "yn") {
-    return check.state === "fail" ? { text: "Yes", cls: red } : { text: "No", cls: green };
+    if (check.state === "fail") return { text: "Yes", cls: red };
+    if (check.state === "warn") return { text: "Yes", cls: amber };
+    return { text: "No", cls: green };
   }
   if (check.state === "fail") return { text: "Fail", cls: red };
   if (check.state === "warn") return { text: "Review", cls: amber };
@@ -44,8 +46,8 @@ export function DedupeChecklist({
   isCurrentOwner,
   salesforceUrl,
   title = "Can I work it?",
-  subtitle = "Six-check compact checklist",
-  runningTitle = "Running the six checks…",
+  subtitle = "Compact de-dupe & workability checklist",
+  runningTitle = "Running the checks…",
   actions,
   onWorkIt,
   collapsible = false,

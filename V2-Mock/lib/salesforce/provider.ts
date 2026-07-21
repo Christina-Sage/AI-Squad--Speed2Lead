@@ -1,5 +1,6 @@
 import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Contact } from "@/lib/salesforce/types";
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
+import type { DuplicateMatch } from "@/lib/workability/duplicate";
 import type { OutreachPush } from "@/lib/outreach";
 import { MockSalesforceProvider } from "@/lib/salesforce/mock/mock-provider";
 
@@ -28,6 +29,8 @@ export interface SalesforceProvider {
   assignToMe(accountId: string, userId: string, userName: string): Promise<Account>;
   updateAbmStatus(accountId: string, abmNurtureStatus: string | null): Promise<Account>;
   listAccounts(): Promise<AccountListItem[]>;
+  /** Other accounts that look like duplicates of this one (domain/parent/location/name). */
+  findDuplicateAccounts(accountId: string): Promise<DuplicateMatch[]>;
   /** SDR worklist leads (build-plan step 5). */
   listSdrLeads(): Promise<SdrLeadListItem[]>;
   getSdrLead(leadId: string): Promise<SdrLead | null>;

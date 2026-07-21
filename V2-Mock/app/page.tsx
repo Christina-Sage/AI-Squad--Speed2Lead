@@ -40,7 +40,8 @@ export default async function Home({
   for (const { id } of accounts) {
     const bundle = await provider.getAccountBundle(id);
     if (!bundle) continue;
-    const result = evaluateWorkability(bundle, team);
+    const duplicates = await provider.findDuplicateAccounts(id);
+    const result = evaluateWorkability(bundle, team, duplicates);
     const score = scoreAccount(bundle, result);
     if (score === null) {
       blockedRows.push({

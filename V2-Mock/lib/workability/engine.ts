@@ -11,6 +11,7 @@ import {
   TAM_EXPIRED,
   type CustomerTamResult,
 } from "@/lib/workability/customer-tam";
+import { duplicateReason, type DuplicateMatch } from "@/lib/workability/duplicate";
 
 export type FinalStatus = "WORKABLE" | "WORKABLE WITH REVIEW" | "NOT WORKABLE";
 
@@ -62,6 +63,7 @@ export interface WorkabilityResult {
 
 export const DQ_OPP_COOLING_OFF = "DQ_OPP_COOLING_OFF";
 export const PARTNER_REGISTERED = "PARTNER_REGISTERED";
+export const DUPLICATE_ACCOUNT = "DUPLICATE_ACCOUNT";
 
 function recordsForTeam(
   _team: Team,
@@ -85,6 +87,7 @@ function buildReasonAndRecommendation(
   customerTam: CustomerTamResult,
   dqOpp: DqOppResult,
   partner: PartnerResult,
+  duplicates: DuplicateMatch[],
 ): { reason: string; recommendation: string } {
   if (finalStatus === "NOT WORKABLE") {
     if (roe.status === "FAIL") {
@@ -135,6 +138,12 @@ function buildReasonAndRecommendation(
         recommendation: "Review before assigning account",
       };
     }
+    if (duplicates.length > 0) {
+      return {
+        reason: duplicateReason(duplicates),
+        recommendation: "Review the potential duplicate account before assigning.",
+      };
+    }
   }
 
   return {
@@ -151,6 +160,7 @@ function buildChecks(
   customerTam: CustomerTamResult,
   dqOpp: DqOppResult,
   partner: PartnerResult,
+  duplicates: DuplicateMatch[],
 ): DedupeCheck[] {
   const { account } = bundle;
 
@@ -217,6 +227,14 @@ function buildChecks(
       reason: roeReason,
     },
     {
+      key: "duplicate",
+      label: "Duplicate Account",
+      question: "Any duplicate account records?",
+      badgeType: "yn",
+      state: duplicates.length > 0 ? "warn" : "pass",
+      reason: duplicateReason(duplicates),
+    },
+    {
       key: "openOpp",
       label: "Open Opportunity",
       question: "Does an open opp already exist?",
@@ -243,7 +261,11 @@ function buildChecks(
   ];
 }
 
-export function evaluateWorkability(bundle: AccountBundle, team: Team = "BDR"): WorkabilityResult {
+export function evaluateWorkability(
+  bundle: AccountBundle,
+  team: Team = "BDR",
+  duplicates: DuplicateMatch[] = [],
+): WorkabilityResult {
   const { account, leads, contacts, opportunities } = bundle;
 
   const scoped = recordsForTeam(team, leads, contacts);
@@ -263,7 +285,8 @@ export function evaluateWorkability(bundle: AccountBundle, team: Team = "BDR"): 
   const needsReview =
     !hardFail &&
     (customerTam.reasonCodes.includes(TAM_EXPIRED) ||
-      customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM));
+      customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
+      duplicates.length > 0);
 
   const final_status: FinalStatus = hardFail
     ? "NOT WORKABLE"
@@ -278,6 +301,7 @@ export function evaluateWorkability(bundle: AccountBundle, team: Team = "BDR"): 
     customerTam,
     dqOpp,
     partner,
+    duplicates,
   );
 
   const reason_codes: string[] = [
@@ -285,6 +309,7 @@ export function evaluateWorkability(bundle: AccountBundle, team: Team = "BDR"): 
     ...(openOpp.status === "FAIL" ? ["OPEN_OPPORTUNITY"] : []),
     ...(dqOpp.status === "FAIL" ? [DQ_OPP_COOLING_OFF] : []),
     ...(partner.status === "FAIL" ? [PARTNER_REGISTERED] : []),
+    ...(duplicates.length > 0 ? [DUPLICATE_ACCOUNT] : []),
     ...customerTam.reasonCodes,
   ];
 
@@ -313,7 +338,7 @@ export function evaluateWorkability(bundle: AccountBundle, team: Team = "BDR"): 
     open_opportunity_detail: openOpp,
     dq_opportunity_detail: dqOpp,
     partner_detail: partner,
-    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner),
+    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner, duplicates),
   };
 }
 
