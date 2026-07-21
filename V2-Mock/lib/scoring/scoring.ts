@@ -130,6 +130,46 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
       ],
     },
   },
+  "0015Y00000MERD01": {
+    fit: {
+      value: 88,
+      signals: [
+        { label: "ICP match", value: "Financial Services · 250–500 FTE", good: true },
+        { label: "Product fit", value: "Intacct multi-entity + fund accounting", good: true },
+        { label: "Vertical", value: "Financial Services", good: true },
+        { label: "Segment", value: "AUM-based", good: true },
+      ],
+    },
+    intent: {
+      value: 80,
+      signals: [
+        { label: "Web intent", value: "Pricing + multi-entity pages this week", good: true },
+        { label: "Outreach activity", value: "Replied to nurture, booked call", good: true },
+        { label: "ABM Vertical Segmentation", value: "Tier 1 — Decision stage", good: true },
+        { label: "Recycled MQL", value: "Post-acquisition ERP signal", good: true },
+      ],
+    },
+  },
+  "0015Y00000NMBS01": {
+    fit: {
+      value: 84,
+      signals: [
+        { label: "ICP match", value: "Software · 300–500 FTE", good: true },
+        { label: "Product fit", value: "Intacct + SaaS rev rec (ASC 606)", good: true },
+        { label: "Vertical", value: "Software", good: true },
+        { label: "Segment", value: "Mid-market", good: true },
+      ],
+    },
+    intent: {
+      value: 79,
+      signals: [
+        { label: "Web intent", value: "Demo request + ASC 606 content", good: true },
+        { label: "Outreach activity", value: "Opened 3 emails, 1 reply", good: true },
+        { label: "ABM Vertical Segmentation", value: "Tier 1 — Purchase stage", good: true },
+        { label: "Recycled MQL", value: "Post-Series B ERP signal", good: true },
+      ],
+    },
+  },
 };
 
 function defaultFitIntent(bundle: AccountBundle): { fit: ScorePillar; intent: ScorePillar } {

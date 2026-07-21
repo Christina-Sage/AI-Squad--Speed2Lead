@@ -83,4 +83,43 @@ export const SDR_LEADS: SdrLead[] = [
     workability: 56,
     score: 53,
   },
+  {
+    id: "00Q5Y00000DANA01",
+    name: "Dana Foster",
+    title: "CFO",
+    accountId: "0015Y00000MERD01", // Meridian Capital Partners
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P1",
+    fit: 88,
+    intent: 80,
+    workability: 78,
+    score: 83,
+  },
+  {
+    id: "00Q5Y00000AIDEN1",
+    name: "Aiden Cole",
+    title: "CFO",
+    accountId: "0015Y00000NMBS01", // Nimbus Software
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P1",
+    fit: 84,
+    intent: 79,
+    workability: 74,
+    score: 80,
+  },
+  {
+    id: "00Q5Y00000BIANC1",
+    name: "Bianca Ross",
+    title: "CFO",
+    accountId: "0015Y00000CSTL01", // Coastline Hospitality Group
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P2/3",
+    fit: 70,
+    intent: 58,
+    workability: 70,
+    score: 66,
+  },
 ];

@@ -183,6 +183,130 @@ const INTEL_FIXTURES: Record<string, CompanyIntel> = {
       },
     ],
   },
+  "0015Y00000MERD01": {
+    revenue: { amount: 96_000_000, source: "ZoomInfo" },
+    employees: { count: 420, source: "LinkedIn Sales Navigator" },
+    hqLocation: "Boston, MA",
+    locations: "HQ + 5 regional advisory offices",
+    parentAccount: null,
+    funding: {
+      round: "Growth equity",
+      amount: "$120M",
+      date: "5 months ago",
+      investors: "Summit Partners",
+    },
+    growthSignals: [
+      "AUM crossed $8B this year (press release, 6 weeks ago)",
+      "Acquired a regional RIA (2 months ago) — integrating a second GL",
+    ],
+    hiringSignals: [
+      {
+        role: "Director of Fund Accounting",
+        postedDaysAgo: 10,
+        source: "LinkedIn Jobs",
+        descriptionSnippet:
+          "Consolidate books across newly acquired RIA; multi-entity fund accounting currently split between two systems; seeking a cloud financial platform.",
+        clues: ["Two GLs post-acquisition", "Multi-entity consolidation", "Cloud ERP evaluation"],
+      },
+    ],
+  },
+  "0015Y00000CSTL01": {
+    revenue: { amount: 74_000_000, source: "ZoomInfo" },
+    employees: { count: 1_200, source: "LinkedIn Sales Navigator" },
+    hqLocation: "Miami, FL",
+    locations: "9 properties across FL, GA, SC",
+    parentAccount: null,
+    funding: null,
+    growthSignals: [
+      "Two new coastal properties opening next quarter",
+      "Property-level P&L consolidation flagged as a pain point (webinar Q&A, 1 month ago)",
+    ],
+    hiringSignals: [
+      {
+        role: "Corporate Controller",
+        postedDaysAgo: 16,
+        source: "LinkedIn Jobs",
+        descriptionSnippet:
+          "Own consolidation across 9 properties; each property currently closes independently in QuickBooks; standardize onto one cloud platform.",
+        clues: ["Per-property QuickBooks (outgrowing)", "9-property consolidation", "Cloud ERP standardization"],
+      },
+    ],
+  },
+  "0015Y00000NMBS01": {
+    revenue: { amount: 54_000_000, source: "ZoomInfo" },
+    employees: { count: 360, source: "LinkedIn Sales Navigator" },
+    hqLocation: "San Francisco, CA",
+    locations: "HQ + remote-first",
+    parentAccount: null,
+    funding: {
+      round: "Series B",
+      amount: "$60M",
+      date: "3 months ago",
+      investors: "Lightspeed, Bessemer",
+    },
+    growthSignals: [
+      "Headcount +31% since Series B (LinkedIn)",
+      "Launching usage-based billing tier — ASC 606 complexity increasing",
+    ],
+    hiringSignals: [
+      {
+        role: "VP Finance",
+        postedDaysAgo: 8,
+        source: "LinkedIn Jobs",
+        descriptionSnippet:
+          "First finance leadership hire post-Series B; implement a real ERP (currently spreadsheets + a starter tool); own SaaS ASC 606 revenue recognition.",
+        clues: ["Spreadsheet-based finance", "ASC 606 / SaaS rev rec", "Post-funding ERP purchase window"],
+      },
+    ],
+  },
+  "0015Y00000CNST01": {
+    revenue: { amount: 22_000_000, source: "ZoomInfo" },
+    employees: { count: 140, source: "LinkedIn Sales Navigator" },
+    hqLocation: "Kansas City, MO",
+    locations: "HQ + 2 branch offices",
+    parentAccount: null,
+    funding: null,
+    growthSignals: ["Steady growth; evaluating tools to replace manual close (3-week close cycle)"],
+    hiringSignals: [
+      {
+        role: "Senior Accountant",
+        postedDaysAgo: 21,
+        source: "Company careers page",
+        descriptionSnippet:
+          "Month-end close currently heavy on spreadsheets; help select and implement a cloud accounting platform.",
+        clues: ["Heavy Excel (manual process)", "Cloud accounting selection"],
+      },
+    ],
+  },
+  "0015Y00000VRTX01": {
+    revenue: { amount: 180_000_000, source: "ZoomInfo" },
+    employees: { count: 1_650, source: "LinkedIn Sales Navigator" },
+    hqLocation: "Memphis, TN",
+    locations: "14 distribution terminals",
+    parentAccount: null,
+    funding: null,
+    growthSignals: ["Fleet expansion announced (trade press, 1 month ago)"],
+    hiringSignals: [],
+  },
+  "0015Y00000RDWD01": {
+    revenue: { amount: 88_000_000, source: "ZoomInfo" },
+    employees: { count: 640, source: "LinkedIn Sales Navigator" },
+    hqLocation: "Portland, OR",
+    locations: "6 regional freight hubs",
+    parentAccount: null,
+    funding: null,
+    growthSignals: ["New Pacific Northwest hub opened this year"],
+    hiringSignals: [
+      {
+        role: "Controller",
+        postedDaysAgo: 19,
+        source: "LinkedIn Jobs",
+        descriptionSnippet:
+          "Consolidate across 6 hubs; currently on QuickBooks Enterprise with manual intercompany.",
+        clues: ["QuickBooks Enterprise (outgrowing)", "Manual intercompany"],
+      },
+    ],
+  },
 };
 
 function isNonprofit(account: Account): boolean {

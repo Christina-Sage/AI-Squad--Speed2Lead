@@ -30,13 +30,40 @@ Browser
 
 All account data flows through one interface: the **SalesforceProvider** (`lib/salesforce/provider.ts`). The app never talks to Salesforce directly — it asks the provider for data. Today the provider is a **mock** (`lib/salesforce/mock/`); swapping in a real Salesforce integration later means implementing the same interface, and nothing else in the app changes.
 
-The mock holds fixture data for 11 accounts, each with:
+The mock holds fixture data for 18 accounts, each with:
 
 | Record | What it contains |
 |---|---|
 | **Account** | name, domain, industry, type (Prospect/Customer), TAM status, owner, ABM status, **Account Buying Stage** (6sense), **Rating** (P1/P2/P3), Intacct fields (open opps, VAR status) |
 | **Leads & Contacts** | name, title, owner, last activity date (drives the ROE check) |
 | **Opportunities** | stage, open/closed, furthest stage reached, close date (drives open-opp and DQ checks) |
+
+#### Fixture coverage (what to test with)
+
+The accounts are chosen so every verdict path and every industry the scoring/segment rules handle has at least one example. Search by domain to load each.
+
+| Account | Domain | Industry | Verdict | Exercises |
+|---|---|---|---|---|
+| Acme Robotics | acme.com | Manufacturing | WORKABLE | Clean prospect, P1, buying committee |
+| Acme Robotics Corp | acmerobotics.com | Manufacturing | WORKABLE (review) | **Duplicate** of Acme (parent + location match) |
+| Globex Nonprofit | globex.org | Nonprofit | WORKABLE | Nonprofit → ProPublica 990 research path |
+| ABC Foundation | abc.org | Nonprofit | WORKABLE WITH REVIEW | Customer + Expired Intacct TAM |
+| Initech Direct | initech.com | Technology | NOT WORKABLE | Customer + TAM blank (direct customer) |
+| Hooli Ventures | hooli.com | Technology | NOT WORKABLE | **ROE** — contact activity 8 days ago |
+| Stark Industries | stark.io | Manufacturing | NOT WORKABLE | **Salesforce** open opportunity |
+| Wayne Enterprises | wayne.com | Manufacturing | WORKABLE | DQ'd opp that never reached Discovery (does not block) |
+| Umbrella Corp (Pharma) | umbrella-pharma.com | Healthcare | NOT WORKABLE | **DQ cooling-off** — reached Discovery, ~4 months left |
+| DonorsChoose | donorschoose.org | Nonprofit | WORKABLE | Nonprofit, "Target" buying stage (fit penalty), P3 |
+| Fort Bend Family Health | myaccesshealth.org | Nonprofit | WORKABLE | FQHC nonprofit, real 990 lookup |
+| Umbrella Corp (Security) | umbrella-security.com | Technology | NOT WORKABLE | **Partner** — "Registered" VAR deal registration |
+| Meridian Capital Partners | meridiancap.com | Financial Services | WORKABLE | **Financial Services** (AUM segment), funding card, P1 |
+| Coastline Hospitality Group | coastlinehg.com | Hospitality | WORKABLE | **Hospitality** (territory-based segment), multi-property |
+| Nimbus Software | nimbus.io | Software | WORKABLE | **Software** segment, Series B funding, ASC 606 hiring signal, P1 |
+| Cornerstone Business Services | cornerstonebs.com | General Business | WORKABLE | **General Business** segment; "Potential VAR" (non-blocking) |
+| Vertex Logistics | vertexlog.com | Transportation & Logistics | NOT WORKABLE | **Intacct-sourced** open opportunity |
+| Redwood Freight | redwoodfreight.com | Transportation & Logistics | NOT WORKABLE | **Lead-driven ROE** conflict (activity 10 days ago) |
+
+> Searching **"Umbrella Corp"** by name returns both Umbrella records — the disambiguation-list path. The last six rows were added to cover industries and the two block scenarios (Intacct-sourced open opp, lead-driven ROE) that previously had no UI-reachable fixture.
 
 ### 2.2 What persists where
 
@@ -190,7 +217,7 @@ Everything runs through interfaces designed for real integrations, but most sour
 
 | Data / capability | Today (mock) | Real today? |
 |---|---|---|
-| Account, leads, contacts, opps | Fixture data in the mock provider (11 accounts) | ❌ Mock |
+| Account, leads, contacts, opps | Fixture data in the mock provider (18 accounts) | ❌ Mock |
 | Owner / ABM status changes | Neon Postgres (`account_overrides`) | ✅ Real DB |
 | Audit log | Neon Postgres (`audit_log`) | ✅ Real DB |
 | Nonprofit research (990s, officers, revenue) | Live ProPublica scrape | ✅ Real |

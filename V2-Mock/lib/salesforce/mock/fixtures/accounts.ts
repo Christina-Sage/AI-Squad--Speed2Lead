@@ -1,4 +1,5 @@
 import type { Account } from "@/lib/salesforce/types";
+import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 
 export const ACCOUNTS: Account[] = [
   {
@@ -183,5 +184,125 @@ export const ACCOUNTS: Account[] = [
     abmNurtureStatus: null,
     lastActivityDate: null,
     intacct: { hasOpenOpps: false, varStatus: "Registered - CloudServe Partners" },
+  },
+  {
+    // Financial Services — exercises the AUM-based Segment path and the funding
+    // card. Clean prospect: no open opp, no VAR, no DQ → WORKABLE (P1).
+    id: "0015Y00000MERD01",
+    name: "Meridian Capital Partners",
+    domain: "meridiancap.com",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Financial Services",
+    type: "Prospect",
+    tam: "Intacct",
+    location: "200 Congress St, Boston, MA",
+    buyingStage: "Decision",
+    rating: "P1",
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false },
+  },
+  {
+    // Hospitality — exercises the territory-based Segment path (no SMB/mid split).
+    // Clean prospect → WORKABLE (P2).
+    id: "0015Y00000CSTL01",
+    name: "Coastline Hospitality Group",
+    domain: "coastlinehg.com",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Hospitality",
+    type: "Prospect",
+    tam: "Intacct",
+    location: "45 Ocean Dr, Miami, FL",
+    buyingStage: "Consideration",
+    rating: "P2",
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false },
+  },
+  {
+    // Software — size-based Segment rule, with a recent funding round on the
+    // research card. Clean prospect → WORKABLE (P1).
+    id: "0015Y00000NMBS01",
+    name: "Nimbus Software",
+    domain: "nimbus.io",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Software",
+    type: "Prospect",
+    tam: "Intacct",
+    location: "500 Market St, San Francisco, CA",
+    buyingStage: "Purchase",
+    rating: "P1",
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false },
+  },
+  {
+    // General Business — territory-based Segment. Carries a non-blocking
+    // "Potential VAR" note to show the Partner check PASS path → WORKABLE (P3).
+    id: "0015Y00000CNST01",
+    name: "Cornerstone Business Services",
+    domain: "cornerstonebs.com",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "General Business",
+    type: "Prospect",
+    tam: "Intacct",
+    location: "1400 Main St, Kansas City, MO",
+    buyingStage: "Awareness",
+    rating: "P3",
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false, varStatus: "Potential VAR" },
+  },
+  {
+    // NOT WORKABLE via the Intacct-sourced open-opportunity path (hasOpenOpps
+    // true with details) — a block scenario that previously had no fixture
+    // reachable through the UI, only the unit test.
+    id: "0015Y00000VRTX01",
+    name: "Vertex Logistics",
+    domain: "vertexlog.com",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Transportation & Logistics",
+    type: "Prospect",
+    tam: "Intacct",
+    location: "9000 Freight Pkwy, Memphis, TN",
+    buyingStage: "Consideration",
+    rating: "P2",
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: {
+      hasOpenOpps: true,
+      openOppDetails: [
+        {
+          name: "Vertex Logistics - Intacct Renewal",
+          owner: "Jordan Kim",
+          stage: "Negotiation",
+          createdDate: daysAgo(25),
+        },
+      ],
+    },
+  },
+  {
+    // NOT WORKABLE via a lead-driven ROE conflict (a lead owned by another rep
+    // with activity inside the 30-day window) — the lead-based ROE path had no
+    // UI-reachable fixture before; the blocking lead lives in leads.ts.
+    id: "0015Y00000RDWD01",
+    name: "Redwood Freight",
+    domain: "redwoodfreight.com",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Transportation & Logistics",
+    type: "Prospect",
+    tam: "Intacct",
+    location: "77 Cascade Ave, Portland, OR",
+    buyingStage: "Awareness",
+    rating: "P2",
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false },
   },
 ];
