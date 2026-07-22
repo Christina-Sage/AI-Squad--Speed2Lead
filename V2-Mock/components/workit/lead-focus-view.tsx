@@ -5,7 +5,7 @@ import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
 import { LeadDetailView } from "@/components/results/lead-detail-view";
 import { ScoringCard } from "@/components/results/scoring-card";
-import { CompanyResearchCards } from "@/components/workit/company-research-cards";
+import { AccountFitCard } from "@/components/workit/account-fit-card";
 import {
   WorkItPanel,
   type PanelContact,
@@ -190,9 +190,6 @@ export function LeadFocusView({
 
       {workingIt && (
         <div className="mt-2">
-          <div className="mb-5">
-            <ScoringCard accountId={leadId} score={score} />
-          </div>
           {accountId ? (
             <>
               {loading && (
@@ -211,13 +208,20 @@ export function LeadFocusView({
               )}
               {!loading && !error && data && (
                 <>
-                  <CompanyResearchCards
-                    research={data.research}
-                    intel={data.intel}
+                  <AccountFitCard
+                    accountId={accountId}
+                    score={score}
+                    accountName={data.account.name}
+                    domain={data.account.domain}
+                    industry={data.account.industry}
                     sourceLabel={data.sourceLabel}
                     revenueAmount={data.revenueAmount}
                     fteCount={data.fteCount}
-                    industry={data.account.industry}
+                    intel={data.intel}
+                    research={data.research}
+                    foundContacts={data.foundContacts}
+                    existingRecords={data.existingRecords}
+                    initialAddedNames={data.workItState.addedContactNames}
                   />
                   <WorkItPanel
                     accountId={accountId}
@@ -226,7 +230,6 @@ export function LeadFocusView({
                     hygiene={data.hygiene}
                     sequences={data.sequences}
                     signals={data.signals}
-                    initialAddedNames={data.workItState.addedContactNames}
                     initialAppliedFields={data.workItState.appliedHygieneFields}
                     initialPush={data.workItState.outreachPush}
                   />
@@ -234,7 +237,14 @@ export function LeadFocusView({
               )}
             </>
           ) : (
-            <LeadOnlyDecision leadId={leadId} leadName={result.name} />
+            <>
+              {/* Freemail lead — no linked account to research, so show the
+                  score summary above the lead-only push surface. */}
+              <div className="mb-5">
+                <ScoringCard accountId={leadId} score={score} />
+              </div>
+              <LeadOnlyDecision leadId={leadId} leadName={result.name} />
+            </>
           )}
         </div>
       )}

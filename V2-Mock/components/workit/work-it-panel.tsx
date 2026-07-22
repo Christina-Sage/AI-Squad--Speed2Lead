@@ -75,7 +75,6 @@ export function WorkItPanel({
   hygiene,
   sequences,
   signals,
-  initialAddedNames,
   initialAppliedFields,
   initialPush,
 }: {
@@ -85,7 +84,6 @@ export function WorkItPanel({
   hygiene: HygieneSuggestion[];
   sequences: string[];
   signals: PanelSignals;
-  initialAddedNames: string[];
   initialAppliedFields: string[];
   initialPush: OutreachPush | null;
 }) {
@@ -94,40 +92,11 @@ export function WorkItPanel({
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(foundContacts.map((c) => c.name)),
   );
-  const [added, setAdded] = useState<Set<string>>(
-    () => new Set(initialAddedNames.map((n) => n.toLowerCase())),
-  );
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
   const [push, setPush] = useState<OutreachPush | null>(initialPush);
   const [sequence, setSequence] = useState(sequences[0]);
   const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
-
-  function isAdded(c: PanelContact): boolean {
-    return c.inSalesforce || added.has(c.name.toLowerCase());
-  }
-
-  async function addContact(c: PanelContact) {
-    setBusy(`add-${c.name}`);
-    try {
-      const res = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, name: c.name, title: c.title }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast(data.error ?? "Failed to create contact");
-        return;
-      }
-      setAdded((prev) => new Set(prev).add(c.name.toLowerCase()));
-      toast(`Contact created in Salesforce: ${c.name}`);
-    } catch {
-      toast("Failed to create contact");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function applyHygiene(h: HygieneSuggestion) {
     setBusy(`hy-${h.field}`);
@@ -164,7 +133,7 @@ export function WorkItPanel({
   const pushable: { name: string; subtitle: string }[] = [
     ...foundContacts.map((c) => ({
       name: c.name,
-      subtitle: `${c.title}${isAdded(c) ? " · In SFDC" : ""}`,
+      subtitle: `${c.title}${c.inSalesforce ? " · In SFDC" : ""}`,
     })),
     ...existingRecords.map((r) => ({
       name: r.name,
@@ -224,65 +193,6 @@ export function WorkItPanel({
 
   return (
     <>
-      <Card
-        title="Found Contacts"
-        sub="BC#4 — ICP matches from public sources; add the missing ones to SFDC"
-      >
-        {foundContacts.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">No ICP-matching contacts found.</p>
-        ) : (
-          foundContacts.map((c) => (
-            <div
-              key={`${c.name}-${c.title}`}
-              className="flex items-center gap-3 border-b border-border py-2.5 last:border-b-0"
-            >
-              <input
-                type="checkbox"
-                className="size-4 accent-primary"
-                checked={selected.has(c.name)}
-                onChange={(e) => {
-                  setSelected((prev) => {
-                    const next = new Set(prev);
-                    if (e.target.checked) next.add(c.name);
-                    else next.delete(c.name);
-                    return next;
-                  });
-                }}
-              />
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
-                {initials(c.name)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] font-semibold">
-                  {c.name}{" "}
-                  {c.isIcpMatch && (
-                    <span className="ml-1 rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold tracking-[0.4px] text-success uppercase">
-                      ICP
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {c.title} · {c.source === "990" ? "Form 990" : "Website"}
-                </div>
-              </div>
-              {isAdded(c) ? (
-                <span className="rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
-                  In SFDC
-                </span>
-              ) : (
-                <button
-                  className={btnSm}
-                  disabled={busy === `add-${c.name}`}
-                  onClick={() => addContact(c)}
-                >
-                  {busy === `add-${c.name}` ? "Adding…" : "+ Add to Salesforce"}
-                </button>
-              )}
-            </div>
-          ))
-        )}
-      </Card>
-
       <Card title="Data Hygiene" sub="BC#4 — suggested SFDC field updates from research">
         {hygiene.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
