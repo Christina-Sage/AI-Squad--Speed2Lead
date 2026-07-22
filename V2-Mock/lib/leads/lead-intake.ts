@@ -27,7 +27,7 @@ export const INDUSTRIES = [
 ] as const;
 export type Industry = (typeof INDUSTRIES)[number];
 
-export const PRODUCTS = ["Sage Intacct", "Sage People", "Not sure yet"] as const;
+export const PRODUCTS = ["Sage Intacct", "Sage X3", "Sage CRE", "Sage 50", "Not sure yet"] as const;
 export type ProductInterest = (typeof PRODUCTS)[number];
 
 export const TIMEFRAMES = ["Immediately", "This quarter", "This year", "Just researching"] as const;
