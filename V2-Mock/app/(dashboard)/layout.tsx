@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { DemoUserSwitcher } from "@/components/layout/demo-user-switcher";
 import { PrioritySwitcher } from "@/components/layout/priority-switcher";
 import { ProductSwitcher } from "@/components/layout/product-switcher";
@@ -44,6 +45,12 @@ export default async function DashboardLayout({
           </span>
           <span className="flex-1" />
           <div className="flex items-center gap-3">
+            <Link
+              href="/simulate"
+              className="flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Lead form <ArrowUpRight className="size-3.5" />
+            </Link>
             <ProductSwitcher currentProduct={currentProduct} />
             <TeamSwitcher currentTeam={currentTeam} />
             {currentTeam === "SDR" && <PrioritySwitcher currentPriority={currentPriority} />}
