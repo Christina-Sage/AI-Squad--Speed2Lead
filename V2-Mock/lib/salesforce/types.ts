@@ -1,3 +1,5 @@
+import type { Product } from "@/lib/products";
+
 export type AccountType = "Customer" | "Prospect" | "Partner" | string;
 
 export type TamStatus = "Intacct" | "Expired Intacct TAM" | null;
@@ -30,6 +32,8 @@ export interface Account {
   ownerName: string;
   industry: string;
   type: AccountType;
+  /** Sage product line this account is associated with — drives the dashboard product filter. */
+  product: Product;
   tam: TamStatus;
   /** Parent account name, if this account rolls up to one (duplicate signal). */
   parentAccount?: string | null;
@@ -53,6 +57,8 @@ export interface Lead {
   status: string;
   accountId: string;
   lastActivityDate: string | null;
+  /** Inherited from the linked account; filled when the bundle is loaded. */
+  product?: Product;
 }
 
 export interface Contact {
@@ -63,6 +69,8 @@ export interface Contact {
   ownerName: string;
   accountId: string;
   lastActivityDate: string | null;
+  /** Inherited from the linked account; filled when the bundle is loaded. */
+  product?: Product;
 }
 
 export interface Opportunity {
@@ -77,6 +85,8 @@ export interface Opportunity {
   /** Furthest stage the opp reached before closing — drives the DQ cooling-off rule. */
   furthestStage?: string;
   closedDate?: string | null;
+  /** Inherited from the linked account; filled when the bundle is loaded. */
+  product?: Product;
 }
 
 export type ActivityType = "Call" | "Email" | "Meeting" | "Task";
@@ -108,4 +118,5 @@ export interface AccountSearchMatch {
 export interface AccountListItem extends AccountSearchMatch {
   type: AccountType;
   industry: string;
+  product: Product;
 }

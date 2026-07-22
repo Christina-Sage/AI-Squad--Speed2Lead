@@ -4,6 +4,7 @@ import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } 
 import type { OutreachPush } from "@/lib/outreach";
 import { deriveLead, type LeadIntakeInput } from "@/lib/leads/lead-intake";
 import { getCapturedLead, insertCapturedLead, listCapturedLeads } from "@/lib/leads/lead-store";
+import { productFromInterest } from "@/lib/products";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { detectSearchType } from "@/lib/salesforce/provider";
 import { getMockStore } from "@/lib/salesforce/mock/store";
@@ -82,11 +83,15 @@ export class MockSalesforceProvider implements SalesforceProvider {
     const override = await getOverride(accountId);
     const account = applyOverride(stored, override);
 
+    // Account-linked records inherit the account's product association.
+    const product = account.product;
     return {
       account,
-      leads: store.leads.filter((l) => l.accountId === accountId),
-      contacts: store.contacts.filter((c) => c.accountId === accountId),
-      opportunities: store.opportunities.filter((o) => o.accountId === accountId),
+      leads: store.leads.filter((l) => l.accountId === accountId).map((l) => ({ ...l, product })),
+      contacts: store.contacts.filter((c) => c.accountId === accountId).map((c) => ({ ...c, product })),
+      opportunities: store.opportunities
+        .filter((o) => o.accountId === accountId)
+        .map((o) => ({ ...o, product })),
       activities: store.activities.filter((a) => a.accountId === accountId),
     };
   }
@@ -139,6 +144,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
         ...toMatch(resolved),
         type: resolved.type,
         industry: resolved.industry,
+        product: resolved.product,
       };
     });
   }
@@ -169,6 +175,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
         accountName: account?.name ?? lead.company ?? null,
         domain: account?.domain ?? null,
         priorityGroup: lead.priorityGroup,
+        product: lead.product,
         score: lead.score,
         fit: lead.fit,
         intent: lead.intent,
@@ -198,6 +205,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
       ownerName: "House Account",
       status: "Open - Not Contacted",
       priorityGroup: derived.priorityGroup,
+      product: productFromInterest(input.productInterest),
       fit: derived.fit,
       intent: derived.intent,
       workability: derived.workability,

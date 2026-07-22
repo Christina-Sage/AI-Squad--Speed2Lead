@@ -1,4 +1,5 @@
 import type { PriorityGroup } from "@/lib/priority";
+import type { Product } from "@/lib/products";
 import type { DedupeCheck, FinalStatus } from "@/lib/workability/engine";
 import type { Team } from "@/lib/teams";
 
@@ -17,6 +18,8 @@ export interface SdrLead {
   ownerName: string;
   status: string;
   priorityGroup: PriorityGroup;
+  /** Sage product line — drives the dashboard product filter. */
+  product: Product;
   fit: number;
   intent: number;
   workability: number;
@@ -44,6 +47,7 @@ export interface SdrLeadListItem {
   accountName: string | null;
   domain: string | null;
   priorityGroup: PriorityGroup;
+  product: Product;
   score: number;
   fit: number;
   intent: number;

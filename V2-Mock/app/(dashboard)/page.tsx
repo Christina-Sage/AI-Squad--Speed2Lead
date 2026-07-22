@@ -12,6 +12,7 @@ import { evaluateWorkability, blockedByLabel } from "@/lib/workability/engine";
 import { scoreAccount } from "@/lib/scoring/scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { getCurrentPriority, PRIORITY_COOKIE } from "@/lib/priority";
+import { getCurrentProduct, PRODUCT_COOKIE } from "@/lib/products";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getWorkedToday } from "@/lib/audit/worked";
 
@@ -24,6 +25,7 @@ export default async function Home({
   const cookieStore = await cookies();
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
   const priority = getCurrentPriority(cookieStore.get(PRIORITY_COOKIE)?.value);
+  const product = getCurrentProduct(cookieStore.get(PRODUCT_COOKIE)?.value);
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
 
   // Today's worked accounts (pushed / not-a-fit), derived from the audit log.
@@ -33,14 +35,17 @@ export default async function Home({
   );
   const justWorkedId = (await searchParams).worked ?? null;
 
-  // Account worklist (all teams): workable ranked by score, plus the blocked list.
+  // Account worklist (all teams): workable ranked by score, plus the blocked
+  // list. Filtered to the selected product so the dashboard shows one product
+  // line at a time.
   const accounts = await provider.listAccounts();
   const accountRows: AccountRow[] = [];
   const blockedRows: BlockedRow[] = [];
-  for (const { id } of accounts) {
-    const bundle = await provider.getAccountBundle(id);
+  for (const acct of accounts) {
+    if (acct.product !== product) continue;
+    const bundle = await provider.getAccountBundle(acct.id);
     if (!bundle) continue;
-    const duplicates = await provider.findDuplicateAccounts(id);
+    const duplicates = await provider.findDuplicateAccounts(acct.id);
     const result = evaluateWorkability(bundle, team, duplicates);
     const score = scoreAccount(bundle, result);
     if (score === null) {
@@ -69,10 +74,11 @@ export default async function Home({
   }
   accountRows.sort((a, b) => b.priority - a.priority);
 
-  // SDR lead worklist: filtered to the selected priority group, ranked by score.
+  // SDR lead worklist: filtered to the selected product and priority group,
+  // ranked by score.
   const allLeads = await provider.listSdrLeads();
   const leadRows: LeadRow[] = allLeads
-    .filter((l) => l.priorityGroup === priority)
+    .filter((l) => l.product === product && l.priorityGroup === priority)
     .sort((a, b) => b.score - a.score)
     .map((l) => ({
       id: l.id,

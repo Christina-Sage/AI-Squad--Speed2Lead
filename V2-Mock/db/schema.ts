@@ -52,6 +52,7 @@ export const capturedLeads = pgTable("captured_leads", {
   ownerName: text("owner_name").notNull().default("House Account"),
   status: text("status").notNull().default("Open - Not Contacted"),
   priorityGroup: text("priority_group").notNull(),
+  product: text("product").notNull().default("Intacct"),
 
   fit: integer("fit").notNull(),
   intent: integer("intent").notNull(),

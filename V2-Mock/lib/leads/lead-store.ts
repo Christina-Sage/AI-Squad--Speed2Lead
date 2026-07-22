@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { capturedLeads } from "@/db/schema";
 import type { SdrLead } from "@/lib/leads/types";
 import type { PriorityGroup } from "@/lib/priority";
+import type { Product } from "@/lib/products";
 
 /**
  * Persistence for web-form-captured SDR leads (`/simulate`). The in-memory mock
@@ -25,6 +26,7 @@ function rowToLead(row: CapturedLeadRow): SdrLead {
     ownerName: row.ownerName,
     status: row.status,
     priorityGroup: row.priorityGroup as PriorityGroup,
+    product: row.product as Product,
     fit: row.fit,
     intent: row.intent,
     workability: row.workability,
@@ -47,6 +49,7 @@ export async function insertCapturedLead(lead: SdrLead): Promise<void> {
     ownerName: lead.ownerName,
     status: lead.status,
     priorityGroup: lead.priorityGroup,
+    product: lead.product,
     fit: lead.fit,
     intent: lead.intent,
     workability: lead.workability,

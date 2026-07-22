@@ -80,6 +80,8 @@ describe("MockSalesforceProvider.createLead", () => {
     expect(lead.ownerName).toBe("House Account");
     expect(lead.name).toBe("Jordan Rivera");
     expect(lead.company).toBe("Rivera Nonprofit Group");
+    // "Sage Intacct" maps to the Intacct product code.
+    expect(lead.product).toBe("Intacct");
 
     const list = await provider.listSdrLeads();
     expect(list[0].id).toBe(lead.id);
