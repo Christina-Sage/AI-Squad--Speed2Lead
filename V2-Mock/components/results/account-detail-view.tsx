@@ -87,6 +87,7 @@ export function AccountDetailView({
           <SummaryField label="Industry">{result.industry}</SummaryField>
           <SummaryField label="Type">{result.type}</SummaryField>
           <SummaryField label="TAM">{result.tam_status}</SummaryField>
+          <SummaryField label="Team">{result.team}</SummaryField>
           <SummaryField label="Owner">
             <OwnerEditor accountId={result.account_id} currentOwnerName={result.owner} />
           </SummaryField>
@@ -107,7 +108,6 @@ export function AccountDetailView({
               <span className="font-medium text-muted-foreground">N/A</span>
             )}
           </SummaryField>
-          <SummaryField label="Team">{result.team}</SummaryField>
         </div>
       </div>
 
