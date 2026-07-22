@@ -140,6 +140,20 @@ export function LeadDetailView({
           <SummaryField label="Lead Status">{result.status}</SummaryField>
           <SummaryField label="Team">{result.team}</SummaryField>
           <SummaryField label="Priority">{result.priority_group}</SummaryField>
+          <SummaryField label="Marketing Campaign Source">
+            {result.marketing_campaign ? (
+              <>
+                {result.marketing_campaign.name}
+                {result.marketing_campaign.date && (
+                  <span className="ml-1 font-medium text-muted-foreground">
+                    ({new Date(result.marketing_campaign.date).toLocaleDateString()})
+                  </span>
+                )}
+              </>
+            ) : (
+              NA
+            )}
+          </SummaryField>
         </div>
       </div>
 

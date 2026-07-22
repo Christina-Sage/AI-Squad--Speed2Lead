@@ -12,6 +12,7 @@ import {
   type CustomerTamResult,
 } from "@/lib/workability/customer-tam";
 import { duplicateReason, type DuplicateMatch } from "@/lib/workability/duplicate";
+import { mostRecentCampaign, type MarketingCampaign } from "@/lib/salesforce/campaigns";
 
 export type FinalStatus = "WORKABLE" | "WORKABLE WITH REVIEW" | "NOT WORKABLE";
 
@@ -41,6 +42,8 @@ export interface WorkabilityResult {
   owner: string;
   tam_status: string;
   abm_nurture_status: string | null;
+  /** Most recent marketing campaign that touched the account; null when none. */
+  marketing_campaign: MarketingCampaign | null;
   team: Team;
   roe_scope: RoeScope;
   roe_status: "PASS" | "FAIL";
@@ -322,6 +325,7 @@ export function evaluateWorkability(
     owner: account.ownerName,
     tam_status: tamLabel(account.tam),
     abm_nurture_status: account.abmNurtureStatus,
+    marketing_campaign: mostRecentCampaign(account.campaigns),
     team,
     roe_scope: scoped.scope,
     roe_status: roe.status,

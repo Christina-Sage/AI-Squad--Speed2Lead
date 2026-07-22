@@ -1,6 +1,7 @@
 import type { PriorityGroup } from "@/lib/priority";
 import type { Product } from "@/lib/products";
 import type { DedupeCheck, FinalStatus } from "@/lib/workability/engine";
+import type { MarketingCampaign } from "@/lib/salesforce/campaigns";
 import type { Team } from "@/lib/teams";
 
 /**
@@ -78,5 +79,11 @@ export interface LeadWorkabilityResult {
   final_status: FinalStatus;
   reason: string;
   recommendation: string;
+  /**
+   * Marketing campaign source for the lead: the linked account's most recent
+   * campaign, falling back to the lead's own capture `source` when it has no
+   * account (or the account has no campaigns). Null when neither is known.
+   */
+  marketing_campaign: MarketingCampaign | null;
   checks: DedupeCheck[];
 }

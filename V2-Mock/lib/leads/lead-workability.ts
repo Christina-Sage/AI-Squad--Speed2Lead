@@ -7,6 +7,7 @@ import {
   type DedupeCheck,
   type FinalStatus,
 } from "@/lib/workability/engine";
+import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
 
 function chk(
   key: string,
@@ -152,6 +153,12 @@ export function evaluateLeadWorkability(
 
   const { reason, recommendation } = buildLeadReason(final_status, lead, account?.name ?? null, checks);
 
+  // Marketing campaign source: prefer the linked account's most recent campaign;
+  // fall back to the lead's own capture source (web-form leads have no account).
+  const marketing_campaign =
+    mostRecentCampaign(account?.campaigns) ??
+    (lead.source ? { name: lead.source, date: lead.createdAt ?? null } : null);
+
   return {
     lead_id: lead.id,
     name: lead.name,
@@ -166,6 +173,7 @@ export function evaluateLeadWorkability(
     final_status,
     reason,
     recommendation,
+    marketing_campaign,
     checks,
   };
 }

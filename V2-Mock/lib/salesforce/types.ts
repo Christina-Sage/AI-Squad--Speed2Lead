@@ -10,6 +10,13 @@ export type BuyingStage = "Target" | "Awareness" | "Consideration" | "Purchase" 
 /** Priority rating from the Rating field on the Global SF account record. */
 export type AccountRating = "P1" | "P2" | "P3";
 
+/** A marketing campaign an account has been touched by (6sense/ABM, events, nurture). */
+export interface AccountCampaign {
+  name: string;
+  /** ISO date (YYYY-MM-DD) the account engaged with the campaign. */
+  date: string;
+}
+
 export interface IntacctFields {
   hasOpenOpps: boolean;
   openOppDetails?: {
@@ -43,6 +50,8 @@ export interface Account {
   buyingStage?: BuyingStage | null;
   /** Rating field from Global SF — drives the P1/P2/P3 priority tier. */
   rating?: AccountRating | null;
+  /** Marketing campaigns that have touched this account; the most recent by date drives the "Marketing Campaign Source" field. */
+  campaigns?: AccountCampaign[];
   abmNurtureStatus: string | null;
   lastActivityDate: string | null;
   intacct: IntacctFields;

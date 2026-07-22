@@ -93,6 +93,20 @@ export function AccountDetailView({
           <SummaryField label="ABM Account Status">
             <AbmStatusEditor accountId={result.account_id} currentStatus={result.abm_nurture_status} />
           </SummaryField>
+          <SummaryField label="Marketing Campaign Source">
+            {result.marketing_campaign ? (
+              <>
+                {result.marketing_campaign.name}
+                {result.marketing_campaign.date && (
+                  <span className="ml-1 font-medium text-muted-foreground">
+                    ({new Date(result.marketing_campaign.date).toLocaleDateString()})
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="font-medium text-muted-foreground">N/A</span>
+            )}
+          </SummaryField>
           <SummaryField label="Team">{result.team}</SummaryField>
         </div>
       </div>
