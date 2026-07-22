@@ -17,6 +17,7 @@ function baseAccount(overrides: Partial<Account>): Account {
     ownerName: "Demo User",
     industry: "Technology",
     type: "Prospect",
+    product: "Intacct",
     tam: "Intacct",
     abmNurtureStatus: null,
     lastActivityDate: daysAgoIso(60),

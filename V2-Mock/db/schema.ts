@@ -1,4 +1,4 @@
-import { jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),
@@ -33,4 +33,29 @@ export const accountOverrides = pgTable("account_overrides", {
   ownerName: text("owner_name").notNull(),
   abmNurtureStatus: text("abm_nurture_status"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Leads created through the web-form simulation (`/simulate`). Persisted here
+// so a captured lead survives serverless-instance recycling and shows up in the
+// worklist across requests — the in-memory store alone is per-instance. Fixture
+// worklist leads stay in code; only form-created leads live here.
+export const capturedLeads = pgTable("captured_leads", {
+  id: text("id").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  company: text("company"),
+  email: text("email"),
+  source: text("source"),
+
+  ownerName: text("owner_name").notNull().default("House Account"),
+  status: text("status").notNull().default("Open - Not Contacted"),
+  priorityGroup: text("priority_group").notNull(),
+  product: text("product").notNull().default("Intacct"),
+
+  fit: integer("fit").notNull(),
+  intent: integer("intent").notNull(),
+  workability: integer("workability").notNull(),
+  score: integer("score").notNull(),
 });

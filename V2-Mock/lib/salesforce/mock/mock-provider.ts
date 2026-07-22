@@ -2,6 +2,9 @@ import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Conta
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
+import { deriveLead, type LeadIntakeInput } from "@/lib/leads/lead-intake";
+import { getCapturedLead, insertCapturedLead, listCapturedLeads } from "@/lib/leads/lead-store";
+import { productFromInterest } from "@/lib/products";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { detectSearchType } from "@/lib/salesforce/provider";
 import { getMockStore } from "@/lib/salesforce/mock/store";
@@ -11,6 +14,18 @@ import {
   setOverride,
   type AccountOverride,
 } from "@/lib/salesforce/mock/overrides";
+
+// A captured lead counts as "just arrived" (and gets the New badge) for this
+// long after it was created. Fixture leads have no createdAt, so they're never
+// flagged.
+const NEW_LEAD_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isRecentlyCaptured(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  return Date.now() - created <= NEW_LEAD_WINDOW_MS;
+}
 
 function toMatch(account: Account): AccountSearchMatch {
   return {
@@ -68,11 +83,15 @@ export class MockSalesforceProvider implements SalesforceProvider {
     const override = await getOverride(accountId);
     const account = applyOverride(stored, override);
 
+    // Account-linked records inherit the account's product association.
+    const product = account.product;
     return {
       account,
-      leads: store.leads.filter((l) => l.accountId === accountId),
-      contacts: store.contacts.filter((c) => c.accountId === accountId),
-      opportunities: store.opportunities.filter((o) => o.accountId === accountId),
+      leads: store.leads.filter((l) => l.accountId === accountId).map((l) => ({ ...l, product })),
+      contacts: store.contacts.filter((c) => c.accountId === accountId).map((c) => ({ ...c, product })),
+      opportunities: store.opportunities
+        .filter((o) => o.accountId === accountId)
+        .map((o) => ({ ...o, product })),
       activities: store.activities.filter((a) => a.accountId === accountId),
     };
   }
@@ -125,6 +144,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
         ...toMatch(resolved),
         type: resolved.type,
         industry: resolved.industry,
+        product: resolved.product,
       };
     });
   }
@@ -138,27 +158,78 @@ export class MockSalesforceProvider implements SalesforceProvider {
 
   async listSdrLeads(): Promise<SdrLeadListItem[]> {
     const store = getMockStore();
-    return store.sdrLeads.map((lead) => {
+    // Fixture worklist leads (in code) plus form-captured leads (persisted in
+    // the DB); captured leads are shown first so a freshly created lead is easy
+    // to spot in a demo.
+    const captured = await listCapturedLeads();
+    const leads: SdrLead[] = [...captured, ...store.sdrLeads];
+    return leads.map((lead) => {
       const account = lead.accountId ? store.accounts.get(lead.accountId) ?? null : null;
       return {
         id: lead.id,
         name: lead.name,
         title: lead.title,
         accountId: lead.accountId,
-        accountName: account?.name ?? null,
+        // Form-captured leads have no linked account yet; fall back to the
+        // company they entered so the worklist row isn't blank.
+        accountName: account?.name ?? lead.company ?? null,
         domain: account?.domain ?? null,
         priorityGroup: lead.priorityGroup,
+        product: lead.product,
         score: lead.score,
         fit: lead.fit,
         intent: lead.intent,
         workability: lead.workability,
+        isNew: isRecentlyCaptured(lead.createdAt),
+        email: lead.email ?? null,
+        createdAt: lead.createdAt ?? null,
       };
     });
   }
 
+  async createLead(input: LeadIntakeInput): Promise<SdrLead> {
+    const derived = deriveLead(input);
+
+    const name = `${input.firstName} ${input.lastName}`.trim();
+    // Salesforce-style 18-char Lead id (00Q prefix). Uniqueness comes from the
+    // creation timestamp plus a short random suffix.
+    const rand = Math.floor(Math.random() * 1e6).toString(36).toUpperCase();
+    const suffix = `${Date.now().toString(36)}${rand}`.toUpperCase();
+    const id = `00Q${suffix}`.padEnd(18, "0").slice(0, 18);
+
+    const lead: SdrLead = {
+      id,
+      name,
+      title: input.jobTitle,
+      // Net-new inbound lead: not yet matched to an account (LeanData/matching
+      // would link it downstream, which this simulation does not model).
+      accountId: null,
+      ownerName: "House Account",
+      status: "Open - Not Contacted",
+      priorityGroup: derived.priorityGroup,
+      product: productFromInterest(input.productInterest),
+      fit: derived.fit,
+      intent: derived.intent,
+      workability: derived.workability,
+      score: derived.score,
+      company: input.company,
+      email: input.email,
+      source: derived.source,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Persist so the lead survives instance recycling and appears in the
+    // worklist across requests (the in-memory store alone is per-instance).
+    await insertCapturedLead(lead);
+    return lead;
+  }
+
   async getSdrLead(leadId: string): Promise<SdrLead | null> {
     const store = getMockStore();
-    return store.sdrLeads.find((l) => l.id === leadId) ?? null;
+    const fixture = store.sdrLeads.find((l) => l.id === leadId);
+    if (fixture) return fixture;
+    // Not a fixture lead — look it up among the persisted, form-captured leads.
+    return getCapturedLead(leadId);
   }
 
   async getSdrLeadBundle(

@@ -1,6 +1,7 @@
 import type { SdrLead, LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountBundle } from "@/lib/salesforce/types";
 import type { Team } from "@/lib/teams";
+import type { LeadDuplicateInfo } from "@/lib/leads/lead-dedupe";
 import {
   evaluateWorkability,
   type DedupeCheck,
@@ -29,19 +30,30 @@ export function evaluateLeadWorkability(
   lead: SdrLead,
   accountBundle: AccountBundle | null,
   team: Team = "SDR",
+  duplicateInfo: LeadDuplicateInfo | null = null,
 ): LeadWorkabilityResult {
   const account = accountBundle?.account ?? null;
   const acct = accountBundle ? evaluateWorkability(accountBundle, team) : null;
 
-  // 1. Duplicate check — mock leads are net-new, so no existing lead/contact match.
-  const dup = chk(
-    "dup",
-    "Duplicate Check",
-    "Already a lead or contact in Salesforce?",
-    "yn",
-    "pass",
-    "No matching lead or contact found in Salesforce",
-  );
+  // 1. Duplicate check — a lead sharing a name or email with an earlier lead is
+  // a duplicate and must not be worked (the original owns the record).
+  const dup = duplicateInfo
+    ? chk(
+        "dup",
+        "Duplicate Check",
+        "Already a lead or contact in Salesforce?",
+        "yn",
+        "fail",
+        `Duplicate of existing lead "${duplicateInfo.duplicateOf}" (same ${duplicateInfo.matchedOn})`,
+      )
+    : chk(
+        "dup",
+        "Duplicate Check",
+        "Already a lead or contact in Salesforce?",
+        "yn",
+        "pass",
+        "No matching lead or contact found in Salesforce",
+      );
 
   // 2. Account association — does the lead map to a known, workable account?
   let assoc: DedupeCheck;
