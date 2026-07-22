@@ -83,6 +83,12 @@ export default async function RootLayout({
               <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
                 AI Squad Prototype
               </span>
+              <Link
+                href="/simulate"
+                className="rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground hover:border-muted-foreground hover:text-foreground"
+              >
+                + Simulate lead
+              </Link>
               <span className="flex-1" />
               <div className="flex items-center gap-3">
                 <ProductSwitcher currentProduct={currentProduct} />

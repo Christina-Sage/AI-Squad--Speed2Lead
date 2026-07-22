@@ -2,6 +2,7 @@ import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Conta
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
+import { deriveLead, type LeadIntakeInput } from "@/lib/leads/lead-intake";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { detectSearchType } from "@/lib/salesforce/provider";
 import { getMockStore } from "@/lib/salesforce/mock/store";
@@ -145,7 +146,9 @@ export class MockSalesforceProvider implements SalesforceProvider {
         name: lead.name,
         title: lead.title,
         accountId: lead.accountId,
-        accountName: account?.name ?? null,
+        // Form-captured leads have no linked account yet; fall back to the
+        // company they entered so the worklist row isn't blank.
+        accountName: account?.name ?? lead.company ?? null,
         domain: account?.domain ?? null,
         priorityGroup: lead.priorityGroup,
         score: lead.score,
@@ -154,6 +157,41 @@ export class MockSalesforceProvider implements SalesforceProvider {
         workability: lead.workability,
       };
     });
+  }
+
+  async createLead(input: LeadIntakeInput): Promise<SdrLead> {
+    const store = getMockStore();
+    const derived = deriveLead(input);
+
+    const name = `${input.firstName} ${input.lastName}`.trim();
+    // Salesforce-style 18-char Lead id (00Q prefix). Uniqueness comes from the
+    // timestamp + current worklist length; good enough for the in-memory mock.
+    const suffix = `${Date.now().toString(36)}${store.sdrLeads.length}`.toUpperCase();
+    const id = `00Q${suffix}`.padEnd(18, "0").slice(0, 18);
+
+    const lead: SdrLead = {
+      id,
+      name,
+      title: input.jobTitle,
+      // Net-new inbound lead: not yet matched to an account (LeanData/matching
+      // would link it downstream, which this simulation does not model).
+      accountId: null,
+      ownerName: "House Account",
+      status: "Open - Not Contacted",
+      priorityGroup: derived.priorityGroup,
+      fit: derived.fit,
+      intent: derived.intent,
+      workability: derived.workability,
+      score: derived.score,
+      company: input.company,
+      email: input.email,
+      source: derived.source,
+      createdAt: new Date().toISOString(),
+    };
+
+    // New leads go to the top of the worklist so they're easy to spot in a demo.
+    store.sdrLeads.unshift(lead);
+    return lead;
   }
 
   async getSdrLead(leadId: string): Promise<SdrLead | null> {

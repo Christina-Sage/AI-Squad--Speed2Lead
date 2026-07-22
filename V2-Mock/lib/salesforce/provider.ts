@@ -1,5 +1,6 @@
 import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Contact } from "@/lib/salesforce/types";
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
+import type { LeadIntakeInput } from "@/lib/leads/lead-intake";
 import type { DuplicateMatch } from "@/lib/workability/duplicate";
 import type { OutreachPush } from "@/lib/outreach";
 import { MockSalesforceProvider } from "@/lib/salesforce/mock/mock-provider";
@@ -33,6 +34,12 @@ export interface SalesforceProvider {
   findDuplicateAccounts(accountId: string): Promise<DuplicateMatch[]>;
   /** SDR worklist leads (build-plan step 5). */
   listSdrLeads(): Promise<SdrLeadListItem[]>;
+  /**
+   * Create a net-new SDR lead from a web-form submission (`/simulate`). Scores
+   * and prioritizes the raw form fields, then adds it to the worklist. The mock
+   * stand-in for the form → Eloqua → API → Salesforce path.
+   */
+  createLead(input: LeadIntakeInput): Promise<SdrLead>;
   getSdrLead(leadId: string): Promise<SdrLead | null>;
   /** A lead plus its linked account bundle (null bundle when the lead has no account). */
   getSdrLeadBundle(leadId: string): Promise<{ lead: SdrLead; accountBundle: AccountBundle | null } | null>;

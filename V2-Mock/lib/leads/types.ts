@@ -22,6 +22,17 @@ export interface SdrLead {
   workability: number;
   /** Overall "Should I work it?" score, precomputed for the worklist. */
   score: number;
+  /**
+   * Optional intake metadata, present on leads created through the web-form
+   * simulation (`/simulate`). Fixture leads leave these undefined. `company` is
+   * used as the worklist display name when the lead has no linked account yet.
+   */
+  company?: string | null;
+  email?: string | null;
+  /** How the lead entered the system, e.g. "Web form — Requested a demo". */
+  source?: string | null;
+  /** ISO timestamp the lead was captured. */
+  createdAt?: string | null;
 }
 
 /** Lightweight row for the ranked SDR worklist. */
