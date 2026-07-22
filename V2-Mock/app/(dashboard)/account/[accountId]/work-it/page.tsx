@@ -10,8 +10,7 @@ import { getCompanyIntel } from "@/lib/research/company-intel";
 import { SEQUENCES } from "@/lib/outreach";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { WorkItPanel, type PanelSignals } from "@/components/workit/work-it-panel";
-import { CompanyResearchCards } from "@/components/workit/company-research-cards";
-import { ScoringCard } from "@/components/results/scoring-card";
+import { AccountFitCard } from "@/components/workit/account-fit-card";
 import { formatCurrency } from "@/lib/workit/format";
 
 export default async function WorkItPage({
@@ -65,6 +64,18 @@ export default async function WorkItPage({
       : "passed all six de-dupe checks",
   };
 
+  const foundContacts = research.foundContacts.map((c) => ({
+    name: c.name,
+    title: c.title,
+    source: c.source,
+    isIcpMatch: c.isIcpMatch,
+    inSalesforce: c.inSalesforce,
+  }));
+  const existingRecords = [
+    ...contacts.map((c) => ({ name: c.name, title: c.title, kind: "Contact" as const })),
+    ...leads.map((l) => ({ name: l.name, title: l.title, kind: "Lead" as const })),
+  ];
+
   return (
     <div>
       <div className="mb-4 text-[12.5px] text-muted-foreground">
@@ -93,37 +104,30 @@ export default async function WorkItPage({
       </p>
 
       {score && (
-        <div className="mb-5">
-          <ScoringCard accountId={accountId} score={score} />
-        </div>
+        <AccountFitCard
+          accountId={accountId}
+          score={score}
+          accountName={account.name}
+          domain={account.domain}
+          industry={account.industry}
+          sourceLabel={sourceLabel}
+          revenueAmount={revenueAmount}
+          fteCount={fteCount}
+          intel={intel}
+          research={research}
+          foundContacts={foundContacts}
+          existingRecords={existingRecords}
+          initialAddedNames={workItState.addedContactNames}
+        />
       )}
-
-      <CompanyResearchCards
-        research={research}
-        intel={intel}
-        sourceLabel={sourceLabel}
-        revenueAmount={revenueAmount}
-        fteCount={fteCount}
-        industry={account.industry}
-      />
 
       <WorkItPanel
         accountId={accountId}
-        foundContacts={research.foundContacts.map((c) => ({
-          name: c.name,
-          title: c.title,
-          source: c.source,
-          isIcpMatch: c.isIcpMatch,
-          inSalesforce: c.inSalesforce,
-        }))}
-        existingRecords={[
-          ...contacts.map((c) => ({ name: c.name, title: c.title, kind: "Contact" as const })),
-          ...leads.map((l) => ({ name: l.name, title: l.title, kind: "Lead" as const })),
-        ]}
+        foundContacts={foundContacts}
+        existingRecords={existingRecords}
         hygiene={hygiene}
         sequences={SEQUENCES}
         signals={signals}
-        initialAddedNames={workItState.addedContactNames}
         initialAppliedFields={workItState.appliedHygieneFields}
         initialPush={workItState.outreachPush}
       />
