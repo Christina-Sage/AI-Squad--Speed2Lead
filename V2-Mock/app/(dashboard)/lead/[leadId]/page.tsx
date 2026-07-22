@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { getSalesforceProvider, buildSalesforceLeadUrl } from "@/lib/salesforce/provider";
 import { evaluateLeadWorkability } from "@/lib/leads/lead-workability";
+import { duplicateInfoFor } from "@/lib/leads/lead-dedupe";
 import { scoreLead } from "@/lib/leads/lead-scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { LeadDetailView } from "@/components/results/lead-detail-view";
@@ -23,7 +24,8 @@ export default async function LeadPage({
   const cookieStore = await cookies();
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
 
-  const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team);
+  const duplicateInfo = duplicateInfoFor(leadId, await provider.listSdrLeads());
+  const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, duplicateInfo);
   const score = scoreLead(bundle.lead, bundle.accountBundle?.account ?? null);
 
   return (

@@ -58,6 +58,9 @@ export interface SdrLeadListItem {
    * "New" badge on the worklist row.
    */
   isNew: boolean;
+  /** Present on web-form-captured leads; used server-side for duplicate detection. */
+  email: string | null;
+  createdAt: string | null;
 }
 
 /** Lead-level "Can I work it?" verdict (build-plan step 6). */

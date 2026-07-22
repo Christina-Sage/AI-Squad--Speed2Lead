@@ -4,10 +4,12 @@ import { AccountImport } from "@/components/home/account-import";
 import {
   WorklistExplorer,
   type AccountRow,
+  type BlockedLeadRow,
   type BlockedRow,
   type LeadRow,
 } from "@/components/home/worklist-explorer";
 import { getSalesforceProvider } from "@/lib/salesforce/provider";
+import { computeDuplicateLeads } from "@/lib/leads/lead-dedupe";
 import { evaluateWorkability, blockedByLabel } from "@/lib/workability/engine";
 import { scoreAccount } from "@/lib/scoring/scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
@@ -75,10 +77,13 @@ export default async function Home({
   accountRows.sort((a, b) => b.priority - a.priority);
 
   // SDR lead worklist: filtered to the selected product and priority group,
-  // ranked by score.
+  // ranked by score. Duplicate leads (same name/email as an earlier lead) are
+  // pulled out of the workable list into "Blocked by de-dupe".
   const allLeads = await provider.listSdrLeads();
-  const leadRows: LeadRow[] = allLeads
-    .filter((l) => l.product === product && l.priorityGroup === priority)
+  const duplicateLeads = computeDuplicateLeads(allLeads);
+  const visibleLeads = allLeads.filter((l) => l.product === product && l.priorityGroup === priority);
+  const leadRows: LeadRow[] = visibleLeads
+    .filter((l) => !duplicateLeads.has(l.id))
     .sort((a, b) => b.score - a.score)
     .map((l) => ({
       id: l.id,
@@ -93,6 +98,17 @@ export default async function Home({
       score: l.score,
       isNew: l.isNew,
     }));
+  const blockedLeadRows: BlockedLeadRow[] = visibleLeads
+    .filter((l) => duplicateLeads.has(l.id))
+    .map((l) => {
+      const info = duplicateLeads.get(l.id)!;
+      return {
+        id: l.id,
+        name: l.name,
+        subtitle: l.accountName ?? l.title,
+        reason: `Duplicate ${info.matchedOn} — matches “${info.duplicateOf}”`,
+      };
+    });
 
   const mode = team === "SDR" ? "leads" : "accounts";
 
@@ -119,6 +135,7 @@ export default async function Home({
         accountRows={accountRows}
         leadRows={leadRows}
         blockedRows={blockedRows}
+        blockedLeadRows={blockedLeadRows}
         workedMap={workedMap}
         justWorkedId={justWorkedId}
       />

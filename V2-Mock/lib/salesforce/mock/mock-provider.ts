@@ -181,6 +181,8 @@ export class MockSalesforceProvider implements SalesforceProvider {
         intent: lead.intent,
         workability: lead.workability,
         isNew: isRecentlyCaptured(lead.createdAt),
+        email: lead.email ?? null,
+        createdAt: lead.createdAt ?? null,
       };
     });
   }

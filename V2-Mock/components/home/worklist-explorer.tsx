@@ -29,6 +29,14 @@ export interface BlockedRow {
   blockedBy: string;
 }
 
+/** A duplicate SDR lead pulled out of the worklist into "Blocked by de-dupe". */
+export interface BlockedLeadRow {
+  id: string;
+  name: string;
+  subtitle: string;
+  reason: string;
+}
+
 export interface LeadRow {
   id: string;
   name: string;
@@ -89,6 +97,7 @@ export function WorklistExplorer({
   accountRows = [],
   leadRows = [],
   blockedRows = [],
+  blockedLeadRows = [],
   workedMap = {},
   justWorkedId = null,
 }: {
@@ -98,6 +107,7 @@ export function WorklistExplorer({
   accountRows?: AccountRow[];
   leadRows?: LeadRow[];
   blockedRows?: BlockedRow[];
+  blockedLeadRows?: BlockedLeadRow[];
   workedMap?: Record<string, "pushed" | "not_fit">;
   justWorkedId?: string | null;
 }) {
@@ -547,6 +557,28 @@ export function WorklistExplorer({
             Failed one or more of the six checks — open for the evidence
           </span>
         </div>
+        {mode === "leads" &&
+          blockedLeadRows.map((lead) => (
+            <button
+              key={lead.id}
+              onClick={() => openFocus("lead", lead.id, lead.name)}
+              className="flex w-full items-center gap-3.5 border-t border-border px-5 py-3 text-left opacity-60 first:border-t-0 hover:bg-background hover:opacity-100"
+            >
+              <div className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-background text-[12.5px] font-bold text-muted-foreground">
+                ✗
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">
+                  {lead.name}{" "}
+                  <span className="ml-1.5 rounded-full bg-destructive-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-destructive uppercase">
+                    Duplicate
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">{lead.subtitle}</div>
+              </div>
+              <div className="text-[11.5px] text-destructive">{lead.reason}</div>
+            </button>
+          ))}
         {blockedRows.map((acct) => {
           if (!acctVisible(acct.id)) return null;
           return (
