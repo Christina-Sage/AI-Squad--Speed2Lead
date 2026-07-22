@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { getSalesforceProvider, buildSalesforceLeadUrl } from "@/lib/salesforce/provider";
 import { evaluateLeadWorkability } from "@/lib/leads/lead-workability";
 import { duplicateInfoFor } from "@/lib/leads/lead-dedupe";
-import { scoreLead } from "@/lib/leads/lead-scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { LeadDetailView } from "@/components/results/lead-detail-view";
 
@@ -26,7 +25,6 @@ export default async function LeadPage({
 
   const duplicateInfo = duplicateInfoFor(leadId, await provider.listSdrLeads());
   const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, duplicateInfo);
-  const score = scoreLead(bundle.lead, bundle.accountBundle?.account ?? null);
 
   return (
     <div>
@@ -43,7 +41,7 @@ export default async function LeadPage({
         </span>
       </div>
 
-      <LeadDetailView result={result} score={score} salesforceUrl={buildSalesforceLeadUrl(leadId)} />
+      <LeadDetailView result={result} salesforceUrl={buildSalesforceLeadUrl(leadId)} />
     </div>
   );
 }

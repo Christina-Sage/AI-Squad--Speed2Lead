@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import type { AccountScore } from "@/lib/scoring/scoring";
 import { AccountDetailView } from "@/components/results/account-detail-view";
+import { ScoringCard } from "@/components/results/scoring-card";
 import { CompanyResearchCards } from "@/components/workit/company-research-cards";
 import {
   WorkItPanel,
@@ -85,7 +86,6 @@ export function AccountFocusView({
     <>
       <AccountDetailView
         result={result}
-        score={score}
         demoUserName={demoUserName}
         salesforceUrl={salesforceUrl}
         onWorkIt={workable && !workingIt ? startWorkIt : undefined}
@@ -96,6 +96,11 @@ export function AccountFocusView({
 
       {workingIt && (
         <div className="mt-2">
+          {score && (
+            <div className="mb-5">
+              <ScoringCard accountId={accountId} score={score} />
+            </div>
+          )}
           {loading && (
             <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
               <span className="size-4 animate-spin rounded-full border-2 border-border border-t-primary" />

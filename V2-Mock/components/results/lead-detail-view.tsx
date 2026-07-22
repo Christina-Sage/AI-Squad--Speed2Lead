@@ -1,10 +1,8 @@
 "use client";
 
 import type { LeadWorkabilityResult } from "@/lib/leads/types";
-import type { AccountScore } from "@/lib/scoring/scoring";
 import { buildSalesforceLeadUrl } from "@/lib/salesforce/urls";
 import { DedupeChecklist } from "@/components/results/dedupe-checklist";
-import { ScoringCard } from "@/components/results/scoring-card";
 import { useToast } from "@/components/ui/toaster";
 
 function SummaryField({ label, children }: { label: string; children: React.ReactNode }) {
@@ -22,11 +20,12 @@ const NA = <span className="font-medium text-muted-foreground">N/A</span>;
 
 /**
  * The SDR lead detail body — a lead-level version of the account detail, reusing
- * the same checklist and scoring layout for consistency (build-plan step 6).
+ * the same checklist layout for consistency (build-plan step 6). Like the
+ * account view, the "Should I work it?" scoring card is NOT rendered here; it
+ * appears only after the SDR pushes "Work it" (see LeadFocusView).
  */
 export function LeadDetailView({
   result,
-  score,
   salesforceUrl,
   onWorkIt,
   collapsible,
@@ -34,7 +33,6 @@ export function LeadDetailView({
   onToggleCollapsed,
 }: {
   result: LeadWorkabilityResult;
-  score: AccountScore;
   salesforceUrl?: string;
   // Same in-page focus wiring as the account view: "Work it" becomes an
   // in-page action and the checks collapse once you're working the lead.
@@ -156,8 +154,6 @@ export function LeadDetailView({
           </SummaryField>
         </div>
       </div>
-
-      <ScoringCard accountId={result.lead_id} score={score} />
     </div>
   );
 }

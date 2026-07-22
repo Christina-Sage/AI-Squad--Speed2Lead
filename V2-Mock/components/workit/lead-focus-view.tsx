@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
 import { LeadDetailView } from "@/components/results/lead-detail-view";
+import { ScoringCard } from "@/components/results/scoring-card";
 import { CompanyResearchCards } from "@/components/workit/company-research-cards";
 import {
   WorkItPanel,
@@ -180,7 +181,6 @@ export function LeadFocusView({
     <>
       <LeadDetailView
         result={result}
-        score={score}
         salesforceUrl={salesforceUrl}
         onWorkIt={workable && !workingIt ? startWorkIt : undefined}
         collapsible={workingIt}
@@ -190,6 +190,9 @@ export function LeadFocusView({
 
       {workingIt && (
         <div className="mt-2">
+          <div className="mb-5">
+            <ScoringCard accountId={leadId} score={score} />
+          </div>
           {accountId ? (
             <>
               {loading && (

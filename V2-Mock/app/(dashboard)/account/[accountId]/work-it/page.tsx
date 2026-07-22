@@ -11,6 +11,7 @@ import { SEQUENCES } from "@/lib/outreach";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { WorkItPanel, type PanelSignals } from "@/components/workit/work-it-panel";
 import { CompanyResearchCards } from "@/components/workit/company-research-cards";
+import { ScoringCard } from "@/components/results/scoring-card";
 import { formatCurrency } from "@/lib/workit/format";
 
 export default async function WorkItPage({
@@ -90,6 +91,12 @@ export default async function WorkItPage({
         {research.dataSource === "propublica" &&
           ` Matched to "${research.organizationName}" (EIN ${research.ein}) on ProPublica Nonprofit Explorer.`}
       </p>
+
+      {score && (
+        <div className="mb-5">
+          <ScoringCard accountId={accountId} score={score} />
+        </div>
+      )}
 
       <CompanyResearchCards
         research={research}
