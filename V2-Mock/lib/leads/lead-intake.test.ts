@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { deriveLead, type LeadIntakeInput } from "@/lib/leads/lead-intake";
 import { SCORE_WEIGHTS } from "@/lib/scoring/scoring";
+import type { SdrLead } from "@/lib/leads/types";
+
+// In-memory stand-in for the Postgres-backed captured-lead store, mirroring how
+// the mock-provider tests stub out `overrides`.
+vi.mock("@/lib/leads/lead-store", () => {
+  const rows: SdrLead[] = [];
+  return {
+    insertCapturedLead: async (lead: SdrLead) => {
+      rows.unshift(lead);
+    },
+    listCapturedLeads: async () => [...rows],
+    getCapturedLead: async (id: string) => rows.find((r) => r.id === id) ?? null,
+  };
+});
 
 const base: LeadIntakeInput = {
   firstName: "Jordan",

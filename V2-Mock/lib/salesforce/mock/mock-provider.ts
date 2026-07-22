@@ -3,6 +3,7 @@ import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
 import { deriveLead, type LeadIntakeInput } from "@/lib/leads/lead-intake";
+import { getCapturedLead, insertCapturedLead, listCapturedLeads } from "@/lib/leads/lead-store";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { detectSearchType } from "@/lib/salesforce/provider";
 import { getMockStore } from "@/lib/salesforce/mock/store";
@@ -139,7 +140,12 @@ export class MockSalesforceProvider implements SalesforceProvider {
 
   async listSdrLeads(): Promise<SdrLeadListItem[]> {
     const store = getMockStore();
-    return store.sdrLeads.map((lead) => {
+    // Fixture worklist leads (in code) plus form-captured leads (persisted in
+    // the DB); captured leads are shown first so a freshly created lead is easy
+    // to spot in a demo.
+    const captured = await listCapturedLeads();
+    const leads: SdrLead[] = [...captured, ...store.sdrLeads];
+    return leads.map((lead) => {
       const account = lead.accountId ? store.accounts.get(lead.accountId) ?? null : null;
       return {
         id: lead.id,
@@ -160,13 +166,13 @@ export class MockSalesforceProvider implements SalesforceProvider {
   }
 
   async createLead(input: LeadIntakeInput): Promise<SdrLead> {
-    const store = getMockStore();
     const derived = deriveLead(input);
 
     const name = `${input.firstName} ${input.lastName}`.trim();
     // Salesforce-style 18-char Lead id (00Q prefix). Uniqueness comes from the
-    // timestamp + current worklist length; good enough for the in-memory mock.
-    const suffix = `${Date.now().toString(36)}${store.sdrLeads.length}`.toUpperCase();
+    // creation timestamp plus a short random suffix.
+    const rand = Math.floor(Math.random() * 1e6).toString(36).toUpperCase();
+    const suffix = `${Date.now().toString(36)}${rand}`.toUpperCase();
     const id = `00Q${suffix}`.padEnd(18, "0").slice(0, 18);
 
     const lead: SdrLead = {
@@ -189,14 +195,18 @@ export class MockSalesforceProvider implements SalesforceProvider {
       createdAt: new Date().toISOString(),
     };
 
-    // New leads go to the top of the worklist so they're easy to spot in a demo.
-    store.sdrLeads.unshift(lead);
+    // Persist so the lead survives instance recycling and appears in the
+    // worklist across requests (the in-memory store alone is per-instance).
+    await insertCapturedLead(lead);
     return lead;
   }
 
   async getSdrLead(leadId: string): Promise<SdrLead | null> {
     const store = getMockStore();
-    return store.sdrLeads.find((l) => l.id === leadId) ?? null;
+    const fixture = store.sdrLeads.find((l) => l.id === leadId);
+    if (fixture) return fixture;
+    // Not a fixture lead — look it up among the persisted, form-captured leads.
+    return getCapturedLead(leadId);
   }
 
   async getSdrLeadBundle(
