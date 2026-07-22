@@ -85,6 +85,7 @@ export default async function Home({
       intent: l.intent,
       workability: l.workability,
       score: l.score,
+      isNew: l.isNew,
     }));
 
   const mode = team === "SDR" ? "leads" : "accounts";

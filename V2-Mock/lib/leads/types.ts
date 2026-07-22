@@ -48,6 +48,12 @@ export interface SdrLeadListItem {
   fit: number;
   intent: number;
   workability: number;
+  /**
+   * True for a freshly captured web-form lead that just arrived in the worklist
+   * (within the "new lead" window). Fixture leads are never flagged. Drives the
+   * "New" badge on the worklist row.
+   */
+  isNew: boolean;
 }
 
 /** Lead-level "Can I work it?" verdict (build-plan step 6). */

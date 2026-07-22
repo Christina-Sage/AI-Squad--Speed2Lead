@@ -14,6 +14,18 @@ import {
   type AccountOverride,
 } from "@/lib/salesforce/mock/overrides";
 
+// A captured lead counts as "just arrived" (and gets the New badge) for this
+// long after it was created. Fixture leads have no createdAt, so they're never
+// flagged.
+const NEW_LEAD_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isRecentlyCaptured(createdAt: string | null | undefined): boolean {
+  if (!createdAt) return false;
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  return Date.now() - created <= NEW_LEAD_WINDOW_MS;
+}
+
 function toMatch(account: Account): AccountSearchMatch {
   return {
     id: account.id,
@@ -161,6 +173,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
         fit: lead.fit,
         intent: lead.intent,
         workability: lead.workability,
+        isNew: isRecentlyCaptured(lead.createdAt),
       };
     });
   }

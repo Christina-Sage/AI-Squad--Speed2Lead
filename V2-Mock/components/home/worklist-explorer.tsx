@@ -40,6 +40,8 @@ export interface LeadRow {
   intent: number;
   workability: number;
   score: number;
+  /** Freshly captured web-form lead — drives the "New" badge on the row. */
+  isNew: boolean;
 }
 
 type FocusKind = "account" | "lead";
@@ -440,7 +442,14 @@ export function WorklistExplorer({
                       {leadOutcome(lead) ? "✓" : leadRankById.get(lead.id)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-bold">{lead.name}</div>
+                      <div className="text-sm font-bold">
+                        {lead.name}
+                        {!leadOutcome(lead) && lead.isNew && (
+                          <span className="ml-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-primary uppercase">
+                            New
+                          </span>
+                        )}
+                      </div>
                       {lead.accountName && (
                         <div className="text-xs text-muted-foreground">
                           {lead.accountName}

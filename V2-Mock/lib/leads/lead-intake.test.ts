@@ -86,5 +86,8 @@ describe("MockSalesforceProvider.createLead", () => {
     // No linked account, so the worklist falls back to the entered company name.
     expect(list[0].accountName).toBe("Rivera Nonprofit Group");
     expect(list[0].score).toBe(lead.score);
+    // Just-captured lead is flagged New; fixture leads (no createdAt) are not.
+    expect(list[0].isNew).toBe(true);
+    expect(list.some((l) => l.id === "00Q5Y00000SARAH1" && l.isNew)).toBe(false);
   });
 });
