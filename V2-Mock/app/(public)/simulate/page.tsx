@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { LeadCaptureForm } from "@/components/simulate/lead-capture-form";
 import {
   COMPANY_SIZES,
@@ -18,21 +17,13 @@ const STAGES: [string, string][] = [
 export default function SimulatePage() {
   return (
     <div>
-      <div className="mb-4 text-[12.5px] text-muted-foreground">
-        <Link href="/" className="text-link hover:underline">
-          ← Worklist
-        </Link>{" "}
-        / Simulate a lead
-      </div>
-
       <div className="mb-5">
-        <h1 className="font-heading text-[24px] font-black">Simulate an inbound web-form lead</h1>
+        <h1 className="font-heading text-[24px] font-black">Talk to a Sage finance expert</h1>
         <p className="mt-1 max-w-[680px] text-muted-foreground">
-          Fill in this form the way a prospect would on the website. On submit, the data is prepped
-          and scored, then written to the mock Salesforce as a new lead that shows up live in the SDR
-          worklist. This stands in for the real path: web form → Eloqua → API → Salesforce →
-          LeanData routing. Eloqua and LeanData aren&apos;t replicated — the point is the end-to-end
-          hand-off from form to a workable lead.
+          Tell us about your organization and we&apos;ll be in touch. This is a standalone lead-capture
+          form: on submit the data is prepped and scored, then created as a new lead that appears in
+          the SDR worklist on the WorkIt dashboard. It stands in for the real path — web form → Eloqua
+          → API → Salesforce → LeanData routing — without replicating Eloqua or LeanData.
         </p>
       </div>
 
