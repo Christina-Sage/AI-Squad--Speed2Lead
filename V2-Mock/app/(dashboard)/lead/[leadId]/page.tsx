@@ -23,7 +23,12 @@ export default async function LeadPage({
   const cookieStore = await cookies();
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
 
-  const duplicateInfo = duplicateInfoFor(leadId, await provider.listSdrLeads());
+  // De-dupe within the lead's own view (same product + priority), matching how
+  // the worklist decides duplicates.
+  const sameView = (await provider.listSdrLeads()).filter(
+    (l) => l.product === bundle.lead.product && l.priorityGroup === bundle.lead.priorityGroup,
+  );
+  const duplicateInfo = duplicateInfoFor(leadId, sameView);
   const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, duplicateInfo);
 
   return (

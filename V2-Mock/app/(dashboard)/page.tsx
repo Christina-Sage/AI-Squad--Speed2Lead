@@ -77,11 +77,12 @@ export default async function Home({
   accountRows.sort((a, b) => b.priority - a.priority);
 
   // SDR lead worklist: filtered to the selected product and priority group,
-  // ranked by score. Duplicate leads (same name/email as an earlier lead) are
-  // pulled out of the workable list into "Blocked by de-dupe".
+  // ranked by score. Duplicate leads (same name/email as an earlier lead in the
+  // same view) are pulled out of the workable list into "Blocked by de-dupe" —
+  // the first lead stays workable, only later ones are blocked.
   const allLeads = await provider.listSdrLeads();
-  const duplicateLeads = computeDuplicateLeads(allLeads);
   const visibleLeads = allLeads.filter((l) => l.product === product && l.priorityGroup === priority);
+  const duplicateLeads = computeDuplicateLeads(visibleLeads);
   const leadRows: LeadRow[] = visibleLeads
     .filter((l) => !duplicateLeads.has(l.id))
     .sort((a, b) => b.score - a.score)
