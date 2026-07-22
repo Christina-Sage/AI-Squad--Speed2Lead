@@ -228,39 +228,6 @@ export function WorkItPanel({
       </Card>
 
       <Card
-        title="Existing Salesforce Contacts & Leads"
-        sub="Tick any you also want to push to Outreach below"
-      >
-        {existingRecords.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">None on the account yet.</p>
-        ) : (
-          existingRecords.map((r) => (
-            <label
-              key={`${r.name}-${r.kind}`}
-              className="flex cursor-pointer items-center gap-3 border-b border-border py-2.5 last:border-b-0"
-            >
-              <input
-                type="checkbox"
-                className="size-4 accent-primary"
-                checked={selected.has(r.name)}
-                onChange={() => toggleSelected(r.name)}
-              />
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-xs font-bold text-muted-foreground">
-                {initials(r.name)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-semibold">{r.name}</span>
-                <span className="block text-xs text-muted-foreground">{r.title}</span>
-              </span>
-              <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
-                {r.kind}
-              </span>
-            </label>
-          ))
-        )}
-      </Card>
-
-      <Card
         title="Push to Outreach"
         sub="BC#3 — selected contacts enter a sequence; signals land on the Outreach dashboard"
       >
