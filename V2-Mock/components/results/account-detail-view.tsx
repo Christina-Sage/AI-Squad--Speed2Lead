@@ -1,10 +1,8 @@
 "use client";
 
 import type { WorkabilityResult } from "@/lib/workability/engine";
-import type { AccountScore } from "@/lib/scoring/scoring";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 import { DedupeChecklist } from "@/components/results/dedupe-checklist";
-import { ScoringCard } from "@/components/results/scoring-card";
 import { OwnerEditor } from "@/components/results/owner-editor";
 import { AbmStatusEditor } from "@/components/results/abm-status-editor";
 
@@ -20,13 +18,14 @@ function SummaryField({ label, children }: { label: string; children: React.Reac
 }
 
 /**
- * The account detail body — verdict checklist, account summary, and scoring card.
+ * The account detail body — verdict checklist and account summary. The
+ * "Should I work it?" scoring card is intentionally NOT here: it only appears
+ * once the rep pushes "Work it" (rendered by the work-it views below).
  * Shared by the standalone /account/[id] route and the inline stacked feed so the
  * two never drift (build-plan step 7).
  */
 export function AccountDetailView({
   result,
-  score,
   demoUserName,
   salesforceUrl,
   onWorkIt,
@@ -35,7 +34,6 @@ export function AccountDetailView({
   onToggleCollapsed,
 }: {
   result: WorkabilityResult;
-  score: AccountScore | null;
   demoUserName: string;
   salesforceUrl?: string;
   // Forwarded to the checklist so the in-page focus view can turn "Work it"
@@ -110,8 +108,6 @@ export function AccountDetailView({
           </SummaryField>
         </div>
       </div>
-
-      {score && <ScoringCard accountId={result.account_id} score={score} />}
     </div>
   );
 }

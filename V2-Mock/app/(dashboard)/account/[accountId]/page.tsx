@@ -7,7 +7,6 @@ import {
   buildSalesforceAccountUrl,
 } from "@/lib/salesforce/provider";
 import { evaluateWorkability } from "@/lib/workability/engine";
-import { scoreAccount } from "@/lib/scoring/scoring";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { writeAuditLog } from "@/lib/audit/audit-log";
@@ -35,7 +34,6 @@ export default async function AccountPage({
 
   const duplicates = await provider.findDuplicateAccounts(accountId);
   const result = evaluateWorkability(bundle, team, duplicates);
-  const score = scoreAccount(bundle, result);
   const searchInput = q ?? result.domain;
 
   await writeAuditLog({
@@ -70,7 +68,6 @@ export default async function AccountPage({
 
       <AccountDetailView
         result={result}
-        score={score}
         demoUserName={demoUser.name}
         salesforceUrl={buildSalesforceAccountUrl(result.account_id)}
       />
