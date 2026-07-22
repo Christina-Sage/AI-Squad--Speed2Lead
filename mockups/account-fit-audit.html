@@ -307,6 +307,40 @@ h1, h2, h3 { font-family: "Sage Headline", "Sage Text", sans-serif; }
 .edge-intent { --edge: #00a65c; }
 .edge-work { --edge: var(--warning); }
 
+/* ---- C v2: single box, research-card style (no per-item scores) ---- */
+.oh { display: flex; flex-wrap: wrap; align-items: center; gap: 20px 30px;
+  padding: 22px 24px; border-bottom: 1px solid var(--border); }
+.rsection { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 18px; }
+.rgrid { display: grid; gap: 12px; }
+.rgrid.g3 { grid-template-columns: repeat(3, 1fr); }
+.rgrid.g4 { grid-template-columns: repeat(4, 1fr); }
+.rcell { border: 1px solid var(--border); background: var(--background);
+  border-radius: 11px; padding: 14px 15px; }
+.rcell .lbl { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.rcell .lbl span { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted-foreground); font-weight: 700; }
+.sdot { width: 7px; height: 7px; border-radius: 999px; flex: none; }
+.sdot.good { background: var(--success); }
+.sdot.watch { background: var(--warning); }
+.rval { font-size: 17px; font-weight: 700; letter-spacing: -.01em; line-height: 1.28; }
+.rgrid.g4 .rval { font-size: 14.5px; }
+.rsrc { margin-top: 6px; font-size: 11.5px; color: var(--muted-foreground); }
+.rnote { font-size: 13px; line-height: 1.55; color: var(--foreground); margin: 0; }
+.rnote b { font-weight: 700; }
+.rnote .muted { color: var(--muted-foreground); }
+.divider { height: 1px; background: var(--border); }
+.gsec > .gs-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.gsec .gs-head h4 { margin: 0; font-size: 14.5px; font-weight: 700; }
+.gsec .gs-head span { font-size: 12px; color: var(--muted-foreground); }
+.gitem { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0;
+  border-bottom: 1px dashed var(--border); }
+.gitem:last-child { border-bottom: 0; }
+.gicon { width: 28px; height: 28px; border-radius: 8px; flex: none;
+  border: 1px solid var(--border); background: var(--primary-soft);
+  display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.gitem .gtext { font-size: 13.5px; padding-top: 3px; }
+.gitem .gtext small { color: var(--muted-foreground); }
+
 /* ============ responsive ============ */
 @media (max-width: 860px) {
   .lrow { grid-template-columns: 1fr; }
@@ -314,9 +348,11 @@ h1, h2, h3 { font-family: "Sage Headline", "Sage Text", sans-serif; }
   .lrow .right .conf, .lrow .right { width: 100%; }
   .board .tile { grid-column: span 6; }
   .hero-pillars { margin-left: 0; }
+  .rgrid.g3, .rgrid.g4 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
   .board .tile { grid-column: span 12; }
+  .rgrid.g3, .rgrid.g4 { grid-template-columns: 1fr; }
   .shell { padding-left: 16px; padding-right: 16px; }
   .topbar { margin-left: -16px; margin-right: -16px; }
 }
@@ -347,19 +383,19 @@ h1, h2, h3 { font-family: "Sage Headline", "Sage Text", sans-serif; }
 <div class="shell">
 
   <nav class="tabs" role="tablist" aria-label="Mockup concepts">
-    <button class="tab" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="true">
+    <button class="tab" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="false">
       <b>A · Scorecard+</b><span>Evolve the current card</span>
     </button>
     <button class="tab" role="tab" id="tab-b" aria-controls="panel-b" aria-selected="false">
       <b>B · Source Ledger</b><span>Provenance-first table</span>
     </button>
-    <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false">
-      <b>C · Signal Board</b><span>Glanceable tile grid</span>
+    <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="true">
+      <b>C · Account in one box</b><span>Overall score + detail — preferred</span>
     </button>
   </nav>
 
   <!-- =============================== PANEL A =============================== -->
-  <section class="panel" id="panel-a" role="tabpanel" aria-labelledby="tab-a">
+  <section class="panel" id="panel-a" role="tabpanel" aria-labelledby="tab-a" hidden>
     <div class="concept-head">
       <div class="eyebrow">Mockup A</div>
       <h2>Scorecard+ — the card you have, now showing its sources</h2>
@@ -680,115 +716,109 @@ h1, h2, h3 { font-family: "Sage Headline", "Sage Text", sans-serif; }
   </section>
 
   <!-- =============================== PANEL C =============================== -->
-  <section class="panel" id="panel-c" role="tabpanel" aria-labelledby="tab-c" hidden>
+  <section class="panel" id="panel-c" role="tabpanel" aria-labelledby="tab-c">
     <div class="concept-head">
-      <div class="eyebrow">Mockup C</div>
-      <h2>Signal Board — the whole account at a glance</h2>
-      <p>A dashboard tile per question, colour-coded to its pillar, with the headline finding first and the
-        sources tucked at the foot. Built to be scanned, not read — a rep triaging a worklist can spot the one
-        weak tile (workability) against seven green ones without parsing a table.</p>
+      <div class="eyebrow">Mockup C · revised</div>
+      <h2>One box — overall score up top, the account below</h2>
+      <p>Keeps the top score header you liked and drops the per-answer scoring. Everything the eight checks
+        uncover now sits in a single card, in the app's own research-card style: a labelled value with the tool
+        it came from underneath, and growth signals as a running list. Only one number on the page — the overall.</p>
     </div>
 
     <div class="stage">
       <div class="board">
+        <div class="card" style="grid-column: span 12">
 
-        <div class="card hero-tile">
-          <div class="hero-score"><b>81</b><span>/100 · P1</span></div>
-          <div class="hero-meta">
-            <h3>Cascade Community Health</h3>
-            <p>Nonprofit · Community Healthcare (FQHC) · Portland, OR · 410 FTE</p>
+          <!-- overall score header (kept from C) -->
+          <div class="oh">
+            <div class="hero-score"><b>81</b><span>/100 · P1</span></div>
+            <div class="hero-meta">
+              <h3>Cascade Community Health</h3>
+              <p>Nonprofit · Community Healthcare (FQHC) · Portland, OR · 410 FTE</p>
+            </div>
+            <div class="hero-pillars">
+              <div class="hp"><span class="uc">Fit · 40%</span><b>84</b><div class="mini"><div style="width:84%"></div></div></div>
+              <div class="hp"><span class="uc">Intent · 35%</span><b>85</b><div class="mini"><div style="width:85%"></div></div></div>
+              <div class="hp"><span class="uc">Work · 25%</span><b>72</b><div class="mini"><div style="width:72%;background:var(--warning)"></div></div></div>
+            </div>
           </div>
-          <div class="hero-pillars">
-            <div class="hp"><span class="uc">Fit · 40%</span><b>84</b><div class="mini"><div style="width:84%"></div></div></div>
-            <div class="hp"><span class="uc">Intent · 35%</span><b>85</b><div class="mini"><div style="width:85%"></div></div></div>
-            <div class="hp"><span class="uc">Work · 25%</span><b>72</b><div class="mini"><div style="width:72%;background:var(--warning)"></div></div></div>
-          </div>
-        </div>
 
-        <!-- FIT tiles -->
-        <div class="card tile edge-fit t3">
-          <div class="thead"><span class="qlabel">Industry</span><span class="verdict v-good">ICP match</span></div>
-          <div class="headline">Nonprofit — Community Healthcare<span class="sub">Right vertical. 4 sources agree.</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:95%"></div></div><span class="conf-num">95</span></div>
-            <div class="srcs"><span class="src high"><i></i>LinkedIn</span><span class="src high"><i></i>ZoomInfo</span><span class="src high"><i></i>Website</span><span class="src med"><i></i>GMO</span></div>
-          </div>
-        </div>
+          <!-- account detail, research-card style -->
+          <div class="rsection">
 
-        <div class="card tile edge-fit t3">
-          <div class="thead"><span class="qlabel">Revenue</span><span class="verdict v-good">In band</span></div>
-          <div class="headline">$92M revenue<span class="sub">FY24 Form 990 · band $25M–$250M</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:88%"></div></div><span class="conf-num">88</span></div>
-            <div class="srcs"><span class="src high"><i></i>ProPublica</span><span class="src med"><i></i>Guidestar</span><span class="src low"><i></i>ZoomInfo</span></div>
-          </div>
-        </div>
+            <div class="rgrid g3">
+              <div class="rcell">
+                <div class="lbl"><span class="sdot good"></span><span>Industry</span></div>
+                <div class="rval">Nonprofit — Community Healthcare</div>
+                <div class="rsrc">FQHC · ICP match · Source: LinkedIn Sales Nav, ZoomInfo, Website</div>
+              </div>
+              <div class="rcell">
+                <div class="lbl"><span class="sdot good"></span><span>Revenue</span></div>
+                <div class="rval">$92,000,000</div>
+                <div class="rsrc">In band ($25M–$250M) · FY24 Form 990 · Source: ProPublica</div>
+              </div>
+              <div class="rcell">
+                <div class="lbl"><span class="sdot good"></span><span>Full-time employees</span></div>
+                <div class="rval">410</div>
+                <div class="rsrc">In ICP (10–500) · mid-market · Source: LinkedIn Sales Nav</div>
+              </div>
+            </div>
 
-        <div class="card tile edge-fit t3">
-          <div class="thead"><span class="qlabel">Employee count</span><span class="verdict v-good">In ICP</span></div>
-          <div class="headline">410 FTE<span class="sub">Band 10–500 · mid-market</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:82%"></div></div><span class="conf-num">82</span></div>
-            <div class="srcs"><span class="src high"><i></i>LinkedIn</span><span class="src med"><i></i>ZoomInfo</span><span class="src low"><i></i>GMO</span></div>
-          </div>
-        </div>
+            <div class="rgrid g4">
+              <div class="rcell">
+                <div class="lbl"><span class="sdot good"></span><span>People in-house</span></div>
+                <div class="rval">VP Finance + Controller</div>
+                <div class="rsrc">CFO/VP tier = high fit · LinkedIn</div>
+              </div>
+              <div class="rcell">
+                <div class="lbl"><span class="sdot good"></span><span>Contacts on file</span></div>
+                <div class="rval">4 contacts</div>
+                <div class="rsrc">3+ = high coverage · Salesforce</div>
+              </div>
+              <div class="rcell">
+                <div class="lbl"><span class="sdot good"></span><span>Intent</span></div>
+                <div class="rval">6Sense — Decision</div>
+                <div class="rsrc">Product keywords matched · 6Sense</div>
+              </div>
+              <div class="rcell">
+                <div class="lbl"><span class="sdot watch"></span><span>Prior DQ'd opps</span></div>
+                <div class="rval">1 · 16 mo ago</div>
+                <div class="rsrc">Re-workable (see note) · Salesforce GMO</div>
+              </div>
+            </div>
 
-        <div class="card tile edge-fit t3">
-          <div class="thead"><span class="qlabel">People in-house</span><span class="verdict v-good">Title fit</span></div>
-          <div class="headline">VP Finance + Controller<span class="sub">CFO/VP tier = high fit</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:80%"></div></div><span class="conf-num">80</span></div>
-            <div class="srcs"><span class="src high"><i></i>LinkedIn</span><span class="src med"><i></i>SF title</span></div>
-          </div>
-        </div>
+            <p class="rnote">
+              <b>Intent detail:</b> 6Sense keywords “Sage Intacct” &amp; “nonprofit fund accounting”; 3 website
+              visits this week; opened 2 Eloqua nurture emails <span class="muted">(Folloze coming Aug)</span>.
+              <br><b>Workability note:</b> opp disqualified 16 months ago — “budget froze, went quiet,” which reads
+              as re-workable, not a hard no. Last meaningful activity 41 days ago (pricing objection); rules of
+              engagement clear, no competing rep claim.
+            </p>
 
-        <!-- INTENT tiles -->
-        <div class="card tile edge-intent t6">
-          <div class="thead"><span class="qlabel">Intent signals</span><span class="verdict v-good">Hot</span></div>
-          <div class="headline">6Sense: Decision stage<span class="sub">Keywords “Sage Intacct” · 3 visits · 2 email opens</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:90%"></div></div><span class="conf-num">90</span></div>
-            <div class="srcs"><span class="src high"><i></i>6Sense</span><span class="src high"><i></i>Keywords</span><span class="src low"><i></i>Eloqua</span><span class="src soon"><i></i>Folloze</span></div>
-          </div>
-        </div>
+            <div class="divider"></div>
 
-        <div class="card tile edge-intent t6">
-          <div class="thead"><span class="qlabel">Growth signals</span><span class="verdict v-good">Expanding</span></div>
-          <div class="headline">$12M HRSA grant · 2 new clinics · +18% headcount YoY<span class="sub">Partnership with regional hospital system — timing is live</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:84%"></div></div><span class="conf-num">84</span></div>
-            <div class="srcs"><span class="src high"><i></i>Company Newsroom</span><span class="src high"><i></i>LinkedIn Sales Nav</span><span class="src low"><i></i>ZoomInfo · M&amp;A</span></div>
-          </div>
-        </div>
+            <div class="gsec">
+              <div class="gs-head"><h4>Growth Signals</h4><span>New hires, new locations, changes to the business</span></div>
+              <div class="gitem">
+                <div class="gicon">📈</div>
+                <div class="gtext">Headcount +18% over the last 12 months <small>(LinkedIn Sales Navigator)</small></div>
+              </div>
+              <div class="gitem">
+                <div class="gicon">📈</div>
+                <div class="gtext">New $12M HRSA grant awarded <small>(press release, 1 month ago)</small></div>
+              </div>
+              <div class="gitem">
+                <div class="gicon">📈</div>
+                <div class="gtext">Two new clinics announced <small>(Company Newsroom)</small></div>
+              </div>
+              <div class="gitem">
+                <div class="gicon">📈</div>
+                <div class="gtext">Partnership with regional hospital system <small>(ZoomInfo)</small></div>
+              </div>
+            </div>
 
-        <!-- WORKABILITY tiles -->
-        <div class="card tile edge-work t4">
-          <div class="thead"><span class="qlabel">Any contacts?</span><span class="verdict v-good">High</span></div>
-          <div class="headline">4 contacts on file<span class="sub">3+ = high coverage</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:92%"></div></div><span class="conf-num">92</span></div>
-            <div class="srcs"><span class="src high"><i></i>Salesforce GMO</span></div>
-          </div>
-        </div>
-
-        <div class="card tile edge-work t4">
-          <div class="thead"><span class="qlabel">DQ'd opps</span><span class="verdict v-watch">Re-engage</span></div>
-          <div class="headline">1 prior DQ · 16 mo ago<span class="sub">“Budget froze, went quiet” — re-workable</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:70%;background:var(--warning)"></div></div><span class="conf-num">70</span></div>
-            <div class="srcs"><span class="src high"><i></i>GMO Notes</span><span class="src high"><i></i>Intacct Problems</span></div>
-          </div>
-        </div>
-
-        <div class="card tile edge-work t4">
-          <div class="thead"><span class="qlabel">Previous activity</span><span class="verdict v-watch">Aging</span></div>
-          <div class="headline">Last touch 41 days ago<span class="sub">Pricing objection logged · re-touch window</span></div>
-          <div class="foot">
-            <div class="conf"><div class="conf-track"><div class="conf-fill" style="width:66%;background:var(--warning)"></div></div><span class="conf-num">66</span></div>
-            <div class="srcs"><span class="src med"><i></i>Salesforce GMO</span></div>
           </div>
         </div>
-
       </div>
     </div>
   </section>
