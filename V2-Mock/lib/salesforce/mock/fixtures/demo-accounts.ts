@@ -196,6 +196,17 @@ const LEAD_SPECS: LeadSpec[] = [
 
 const LEAD_OWNER = { name: "Pat Lee" };
 
+// Real campaign codes used as each lead's Marketing Campaign Source. Every lead
+// gets one so the Lead Summary never shows a blank campaign.
+const LEAD_CAMPAIGNS = [
+  "INT_24Q1_NCA_CA_TECContentSyndicationTOFU",
+  "INT_PDF_NCA_US_0009InfusemediaContentSynd",
+  "INT_24Q2_NCA_CA_ZiffDavisAppointment",
+  "INT_23Q3_NCA_US_0009NFPProductTour",
+  "INT_24Q1_NCA_CA_DigitalZoneHQL",
+  "INT_TOO_NCA_CA_ProductTourProgressiveEN",
+];
+
 function pad3(n: number): string {
   return String(n).padStart(3, "0");
 }
@@ -400,6 +411,8 @@ function build(): Generated {
         score,
         company,
         email,
+        // Every lead carries a marketing campaign source.
+        source: LEAD_CAMPAIGNS[(pi * LEAD_SPECS.length + i) % LEAD_CAMPAIGNS.length],
       });
     });
   });

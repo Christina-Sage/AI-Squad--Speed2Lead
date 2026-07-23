@@ -68,6 +68,7 @@ export const SDR_LEADS: SdrLead[] = [
     // email still show, but no company domain can be inferred (the exception).
     company: "Brightpeak Advisory",
     email: "james.obrien@shaw.ca",
+    source: "INT_23Q3_NCA_US_0009NFPProductTour",
   },
   {
     id: "00Q5Y00000LENA01",
