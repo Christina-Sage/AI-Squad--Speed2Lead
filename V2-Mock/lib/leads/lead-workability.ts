@@ -20,6 +20,25 @@ function chk(
   return { key, label, question, badgeType, state, reason };
 }
 
+// ABM/nurture statuses that mean the account is already being actively engaged,
+// so the Account Association row surfaces the owner to coordinate with. Matched
+// loosely so every "Interested (… months)" variant and "Inbound Working" count.
+function statusShowsOwner(status: string | null): boolean {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s.includes("working") || s.includes("nurture") || s.includes("interested");
+}
+
+// "YYYY-MM-DD (N days ago)" for an account's last activity; null when unset.
+function formatAccountActivity(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const then = new Date(dateStr);
+  if (Number.isNaN(then.getTime())) return null;
+  const days = Math.floor((Date.now() - then.getTime()) / (1000 * 60 * 60 * 24));
+  const rel = days <= 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`;
+  return `${then.toISOString().slice(0, 10)} (${rel})`;
+}
+
 /**
  * Lead-level "Can I work it?" verdict (build-plan step 6). A lead-level version of
  * the six-check account verdict. Checks that depend on an account (association,
@@ -72,19 +91,25 @@ export function evaluateLeadWorkability(
       "No linked account on this lead — nothing to reconcile",
     );
   } else {
-    const linkedNote =
-      acct.final_status === "NOT WORKABLE"
-        ? `Maps to ${account.name} (currently blocked: ${acct.reason})`
+    // When the account carries an active-engagement status, surface the owner so
+    // the rep coordinates with them; otherwise fall back to the account's own
+    // workability nuance (blocked / review).
+    const ownerClause = statusShowsOwner(account.abmNurtureStatus)
+      ? `, owned by ${account.ownerName} (${account.abmNurtureStatus})`
+      : acct.final_status === "NOT WORKABLE"
+        ? ` (account currently blocked: ${acct.reason})`
         : acct.final_status === "WORKABLE WITH REVIEW"
-          ? `Maps to ${account.name} — linked account is workable with review`
-          : `Maps to ${account.name}`;
+          ? ` (account is workable with review)`
+          : "";
+    const activity = formatAccountActivity(account.lastActivityDate);
+    const activityClause = activity ? `, last account activity ${activity}` : "";
     assoc = chk(
       "assoc",
       "Account Association",
       assocQuestion,
       "pf",
       "warn",
-      `${linkedNote} — verify the linked account association before working`,
+      `Maps to ${account.name}${ownerClause}${activityClause} — verify the linked account association before working`,
     );
   }
 

@@ -1,13 +1,14 @@
 import type { Account } from "@/lib/salesforce/types";
 import { DEMO_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
+import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 
 export const ACCOUNTS: Account[] = [
   {
     id: "0015Y00000ACME01",
     name: "Acme Robotics",
     domain: "acme.com",
-    ownerId: "house",
-    ownerName: "House Account",
+    ownerId: "u-pat",
+    ownerName: "Pat Lee",
     industry: "Manufacturing",
     type: "Prospect",
     product: "Intacct",
@@ -21,8 +22,10 @@ export const ACCOUNTS: Account[] = [
       { name: "6sense Retargeting — Manufacturing", date: "2026-05-19" },
       { name: "FinOps Summit 2026 — Booth Scan", date: "2026-06-30" },
     ],
-    abmNurtureStatus: null,
-    lastActivityDate: null,
+    // Actively worked by a rep — the lead-level Account Association check surfaces
+    // the owner and last activity so the SDR coordinates before working.
+    abmNurtureStatus: "Working",
+    lastActivityDate: daysAgo(2),
     intacct: { hasOpenOpps: false },
   },
   {
@@ -51,8 +54,8 @@ export const ACCOUNTS: Account[] = [
     id: "0015Y00000GLBX01",
     name: "Globex Nonprofit",
     domain: "globex.org",
-    ownerId: "house",
-    ownerName: "House Account",
+    ownerId: "u-alex",
+    ownerName: "Alex Rivera",
     industry: "Nonprofit",
     type: "Prospect",
     product: "Intacct",
@@ -63,8 +66,8 @@ export const ACCOUNTS: Account[] = [
       { name: "Nonprofit Finance Nurture", date: "2026-03-22" },
       { name: "Year-End Close Webinar", date: "2026-06-05" },
     ],
-    abmNurtureStatus: null,
-    lastActivityDate: null,
+    abmNurtureStatus: "Nurture",
+    lastActivityDate: daysAgo(21),
     intacct: { hasOpenOpps: false },
   },
   {
@@ -175,8 +178,8 @@ export const ACCOUNTS: Account[] = [
     id: "0015Y00000DNRC01",
     name: "DonorsChoose",
     domain: "donorschoose.org",
-    ownerId: "house",
-    ownerName: "House Account",
+    ownerId: "u-jamie",
+    ownerName: "Jamie Park",
     industry: "Nonprofit",
     type: "Prospect",
     product: "Intacct",
@@ -184,8 +187,8 @@ export const ACCOUNTS: Account[] = [
     buyingStage: "Target",
     rating: "P3",
     campaigns: [{ name: "Nonprofit Finance Nurture", date: "2026-04-15" }],
-    abmNurtureStatus: null,
-    lastActivityDate: null,
+    abmNurtureStatus: "Interested (7-12 months)",
+    lastActivityDate: daysAgo(60),
     intacct: { hasOpenOpps: false },
   },
   {
