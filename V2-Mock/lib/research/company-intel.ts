@@ -185,6 +185,83 @@ const INTEL_FIXTURES: Record<string, CompanyIntel> = {
   },
 };
 
+// ZoomInfo / LinkedIn Sales Navigator intel for standalone (no-account) leads at
+// real for-profit companies, keyed by email domain. Nonprofits are not here —
+// they use the ProPublica (990) path. Figures approximate public reporting.
+const INTEL_BY_DOMAIN: Record<string, CompanyIntel> = {
+  "zapier.com": {
+    revenue: { amount: 310_000_000, source: "ZoomInfo" },
+    employees: { count: 900, source: "LinkedIn Sales Navigator" },
+    hqLocation: "San Francisco, CA (remote-first)",
+    locations: "Fully distributed — 40+ countries",
+    parentAccount: null,
+    funding: { round: "Secondary", amount: "$5B valuation", date: "2021", investors: "Sequoia, Steadfast" },
+    growthSignals: [
+      "Headcount +12% over the last 12 months (LinkedIn)",
+      "Expanded into enterprise automation and AI orchestration (press, 2 months ago)",
+    ],
+    hiringSignals: [
+      {
+        role: "Corporate Controller",
+        postedDaysAgo: 15,
+        source: "LinkedIn Jobs",
+        descriptionSnippet:
+          "Own the monthly close for a fast-scaling SaaS business; consolidate multiple entities; move off spreadsheets to a modern cloud ERP.",
+        clues: ["Multi-entity SaaS", "Spreadsheet-based close (outgrowing)", "Cloud ERP evaluation"],
+      },
+    ],
+  },
+  "gusto.com": {
+    revenue: { amount: 500_000_000, source: "ZoomInfo" },
+    employees: { count: 2_800, source: "LinkedIn Sales Navigator" },
+    hqLocation: "San Francisco, CA",
+    locations: "3 offices (San Francisco, Denver, New York)",
+    parentAccount: null,
+    funding: { round: "Series E", amount: "$175M", date: "2 years ago", investors: "T. Rowe Price, Generation" },
+    growthSignals: [
+      "Headcount +18% post-Series E (LinkedIn)",
+      "Launched embedded-finance product line (press, 6 weeks ago)",
+    ],
+    hiringSignals: [
+      {
+        role: "Senior Manager, Accounting",
+        postedDaysAgo: 9,
+        source: "LinkedIn Jobs",
+        descriptionSnippet:
+          "Scale the accounting function; implement ASC 606 revenue recognition; multi-entity consolidation across three offices.",
+        clues: ["ASC 606 / SaaS rev rec", "Multi-entity consolidation", "Finance systems implementation"],
+      },
+    ],
+  },
+  "bombas.com": {
+    revenue: { amount: 300_000_000, source: "ZoomInfo" },
+    employees: { count: 190, source: "LinkedIn Sales Navigator" },
+    hqLocation: "New York, NY",
+    locations: "HQ + distribution center",
+    parentAccount: null,
+    funding: null,
+    growthSignals: [
+      "Crossed $100M in lifetime donated pairs (press, 1 month ago)",
+      "Expanding wholesale/retail distribution channel",
+    ],
+    hiringSignals: [
+      {
+        role: "Director of Finance",
+        postedDaysAgo: 21,
+        source: "Company careers page",
+        descriptionSnippet:
+          "Own inventory accounting and margin reporting for a DTC + wholesale apparel business; currently heavy on QuickBooks + Excel.",
+        clues: ["QuickBooks (outgrowing)", "Inventory accounting", "DTC + wholesale"],
+      },
+    ],
+  },
+};
+
+/** ZoomInfo/LinkedIn intel for a for-profit company by domain; null if unknown. */
+export function getCompanyIntelByDomain(domain: string): CompanyIntel | null {
+  return INTEL_BY_DOMAIN[domain.trim().toLowerCase()] ?? null;
+}
+
 function isNonprofit(account: Account): boolean {
   return account.industry.toLowerCase().includes("nonprofit");
 }

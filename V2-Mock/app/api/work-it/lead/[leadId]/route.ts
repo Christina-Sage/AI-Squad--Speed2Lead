@@ -4,6 +4,7 @@ import { getSalesforceProvider } from "@/lib/salesforce/provider";
 import { researchAccount } from "@/lib/research/research-account";
 import { scoreLead } from "@/lib/leads/lead-scoring";
 import { buildHygieneSuggestions } from "@/lib/workit/hygiene";
+import { getCompanyIntelByDomain } from "@/lib/research/company-intel";
 import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 import { SEQUENCES } from "@/lib/outreach";
 import { formatCurrency } from "@/lib/workit/format";
@@ -30,17 +31,21 @@ export async function GET(
 
   const domain = companyDomainFromEmail(lead.email) ?? "";
   const companyName = lead.company ?? lead.name;
+  // Industry hint (Salesforce Leads carry one). Drives the research path:
+  // Nonprofit -> ProPublica 990; otherwise ZoomInfo/LinkedIn intel by domain.
+  const industry = lead.industry ?? "Unknown";
+  const isNonprofit = industry.toLowerCase().includes("nonprofit");
 
   // Synthetic account for the research pipeline — only name/domain/industry are
-  // read. Industry is unknown for a bare lead, so the nonprofit (ProPublica)
-  // path is skipped and research comes from the website + Wikipedia.
+  // read. The nonprofit path runs ProPublica; for-profits fall back to
+  // website + Wikipedia for history/contacts and ZoomInfo/LinkedIn for firmographics.
   const account: Account = {
     id: lead.id,
     name: companyName,
     domain,
     ownerId: "house",
     ownerName: "House Account",
-    industry: "Unknown",
+    industry,
     type: "Prospect",
     product: lead.product,
     tam: null,
@@ -57,15 +62,20 @@ export async function GET(
   const score = scoreLead(lead, null);
   const hygiene = buildHygieneSuggestions(account, research);
 
-  const sourceLabel =
-    research.dataSource === "propublica"
+  // For-profit firmographics come from ZoomInfo (revenue) + LinkedIn Sales
+  // Navigator (employees); nonprofits use the 990 figures from research.
+  const intel = isNonprofit ? null : getCompanyIntelByDomain(domain);
+
+  const sourceLabel = intel
+    ? "Web search · ZoomInfo · LinkedIn Sales Navigator"
+    : research.dataSource === "propublica"
       ? "ProPublica (990)"
       : research.dataSource === "website"
         ? "Company website"
         : "Web research — limited public data";
 
-  const revenueAmount = research.revenue.amount;
-  const fteCount = research.employeeCount.count;
+  const revenueAmount = intel ? intel.revenue.amount : research.revenue.amount;
+  const fteCount = intel ? intel.employees.count : research.employeeCount.count;
 
   const signals: PanelSignals = {
     revenue: formatCurrency(revenueAmount),
@@ -93,7 +103,7 @@ export async function GET(
       ein: research.ein,
     },
     research,
-    intel: null,
+    intel,
     sourceLabel,
     revenueAmount,
     fteCount,

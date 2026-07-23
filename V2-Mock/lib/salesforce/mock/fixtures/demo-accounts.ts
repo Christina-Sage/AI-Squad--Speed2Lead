@@ -142,16 +142,18 @@ const LEAD_FIRST = [
 ];
 const LEAD_LAST = ["Hale", "Bright", "Okafor", "Vance", "Delgado", "Ashworth"];
 
-// Standalone companies for the no-account leads, so a domain can still be
-// inferred from a work email even without a linked Salesforce account. One per
-// product line.
+// Companies for the no-account leads, so a domain can still be inferred from a
+// work email even without a linked Salesforce account. Real companies with real
+// domains, so standalone-lead research returns public data. A mix of nonprofits
+// (ProPublica 990 revenue/officers) and for-profits (ZoomInfo + LinkedIn Sales
+// Navigator intel — see getCompanyIntelByDomain). One per product line.
 const LEAD_COMPANIES = [
-  { name: "Riverstone Bookkeeping", domain: "riverstonebooks.com" },
-  { name: "Harborline Advisory", domain: "harborlineadvisory.com" },
-  { name: "Summit Ledger Group", domain: "summitledger.com" },
-  { name: "Copperfield Finance", domain: "copperfieldfinance.com" },
-  { name: "Northgate CPA Group", domain: "northgatecpa.com" },
-  { name: "Brightpeak Consulting", domain: "brightpeakconsulting.com" },
+  { name: "Feeding America", domain: "feedingamerica.org", industry: "Nonprofit" },
+  { name: "Zapier", domain: "zapier.com", industry: "Technology" },
+  { name: "Teach For America", domain: "teachforamerica.org", industry: "Nonprofit" },
+  { name: "Gusto", domain: "gusto.com", industry: "Technology" },
+  { name: "Habitat for Humanity International", domain: "habitat.org", industry: "Nonprofit" },
+  { name: "Bombas", domain: "bombas.com", industry: "Wholesale Distribution" },
 ];
 
 // The ten outcomes demonstrated per product line. `account` names which of the
@@ -411,6 +413,9 @@ function build(): Generated {
         score,
         company,
         email,
+        // Industry hint for no-account leads drives standalone-lead research
+        // (Nonprofit -> ProPublica 990; otherwise ZoomInfo/LinkedIn intel).
+        industry: accountId ? undefined : noAcctCompany.industry,
         // Every lead carries a marketing campaign source.
         source: LEAD_CAMPAIGNS[(pi * LEAD_SPECS.length + i) % LEAD_CAMPAIGNS.length],
       });
