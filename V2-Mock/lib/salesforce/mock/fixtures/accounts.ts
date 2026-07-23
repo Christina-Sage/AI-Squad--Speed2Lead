@@ -221,7 +221,7 @@ export const ACCOUNTS: Account[] = [
     intacct: { hasOpenOpps: false, varStatus: "Registered - CloudServe Partners" },
   },
 
-  // Generated per-product demo accounts (16 per product line) so every Product
+  // Generated per-product demo accounts (20 per product line) so every Product
   // filter shows a populated worklist and blocked list. See demo-accounts.ts.
   ...DEMO_ACCOUNTS,
 ];

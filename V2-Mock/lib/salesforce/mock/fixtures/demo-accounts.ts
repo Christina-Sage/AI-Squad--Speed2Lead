@@ -6,11 +6,11 @@ import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 /**
  * Generated BDR demo accounts, spread across every product line so switching the
  * dashboard Product filter always shows a populated worklist. For each product
- * this produces a scaled-but-complete mix (16 accounts):
+ * this produces a scaled-but-complete mix (20 accounts):
  *
  *   Blocked by de-dupe (10): 2 existing-customer, 2 partner deal registration,
  *     2 open opportunity, 2 ROE conflict, 2 disqualified-opp cooling-off.
- *   Today's Worklist (6): 4 workable, 2 workable-with-review (expired TAM).
+ *   Today's Worklist (10): 7 workable, 3 workable-with-review (expired TAM).
  *
  * The ROE and DQ blocks depend on linked records, so this module also emits the
  * matching contacts (recent activity inside the 30-day ROE window) and
@@ -31,7 +31,7 @@ interface Slot {
   code: string;
 }
 
-// 16 slots per product, in a stable order.
+// 20 slots per product, in a stable order.
 const SLOTS: Slot[] = [
   { kind: "blocked", block: "existing-customer", code: "EC" },
   { kind: "blocked", block: "existing-customer", code: "EC" },
@@ -47,6 +47,10 @@ const SLOTS: Slot[] = [
   { kind: "workable", code: "WK" },
   { kind: "workable", code: "WK" },
   { kind: "workable", code: "WK" },
+  { kind: "workable", code: "WK" },
+  { kind: "workable", code: "WK" },
+  { kind: "workable", code: "WK" },
+  { kind: "review", code: "RV" },
   { kind: "review", code: "RV" },
   { kind: "review", code: "RV" },
 ];
@@ -62,15 +66,15 @@ const PRODUCT_CHAR: Record<Product, string> = {
   SSG: "G",
 };
 
-// 24 adjectives × 4 nouns = 96 unique company names — exactly one per generated
-// account (6 products × 16 slots), so names and slug-derived domains never clash.
+// 24 adjectives × 5 nouns = 120 unique company names — exactly one per generated
+// account (6 products × 20 slots), so names and slug-derived domains never clash.
 const ADJECTIVES = [
   "Meridian", "Cascade", "Summit", "Harbor", "Alpine", "Greenfield",
   "Nimbus", "Redwood", "Vertex", "Coastal", "Pinnacle", "Lumen",
   "Ironclad", "Solstice", "Beacon", "Trailhead", "Cobalt", "Riverside",
   "Fairmont", "Willow", "Cedar", "Northgate", "Bluewater", "Keystone",
 ];
-const NOUNS = ["Group", "Partners", "Holdings", "Systems"];
+const NOUNS = ["Group", "Partners", "Holdings", "Systems", "Collective"];
 
 const INDUSTRIES = [
   "Manufacturing",
