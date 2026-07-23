@@ -4,6 +4,7 @@ import { getSalesforceProvider } from "@/lib/salesforce/provider";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { writeAuditLog } from "@/lib/audit/audit-log";
+import { resolveWorkItTarget } from "@/lib/workit/work-it-target";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
 
 /**
@@ -23,9 +24,9 @@ export async function POST(request: Request) {
   }
 
   const provider = getSalesforceProvider();
-  const bundle = await provider.getAccountBundle(accountId);
-  if (!bundle) {
-    return NextResponse.json({ success: false, error: "Account not found" }, { status: 404 });
+  const target = await resolveWorkItTarget(provider, accountId);
+  if (!target) {
+    return NextResponse.json({ success: false, error: "Account or lead not found" }, { status: 404 });
   }
 
   const cookieStore = await cookies();
@@ -39,8 +40,8 @@ export async function POST(request: Request) {
     searchInput: accountId,
     searchType: "global_account_id",
     accountId,
-    domain: bundle.account.domain,
-    accountName: bundle.account.name,
+    domain: target.domain,
+    accountName: target.name,
     action: "NOT_A_FIT",
     reason,
   });
