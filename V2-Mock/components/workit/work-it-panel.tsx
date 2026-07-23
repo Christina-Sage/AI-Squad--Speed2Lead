@@ -118,8 +118,7 @@ export function WorkItPanel({
   const [busy, setBusy] = useState<string | null>(null);
   // The simulated Outreach prospect panel, opened right after a successful push.
   const [outreachPanel, setOutreachPanel] = useState<{
-    prospect: OutreachProspect;
-    othersCount: number;
+    prospects: OutreachProspect[];
     sequence: string;
   } | null>(null);
 
@@ -185,21 +184,18 @@ export function WorkItPanel({
       toast(
         `${names.length} contact${names.length > 1 ? "s" : ""} added to “${sequence}” in Outreach`,
       );
-      // Open the simulated Outreach prospect panel for the first-pushed contact;
-      // closing it returns to the worklist (the normal post-push destination).
-      const primary = names[0];
-      const contact = foundContacts.find((c) => c.name === primary);
-      const record = existingRecords.find((r) => r.name === primary);
-      setOutreachPanel({
-        prospect: {
-          name: primary,
+      // Open the simulated Outreach prospect panel listing every pushed contact.
+      const prospects: OutreachProspect[] = names.map((name) => {
+        const contact = foundContacts.find((c) => c.name === name);
+        const record = existingRecords.find((r) => r.name === name);
+        return {
+          name,
           title: contact?.title ?? record?.title ?? null,
           company: accountName ?? null,
-          email: deriveEmail(primary, domain),
-        },
-        othersCount: names.length - 1,
-        sequence,
+          email: deriveEmail(name, domain),
+        };
       });
+      setOutreachPanel({ prospects, sequence });
       setBusy(null);
     } catch {
       toast("Failed to push to Outreach");
@@ -452,10 +448,9 @@ export function WorkItPanel({
 
       {outreachPanel && (
         <OutreachProspectPanel
-          prospect={outreachPanel.prospect}
+          prospects={outreachPanel.prospects}
           sequence={outreachPanel.sequence}
-          othersCount={outreachPanel.othersCount}
-          onClose={() => returnToWorklist(accountId)}
+          onClose={() => setOutreachPanel(null)}
         />
       )}
     </>

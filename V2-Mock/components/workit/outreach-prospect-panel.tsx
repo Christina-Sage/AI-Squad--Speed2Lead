@@ -39,23 +39,24 @@ function initials(name: string): string {
 
 /**
  * A simulated Outreach "prospect profile" side panel — the screen Outreach
- * slides in when a prospect is added to a sequence. This is a visual mock (no
+ * slides in when prospects are added to a sequence. This is a visual mock (no
  * real Outreach integration): it uses Outreach's own light theme and indigo
- * accent rather than the app's tokens, so it reads as a separate product. Data
- * is populated from the contact we just pushed; email is derived when unknown.
+ * accent rather than the app's tokens, so it reads as a separate product. Every
+ * pushed contact is listed; email is derived when unknown. Closing dismisses
+ * the panel and leaves the rep on the current page.
  */
 export function OutreachProspectPanel({
-  prospect,
+  prospects,
   sequence,
-  othersCount = 0,
   onClose,
 }: {
-  prospect: OutreachProspect;
+  prospects: OutreachProspect[];
   sequence: string;
-  othersCount?: number;
   onClose: () => void;
 }) {
-  const subline = [prospect.company, prospect.title].filter(Boolean).join(" • ");
+  const count = prospects.length;
+  const many = count > 1;
+  const company = prospects.find((p) => p.company)?.company ?? null;
 
   return (
     <div className="fixed inset-0 z-[100] flex justify-end">
@@ -78,7 +79,9 @@ export function OutreachProspectPanel({
           <div className="ml-1 flex min-w-0 items-center gap-1 text-[13px]">
             <span className="text-slate-400">Prospects</span>
             <span className="text-slate-300">/</span>
-            <span className="truncate font-medium text-slate-700">{prospect.name}</span>
+            <span className="truncate font-medium text-slate-700">
+              {many ? `${count} added` : prospects[0]?.name}
+            </span>
           </div>
           <div className="flex-1" />
           <SearchIcon className="size-4" />
@@ -102,26 +105,41 @@ export function OutreachProspectPanel({
           {/* Confirmation of the action that opened this panel */}
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12.5px] font-medium text-emerald-700">
             <CheckCircle2Icon className="size-4 shrink-0" />
-            Added to “{sequence}”
-            {othersCount > 0 && (
-              <span className="font-normal text-emerald-600">
-                · +{othersCount} other{othersCount > 1 ? "s" : ""}
-              </span>
-            )}
+            {count} {count === 1 ? "prospect" : "prospects"} added to “{sequence}”
           </div>
 
-          <div className="mb-2 text-[13px] font-semibold text-slate-700">Profile ▾</div>
+          <div className="mb-2 text-[13px] font-semibold text-slate-700">
+            {many ? "Prospects" : "Profile ▾"}
+          </div>
 
-          {/* Identity */}
-          <div className="mb-3 flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
-              {initials(prospect.name)}
-            </span>
-            <div className="min-w-0">
-              <div className="text-[15px] font-semibold text-slate-900">{prospect.name}</div>
-              {subline && <div className="text-[12.5px] text-slate-500">{subline}</div>}
-              <div className="text-[12.5px] font-medium text-[#5b5bd6]">Contact</div>
-            </div>
+          {/* One identity block per pushed contact */}
+          <div className="mb-3 divide-y divide-slate-100">
+            {prospects.map((p) => (
+              <div key={p.name} className="flex items-start gap-3 py-2.5 first:pt-0">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
+                  {initials(p.name)}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[15px] font-semibold text-slate-900">{p.name}</div>
+                  {[p.company, p.title].filter(Boolean).length > 0 && (
+                    <div className="text-[12.5px] text-slate-500">
+                      {[p.company, p.title].filter(Boolean).join(" • ")}
+                    </div>
+                  )}
+                  {p.email ? (
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-[#5b5bd6]">
+                      <MailIcon className="size-3.5 shrink-0" />
+                      <span className="truncate">{p.email}</span>
+                    </div>
+                  ) : (
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-slate-400">
+                      <MailIcon className="size-3.5 shrink-0" />
+                      No email on file
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Add to sequence + quick actions */}
@@ -161,36 +179,21 @@ export function OutreachProspectPanel({
             <div className="flex items-center gap-2 text-[13px]">
               <SendHorizontalIcon className="size-4 shrink-0 text-slate-400" />
               <span>
-                Active in <span className="font-medium text-[#5b5bd6]">1 sequence</span>
+                {many ? `${count} prospects active in` : "Active in"}{" "}
+                <span className="font-medium text-[#5b5bd6]">1 sequence</span>
                 <span className="block text-[11.5px] text-slate-400">{sequence}</span>
               </span>
             </div>
             <div className="flex items-center gap-2 text-[13px]">
               <ListChecksIcon className="size-4 shrink-0 text-slate-400" />
-              <span className="font-medium text-[#5b5bd6]">1 active task</span>
+              <span className="font-medium text-[#5b5bd6]">
+                {count} active {count === 1 ? "task" : "tasks"}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-[13px]">
               <ClockIcon className="size-4 shrink-0 text-slate-400" />
               <span className="text-slate-600">Touched just now</span>
             </div>
-          </div>
-
-          {/* Contact */}
-          <div className="mb-1.5 text-[12px] font-semibold tracking-wide text-slate-400 uppercase">
-            Contact
-          </div>
-          <div className="mb-4 space-y-2 text-[13px]">
-            {prospect.email ? (
-              <div className="flex items-center gap-2">
-                <MailIcon className="size-4 shrink-0 text-slate-400" />
-                <span className="truncate text-[#5b5bd6]">{prospect.email}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-slate-400">
-                <MailIcon className="size-4 shrink-0" />
-                No email on file
-              </div>
-            )}
           </div>
 
           {/* Account */}
@@ -199,7 +202,7 @@ export function OutreachProspectPanel({
           </div>
           <div className="mb-4 flex items-center gap-2 text-[13px]">
             <Building2Icon className="size-4 shrink-0 text-slate-400" />
-            <span className="text-[#5b5bd6]">{prospect.company ?? "—"}</span>
+            <span className="text-[#5b5bd6]">{company ?? "—"}</span>
           </div>
 
           {/* Open opportunities */}
@@ -209,13 +212,13 @@ export function OutreachProspectPanel({
           <div className="text-[13px] text-slate-400">No opportunities</div>
         </div>
 
-        {/* Footer — return to the worklist, matching the post-push flow */}
+        {/* Footer — dismiss and stay on the page */}
         <div className="border-t border-slate-200 px-4 py-3">
           <button
             onClick={onClose}
             className="w-full rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-slate-700"
           >
-            Done — back to worklist
+            Close
           </button>
         </div>
       </div>
