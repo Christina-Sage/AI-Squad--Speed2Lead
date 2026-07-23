@@ -132,6 +132,7 @@ export function AccountFocusView({
                 accountId={accountId}
                 accountName={data.account.name}
                 domain={data.account.domain}
+                industry={data.account.industry}
                 foundContacts={data.foundContacts}
                 existingRecords={data.existingRecords}
                 hygiene={data.hygiene}
