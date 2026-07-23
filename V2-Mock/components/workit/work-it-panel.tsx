@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CopyIcon } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
+import { buildAccountNote } from "@/lib/workit/account-note";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
 import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
@@ -87,6 +88,7 @@ export function WorkItPanel({
   accountId,
   accountName,
   domain,
+  industry,
   foundContacts,
   existingRecords,
   hygiene,
@@ -98,6 +100,7 @@ export function WorkItPanel({
   accountId: string;
   accountName?: string;
   domain?: string;
+  industry?: string;
   foundContacts: PanelContact[];
   existingRecords: PanelExistingRecord[];
   hygiene: HygieneSuggestion[];
@@ -116,6 +119,7 @@ export function WorkItPanel({
   const [sequence, setSequence] = useState(sequences[0]);
   const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
   // The simulated Outreach prospect panel, opened right after a successful push.
   const [outreachPanel, setOutreachPanel] = useState<{
     prospects: OutreachProspect[];
@@ -226,6 +230,21 @@ export function WorkItPanel({
   }
 
   const selectedCount = pushable.filter((p) => selected.has(p.name)).length;
+
+  const accountNote = buildAccountNote({
+    accountName: accountName ?? "This account",
+    industry,
+    signals,
+  });
+
+  async function copyNote() {
+    try {
+      await navigator.clipboard.writeText(accountNote.text);
+      toast("Summary notes copied — paste into Outreach");
+    } catch {
+      toast("Couldn’t copy to clipboard");
+    }
+  }
 
   return (
     <>
@@ -346,6 +365,62 @@ export function WorkItPanel({
                 })}
               </div>
             )}
+
+            <div className="mb-4 rounded-[11px] border border-border">
+              <button
+                type="button"
+                onClick={() => setNotesOpen((v) => !v)}
+                aria-expanded={notesOpen}
+                className="flex w-full items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-left hover:bg-primary-soft"
+              >
+                <span className="flex items-center gap-1.5 text-[13px] font-bold">
+                  🗒️ Account summary notes
+                </span>
+                {!notesOpen && (
+                  <span className="text-[12px] font-medium text-muted-foreground">· expand to copy</span>
+                )}
+                <span className="flex-1" />
+                <ChevronDownIcon
+                  className={`size-4 shrink-0 text-muted-foreground transition-transform ${notesOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {notesOpen && (
+                <div className="border-t border-border p-3.5">
+                  <div className="mb-2.5 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={copyNote}
+                      className="inline-flex items-center gap-1.5 rounded-[8px] border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold hover:border-muted-foreground"
+                    >
+                      <CopyIcon className="size-3.5" />
+                      Copy for Outreach
+                    </button>
+                  </div>
+                  <div className="rounded-[10px] border border-border bg-background p-4 text-[13px]">
+                    <div className="mb-2.5 border-b border-border pb-2 text-[11.5px] tracking-[0.3px] text-muted-foreground">
+                      {accountNote.meta}
+                    </div>
+                    {accountNote.sections.map((s) => (
+                      <div key={s.title} className="mb-3 last:mb-0">
+                        <h4 className="mb-1 text-[12px] font-extrabold tracking-[0.3px]">{s.title}</h4>
+                        <ul className="list-disc pl-[18px]">
+                          {s.lines.map((l, i) => (
+                            <li key={i} className="my-0.5">
+                              {l}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                    {accountNote.hashtags.length > 0 && (
+                      <div className="mt-3 border-t border-border pt-2 text-[12px] font-semibold text-primary">
+                        {accountNote.hashtags.join(" ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <p className="mb-2 text-[13px] font-bold">2. Pick a sequence and push</p>
             <div className="flex flex-wrap items-center gap-3">
