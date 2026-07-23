@@ -13,7 +13,7 @@ import {
   type PanelSignals,
 } from "@/components/workit/work-it-panel";
 import { useToast } from "@/components/ui/toaster";
-import { SEQUENCES } from "@/lib/outreach";
+import { SEQUENCES, SEQUENCE_GROUPS } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
 import type { CompanyResearchResult } from "@/lib/research/types";
 import type { CompanyIntel } from "@/lib/research/company-intel";
@@ -93,10 +93,14 @@ function LeadOnlyDecision({ leadId, leadName }: { leadId: string; leadName: stri
             onChange={(e) => setSequence(e.target.value)}
             className="rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
           >
-            {SEQUENCES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+            {SEQUENCE_GROUPS.map((g) => (
+              <optgroup key={g.value} label={g.value}>
+                {g.items.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <button
