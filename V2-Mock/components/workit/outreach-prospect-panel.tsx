@@ -59,19 +59,13 @@ export function OutreachProspectPanel({
   const company = prospects.find((p) => p.company)?.company ?? null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-end">
-      {/* Dim the app behind the drawer; click to dismiss. */}
-      <div
-        className="absolute inset-0 bg-black/30 data-open:animate-in data-open:fade-in-0"
-        data-open=""
-        onClick={onClose}
-        aria-hidden
-      />
-
+    // Non-modal, docked to the right: the app stays usable behind it and it only
+    // closes on the explicit X / Close controls (never on an outside click).
+    <div className="pointer-events-none fixed inset-0 z-[100] flex justify-end">
       <div
         role="dialog"
         aria-label="Outreach prospect"
-        className="relative flex h-full w-full max-w-[400px] flex-col bg-white text-slate-800 shadow-2xl duration-200 animate-in fade-in-0 slide-in-from-right-8"
+        className="pointer-events-auto relative flex h-full w-full max-w-[400px] flex-col border-l border-slate-200 bg-white text-slate-800 shadow-2xl duration-200 animate-in fade-in-0 slide-in-from-right-8"
       >
         {/* Outreach top chrome */}
         <div className="flex items-center gap-1.5 border-b border-slate-200 px-3 py-2 text-slate-500">
