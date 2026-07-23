@@ -15,6 +15,7 @@ import {
 import { useToast } from "@/components/ui/toaster";
 import { SEQUENCES, SEQUENCE_GROUPS } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
+import { OutreachProspectPanel, type OutreachProspect } from "@/components/workit/outreach-prospect-panel";
 import type { CompanyResearchResult } from "@/lib/research/types";
 import type { CompanyIntel } from "@/lib/research/company-intel";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
@@ -45,11 +46,24 @@ interface WorkItData {
  * to a sequence or mark them Not a Fit. Both record the lead and return to the
  * worklist marked worked.
  */
-function LeadOnlyDecision({ leadId, leadName }: { leadId: string; leadName: string }) {
+function LeadOnlyDecision({
+  leadId,
+  leadName,
+  leadTitle,
+}: {
+  leadId: string;
+  leadName: string;
+  leadTitle?: string | null;
+}) {
   const toast = useToast();
   const [sequence, setSequence] = useState(SEQUENCES[0]);
   const [reason, setReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [outreachProspect, setOutreachProspect] = useState<OutreachProspect | null>(null);
+
+  function toWorklist() {
+    window.location.assign(`/?worked=${encodeURIComponent(leadId)}`);
+  }
 
   async function run(action: "push" | "not_fit") {
     setBusy(action);
@@ -65,12 +79,15 @@ function LeadOnlyDecision({ leadId, leadName }: { leadId: string; leadName: stri
         setBusy(null);
         return;
       }
-      toast(
-        action === "push"
-          ? `${leadName} pushed to “${sequence}” — back to your worklist`
-          : `Marked “Not a Fit” — ${reason}`,
-      );
-      window.location.assign(`/?worked=${encodeURIComponent(leadId)}`);
+      if (action === "push") {
+        toast(`${leadName} added to “${sequence}” in Outreach`);
+        // Open the simulated Outreach panel; closing returns to the worklist.
+        setOutreachProspect({ name: leadName, title: leadTitle ?? null });
+        setBusy(null);
+        return;
+      }
+      toast(`Marked “Not a Fit” — ${reason}`);
+      toWorklist();
     } catch {
       toast("Something went wrong");
       setBusy(null);
@@ -78,6 +95,7 @@ function LeadOnlyDecision({ leadId, leadName }: { leadId: string; leadName: stri
   }
 
   return (
+    <>
     <div className="rounded-[14px] border border-border bg-card shadow-sm">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <h2 className="text-[15.5px] font-semibold">Work this lead</h2>
@@ -135,6 +153,14 @@ function LeadOnlyDecision({ leadId, leadName }: { leadId: string; leadName: stri
         </div>
       </div>
     </div>
+    {outreachProspect && (
+      <OutreachProspectPanel
+        prospects={[outreachProspect]}
+        sequence={sequence}
+        onClose={() => setOutreachProspect(null)}
+      />
+    )}
+    </>
   );
 }
 
@@ -229,6 +255,8 @@ export function LeadFocusView({
                   />
                   <WorkItPanel
                     accountId={accountId}
+                    accountName={data.account.name}
+                    domain={data.account.domain}
                     foundContacts={data.foundContacts}
                     existingRecords={data.existingRecords}
                     hygiene={data.hygiene}
@@ -247,7 +275,7 @@ export function LeadFocusView({
               <div className="mb-5">
                 <ScoringCard accountId={leadId} score={score} />
               </div>
-              <LeadOnlyDecision leadId={leadId} leadName={result.name} />
+              <LeadOnlyDecision leadId={leadId} leadName={result.name} leadTitle={result.title} />
             </>
           )}
         </div>

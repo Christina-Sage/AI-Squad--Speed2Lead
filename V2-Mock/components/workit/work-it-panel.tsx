@@ -7,6 +7,21 @@ import { useToast } from "@/components/ui/toaster";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
 import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
+import { OutreachProspectPanel, type OutreachProspect } from "@/components/workit/outreach-prospect-panel";
+
+/** Best-effort work email from a person's name + company domain (mock only). */
+function deriveEmail(name: string, domain?: string): string | null {
+  if (!domain) return null;
+  const parts = name
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  const local = parts.length >= 2 ? `${parts[0]}.${parts[parts.length - 1]}` : parts[0];
+  return `${local}@${domain}`;
+}
 
 // After a record is worked (pushed or marked not-a-fit) we return to the
 // worklist, which re-derives worked-state server-side and shows the "next up"
@@ -70,6 +85,8 @@ const btnSm =
 
 export function WorkItPanel({
   accountId,
+  accountName,
+  domain,
   foundContacts,
   existingRecords,
   hygiene,
@@ -79,6 +96,8 @@ export function WorkItPanel({
   initialPush,
 }: {
   accountId: string;
+  accountName?: string;
+  domain?: string;
   foundContacts: PanelContact[];
   existingRecords: PanelExistingRecord[];
   hygiene: HygieneSuggestion[];
@@ -97,6 +116,11 @@ export function WorkItPanel({
   const [sequence, setSequence] = useState(sequences[0]);
   const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
+  // The simulated Outreach prospect panel, opened right after a successful push.
+  const [outreachPanel, setOutreachPanel] = useState<{
+    prospects: OutreachProspect[];
+    sequence: string;
+  } | null>(null);
 
   async function applyHygiene(h: HygieneSuggestion) {
     setBusy(`hy-${h.field}`);
@@ -158,9 +182,21 @@ export function WorkItPanel({
       }
       setPush(data.push);
       toast(
-        `${names.length} contact${names.length > 1 ? "s" : ""} pushed to “${sequence}” — back to your worklist`,
+        `${names.length} contact${names.length > 1 ? "s" : ""} added to “${sequence}” in Outreach`,
       );
-      returnToWorklist(accountId);
+      // Open the simulated Outreach prospect panel listing every pushed contact.
+      const prospects: OutreachProspect[] = names.map((name) => {
+        const contact = foundContacts.find((c) => c.name === name);
+        const record = existingRecords.find((r) => r.name === name);
+        return {
+          name,
+          title: contact?.title ?? record?.title ?? null,
+          company: accountName ?? null,
+          email: deriveEmail(name, domain),
+        };
+      });
+      setOutreachPanel({ prospects, sequence });
+      setBusy(null);
     } catch {
       toast("Failed to push to Outreach");
       setBusy(null);
@@ -409,6 +445,14 @@ export function WorkItPanel({
           </span>
         </div>
       </Card>
+
+      {outreachPanel && (
+        <OutreachProspectPanel
+          prospects={outreachPanel.prospects}
+          sequence={outreachPanel.sequence}
+          onClose={() => setOutreachPanel(null)}
+        />
+      )}
     </>
   );
 }

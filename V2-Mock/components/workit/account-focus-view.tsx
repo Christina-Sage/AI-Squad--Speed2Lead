@@ -130,6 +130,8 @@ export function AccountFocusView({
               )}
               <WorkItPanel
                 accountId={accountId}
+                accountName={data.account.name}
+                domain={data.account.domain}
                 foundContacts={data.foundContacts}
                 existingRecords={data.existingRecords}
                 hygiene={data.hygiene}
