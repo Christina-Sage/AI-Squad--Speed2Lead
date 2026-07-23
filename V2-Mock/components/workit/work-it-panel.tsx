@@ -326,15 +326,15 @@ export function WorkItPanel({
               </Combobox.Trigger>
               <Combobox.Portal>
                 <Combobox.Positioner className="isolate z-50" sideOffset={4}>
-                  <Combobox.Popup className="max-h-[min(24rem,var(--available-height))] w-[340px] origin-(--transform-origin) overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
+                  <Combobox.Popup className="flex max-h-72 w-[340px] flex-col origin-(--transform-origin) rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
                     <Combobox.Input
                       placeholder="Search sequences..."
-                      className="mb-1 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm outline-none focus-visible:border-ring"
+                      className="mb-1 w-full shrink-0 rounded-md border border-input bg-transparent px-2 py-1 text-sm outline-none focus-visible:border-ring"
                     />
                     <Combobox.Empty className="px-2 py-1.5 text-sm text-muted-foreground">
                       No sequence found.
                     </Combobox.Empty>
-                    <Combobox.List>
+                    <Combobox.List className="min-h-0 flex-1 overflow-y-auto">
                       {(group: SequenceGroup) => (
                         <Combobox.Group key={group.value} items={group.items} className="mb-1 last:mb-0">
                           <Combobox.GroupLabel className="px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.4px] text-muted-foreground uppercase">
