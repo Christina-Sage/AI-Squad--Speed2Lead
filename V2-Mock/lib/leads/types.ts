@@ -21,6 +21,13 @@ export interface SdrLead {
   priorityGroup: PriorityGroup;
   /** Sage product line — drives the dashboard product filter. */
   product: Product;
+  /**
+   * Optional industry hint (Salesforce Leads carry one). Used only for
+   * standalone-lead research: a "Nonprofit" hint lets the work-it research run
+   * the ProPublica (990) lookup even without a linked account. Absent for most
+   * leads, so for-profit research stays website/Wikipedia-only.
+   */
+  industry?: string | null;
   fit: number;
   intent: number;
   workability: number;
