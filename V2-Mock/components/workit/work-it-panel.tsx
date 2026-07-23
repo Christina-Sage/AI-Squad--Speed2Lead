@@ -450,7 +450,7 @@ export function WorkItPanel({
         <OutreachProspectPanel
           prospects={outreachPanel.prospects}
           sequence={outreachPanel.sequence}
-          onClose={() => setOutreachPanel(null)}
+          onClose={() => returnToWorklist(accountId)}
         />
       )}
     </>
