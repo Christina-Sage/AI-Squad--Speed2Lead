@@ -9,6 +9,7 @@ import {
 } from "@/lib/workability/engine";
 import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
+import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 
 function chk(
   key: string,
@@ -205,7 +206,12 @@ export function evaluateLeadWorkability(
     title: lead.title,
     account_id: lead.accountId,
     account_name: account?.name ?? null,
-    domain: account?.domain ?? null,
+    // Company name and email travel with the lead even when it has no account.
+    company: lead.company ?? account?.name ?? null,
+    email: lead.email ?? null,
+    // Domain from the linked account, otherwise inferred from a work email
+    // (null for personal/ISP addresses — see companyDomainFromEmail).
+    domain: account?.domain ?? companyDomainFromEmail(lead.email),
     owner: lead.ownerName,
     status: lead.status,
     team,

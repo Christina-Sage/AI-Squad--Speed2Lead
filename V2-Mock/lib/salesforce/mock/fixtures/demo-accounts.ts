@@ -142,6 +142,18 @@ const LEAD_FIRST = [
 ];
 const LEAD_LAST = ["Hale", "Bright", "Okafor", "Vance", "Delgado", "Ashworth"];
 
+// Standalone companies for the no-account leads, so a domain can still be
+// inferred from a work email even without a linked Salesforce account. One per
+// product line.
+const LEAD_COMPANIES = [
+  { name: "Riverstone Bookkeeping", domain: "riverstonebooks.com" },
+  { name: "Harborline Advisory", domain: "harborlineadvisory.com" },
+  { name: "Summit Ledger Group", domain: "summitledger.com" },
+  { name: "Copperfield Finance", domain: "copperfieldfinance.com" },
+  { name: "Northgate CPA Group", domain: "northgatecpa.com" },
+  { name: "Brightpeak Consulting", domain: "brightpeakconsulting.com" },
+];
+
 // The ten outcomes demonstrated per product line. `account` names which of the
 // product's generated accounts to link to (or none); `ownedByOther` forces a
 // lead-level ROE fail; `dup` marks a lead that should land in Blocked by
@@ -326,19 +338,23 @@ function build(): Generated {
     return name;
   };
 
-  PRODUCTS.forEach((productInfo) => {
+  PRODUCTS.forEach((productInfo, pi) => {
     const product = productInfo.id;
     const prodChar = PRODUCT_CHAR[product];
-    const dupEmail = `demo.lead.${product.toLowerCase()}@example.com`;
+    const noAcctCompany = LEAD_COMPANIES[pi % LEAD_COMPANIES.length];
 
     // The "original" name that the duplicate-by-name lead will reuse. It belongs
     // to the first spec (index 0); every other non-dup spec gets a fresh name.
     let firstName = "";
+    // The no-account "confirm/create" lead's work email, reused by the
+    // email-duplicate lead so it's flagged on email rather than name.
+    let sharedNoAcctEmail = "";
 
     LEAD_SPECS.forEach((spec, i) => {
       const accountId = spec.account
         ? `0015Y00000${prodChar}${LEAD_ACCOUNT_SLOT[spec.account].code}${pad3(LEAD_ACCOUNT_SLOT[spec.account].si)}`
         : null;
+      const accountDomain = accountId ? accounts.find((a) => a.id === accountId)?.domain ?? null : null;
 
       let name: string;
       if (spec.dup === "name") {
@@ -347,10 +363,25 @@ function build(): Generated {
         name = freshName();
         if (i === 0) firstName = name;
       }
+      const emailLocal = name.trim().toLowerCase().split(/\s+/).join(".");
 
-      // The email-duplicate lead and its "original" (the no-account lead, index
-      // 6) share an email so the later one is flagged on email, not name.
-      const email = spec.dup === "email" || i === 6 ? dupEmail : null;
+      // Company + email travel with every lead. Linked leads take their company
+      // from the account (in the workability logic) and get a work email at the
+      // account's domain; unlinked leads carry a standalone company + work email
+      // so a domain can still be inferred without an account.
+      let company: string | null = null;
+      let email: string | null = null;
+      if (accountId) {
+        email = accountDomain ? `${emailLocal}@${accountDomain}` : null;
+      } else {
+        company = noAcctCompany.name;
+        email = `${emailLocal}@${noAcctCompany.domain}`;
+        if (i === 6) sharedNoAcctEmail = email; // original for the email-duplicate
+      }
+      if (spec.dup === "email") {
+        company = noAcctCompany.name;
+        email = sharedNoAcctEmail;
+      }
 
       const score = Math.round(spec.fit * 0.4 + spec.intent * 0.35 + spec.workability * 0.25);
 
@@ -367,6 +398,7 @@ function build(): Generated {
         intent: spec.intent,
         workability: spec.workability,
         score,
+        company,
         email,
       });
     });
