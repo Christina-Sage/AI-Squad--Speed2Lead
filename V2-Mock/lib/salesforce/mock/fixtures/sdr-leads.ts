@@ -19,6 +19,7 @@ export const SDR_LEADS: SdrLead[] = [
     intent: 82,
     workability: 73,
     score: 81,
+    email: "sarah.chen@acme.com",
   },
   {
     id: "00Q5Y00000MARCU1",
@@ -33,6 +34,7 @@ export const SDR_LEADS: SdrLead[] = [
     intent: 74,
     workability: 75,
     score: 79,
+    email: "marcus.webb@globex.org",
   },
   {
     id: "00Q5Y00000PRIYA1",
@@ -47,6 +49,7 @@ export const SDR_LEADS: SdrLead[] = [
     intent: 60,
     workability: 72,
     score: 67,
+    email: "priya.nair@wayne.com",
   },
   {
     id: "00Q5Y00000JAMES1",
@@ -61,6 +64,10 @@ export const SDR_LEADS: SdrLead[] = [
     intent: 58,
     workability: 53,
     score: 58,
+    // No linked account, and a personal/ISP email (shaw.ca) — company name and
+    // email still show, but no company domain can be inferred (the exception).
+    company: "Brightpeak Advisory",
+    email: "james.obrien@shaw.ca",
   },
   {
     id: "00Q5Y00000LENA01",
@@ -75,6 +82,7 @@ export const SDR_LEADS: SdrLead[] = [
     intent: 45,
     workability: 60,
     score: 56,
+    email: "lena.faust@donorschoose.org",
   },
   {
     id: "00Q5Y00000TOM001",
@@ -89,6 +97,7 @@ export const SDR_LEADS: SdrLead[] = [
     intent: 40,
     workability: 56,
     score: 53,
+    email: "tom.alvarez@myaccesshealth.org",
   },
 
   // Generated per-product demo leads (10 per product line) exercising a spread

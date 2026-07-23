@@ -108,6 +108,16 @@ export function LeadDetailView({
         <div className="grid grid-cols-2 gap-x-5 gap-y-3.5 p-5 md:grid-cols-4">
           <SummaryField label="Name">{result.name}</SummaryField>
           <SummaryField label="Title">{result.title}</SummaryField>
+          <SummaryField label="Company">{result.company ?? NA}</SummaryField>
+          <SummaryField label="Email">
+            {result.email ? (
+              <a href={`mailto:${result.email}`} className="text-link hover:underline">
+                {result.email}
+              </a>
+            ) : (
+              NA
+            )}
+          </SummaryField>
           <SummaryField label="Associated Account">
             {result.account_id && result.account_name ? (
               <a

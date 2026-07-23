@@ -71,6 +71,15 @@ export interface LeadWorkabilityResult {
   title: string;
   account_id: string | null;
   account_name: string | null;
+  /** Company name for the lead — the linked account's name, or the lead's own company when unlinked. */
+  company: string | null;
+  /** Lead's email address, when known. */
+  email: string | null;
+  /**
+   * Company domain: the linked account's domain, else inferred from the lead's
+   * work email. Null only when there's no account and the email is a
+   * personal/ISP address (gmail, outlook, shaw.ca, …).
+   */
   domain: string | null;
   owner: string;
   status: string;
