@@ -1,5 +1,6 @@
 import type { Opportunity } from "@/lib/salesforce/types";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
+import { DEMO_OPPORTUNITIES } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 
 export const OPPORTUNITIES: Opportunity[] = [
   {
@@ -49,4 +50,7 @@ export const OPPORTUNITIES: Opportunity[] = [
     furthestStage: "Prospecting",
     closedDate: daysAgo(18),
   },
+
+  // DQ cooling-off opps for the generated per-product demo accounts.
+  ...DEMO_OPPORTUNITIES,
 ];

@@ -1,4 +1,5 @@
 import type { Account } from "@/lib/salesforce/types";
+import { DEMO_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 
 export const ACCOUNTS: Account[] = [
   {
@@ -219,4 +220,8 @@ export const ACCOUNTS: Account[] = [
     lastActivityDate: null,
     intacct: { hasOpenOpps: false, varStatus: "Registered - CloudServe Partners" },
   },
+
+  // Generated per-product demo accounts (20 per product line) so every Product
+  // filter shows a populated worklist and blocked list. See demo-accounts.ts.
+  ...DEMO_ACCOUNTS,
 ];

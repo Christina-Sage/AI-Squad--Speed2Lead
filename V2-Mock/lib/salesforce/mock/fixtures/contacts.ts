@@ -1,5 +1,6 @@
 import type { Contact } from "@/lib/salesforce/types";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
+import { DEMO_CONTACTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 
 export const CONTACTS: Contact[] = [
   {
@@ -83,4 +84,7 @@ export const CONTACTS: Contact[] = [
     accountId: "0015Y00000UMBS01",
     lastActivityDate: daysAgo(55),
   },
+
+  // ROE-window contacts for the generated per-product demo accounts.
+  ...DEMO_CONTACTS,
 ];
