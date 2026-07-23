@@ -56,43 +56,35 @@ export function evaluateLeadWorkability(
         "No matching lead or contact found in Salesforce",
       );
 
-  // 2. Account association — does the lead map to a known, workable account?
+  // 2. Account association — a net-new SDR lead with no linked account has
+  // nothing to reconcile, so this passes. When an account *is* linked, flag it
+  // for review so the rep confirms the association (and the linked account's own
+  // status) before working the lead.
+  const assocQuestion = "Any account linked to this lead?";
   let assoc: DedupeCheck;
   if (!account || !acct) {
     assoc = chk(
       "assoc",
       "Account Association",
-      "Maps to a known, workable account?",
-      "pf",
-      "na",
-      "No linked account on this lead — account workability cannot be validated",
-    );
-  } else if (acct.final_status === "NOT WORKABLE") {
-    assoc = chk(
-      "assoc",
-      "Account Association",
-      "Maps to a known, workable account?",
-      "pf",
-      "fail",
-      `Maps to ${account.name}, but that account is blocked: ${acct.reason}`,
-    );
-  } else if (acct.final_status === "WORKABLE WITH REVIEW") {
-    assoc = chk(
-      "assoc",
-      "Account Association",
-      "Maps to a known, workable account?",
-      "pf",
-      "warn",
-      `Maps to ${account.name} — account is workable with review`,
-    );
-  } else {
-    assoc = chk(
-      "assoc",
-      "Account Association",
-      "Maps to a known, workable account?",
+      assocQuestion,
       "pf",
       "pass",
-      `Maps to ${account.name} — account is workable`,
+      "No linked account on this lead — nothing to reconcile",
+    );
+  } else {
+    const linkedNote =
+      acct.final_status === "NOT WORKABLE"
+        ? `Maps to ${account.name} (currently blocked: ${acct.reason})`
+        : acct.final_status === "WORKABLE WITH REVIEW"
+          ? `Maps to ${account.name} — linked account is workable with review`
+          : `Maps to ${account.name}`;
+    assoc = chk(
+      "assoc",
+      "Account Association",
+      assocQuestion,
+      "pf",
+      "warn",
+      `${linkedNote} — verify the linked account association before working`,
     );
   }
 
@@ -195,7 +187,7 @@ function buildLeadReason(
     if (!lead.accountId) {
       return {
         reason:
-          "This lead has no linked account, so three account-level checks (association, open opportunity, existing customer) could not run.",
+          "This lead has no linked account, so two account-level checks (open opportunity, existing customer) could not run.",
         recommendation: "Confirm or create the account, then re-check before working the lead.",
       };
     }
