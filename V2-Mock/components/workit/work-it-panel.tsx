@@ -5,7 +5,7 @@ import { Combobox } from "@base-ui/react/combobox";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
-import type { OutreachPush } from "@/lib/outreach";
+import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
 
 // After a record is worked (pushed or marked not-a-fit) we return to the
@@ -314,7 +314,7 @@ export function WorkItPanel({
             <p className="mb-2 text-[13px] font-bold">2. Pick a sequence and push</p>
             <div className="flex flex-wrap items-center gap-3">
             <Combobox.Root
-              items={sequences}
+              items={SEQUENCE_GROUPS}
               value={sequence}
               onValueChange={(value: string | null) => {
                 if (value) setSequence(value);
@@ -326,7 +326,7 @@ export function WorkItPanel({
               </Combobox.Trigger>
               <Combobox.Portal>
                 <Combobox.Positioner className="isolate z-50" sideOffset={4}>
-                  <Combobox.Popup className="w-[340px] origin-(--transform-origin) rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
+                  <Combobox.Popup className="max-h-[min(24rem,var(--available-height))] w-[340px] origin-(--transform-origin) overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
                     <Combobox.Input
                       placeholder="Search sequences..."
                       className="mb-1 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm outline-none focus-visible:border-ring"
@@ -335,17 +335,26 @@ export function WorkItPanel({
                       No sequence found.
                     </Combobox.Empty>
                     <Combobox.List>
-                      {(item: string) => (
-                        <Combobox.Item
-                          key={item}
-                          value={item}
-                          className="relative flex cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent"
-                        >
-                          {item}
-                          <Combobox.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-                            <CheckIcon className="size-3.5" />
-                          </Combobox.ItemIndicator>
-                        </Combobox.Item>
+                      {(group: SequenceGroup) => (
+                        <Combobox.Group key={group.value} items={group.items} className="mb-1 last:mb-0">
+                          <Combobox.GroupLabel className="px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.4px] text-muted-foreground uppercase">
+                            {group.value}
+                          </Combobox.GroupLabel>
+                          <Combobox.Collection>
+                            {(item: string) => (
+                              <Combobox.Item
+                                key={item}
+                                value={item}
+                                className="relative flex cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent"
+                              >
+                                {item}
+                                <Combobox.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+                                  <CheckIcon className="size-3.5" />
+                                </Combobox.ItemIndicator>
+                              </Combobox.Item>
+                            )}
+                          </Combobox.Collection>
+                        </Combobox.Group>
                       )}
                     </Combobox.List>
                   </Combobox.Popup>
