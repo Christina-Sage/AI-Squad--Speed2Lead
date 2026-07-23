@@ -271,6 +271,16 @@ export function DedupeChecklist({
                   </div>
                   {!shown ? (
                     <div className="size-[15px] shrink-0 animate-spin rounded-full border-2 border-border border-t-primary" />
+                  ) : check.href ? (
+                    <a
+                      href={check.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open the associated account in Salesforce"
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] uppercase hover:brightness-105 hover:underline ${badge.cls}`}
+                    >
+                      {badge.text} ↗
+                    </a>
                   ) : (
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] uppercase ${badge.cls}`}
