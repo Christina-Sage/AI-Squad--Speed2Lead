@@ -31,6 +31,12 @@ export interface DedupeCheck {
   badgeType: "pf" | "yn";
   state: CheckState;
   reason: string;
+  /**
+   * Optional structured detail rendered as small label/value chips under the
+   * reason — keeps evidence-heavy checks (e.g. Account Association) scannable
+   * instead of packing everything into one sentence. Omit for simple checks.
+   */
+  facts?: { label: string; value: string }[];
 }
 
 export interface WorkabilityResult {
