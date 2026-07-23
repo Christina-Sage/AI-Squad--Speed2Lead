@@ -157,7 +157,7 @@ function LeadOnlyDecision({
       <OutreachProspectPanel
         prospects={[outreachProspect]}
         sequence={sequence}
-        onClose={() => setOutreachProspect(null)}
+        onClose={toWorklist}
       />
     )}
     </>

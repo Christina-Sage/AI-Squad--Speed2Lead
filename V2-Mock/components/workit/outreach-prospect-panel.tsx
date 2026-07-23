@@ -42,8 +42,8 @@ function initials(name: string): string {
  * slides in when prospects are added to a sequence. This is a visual mock (no
  * real Outreach integration): it uses Outreach's own light theme and indigo
  * accent rather than the app's tokens, so it reads as a separate product. Every
- * pushed contact is listed; email is derived when unknown. Closing dismisses
- * the panel and leaves the rep on the current page.
+ * pushed contact is listed; email is derived when unknown. Closing (X or the
+ * footer button) returns the rep to Today's Worklist to work the next account.
  */
 export function OutreachProspectPanel({
   prospects,
@@ -206,13 +206,13 @@ export function OutreachProspectPanel({
           <div className="text-[13px] text-slate-400">No opportunities</div>
         </div>
 
-        {/* Footer — dismiss and stay on the page */}
+        {/* Footer — close returns to Today's Worklist to work the next account */}
         <div className="border-t border-slate-200 px-4 py-3">
           <button
             onClick={onClose}
             className="w-full rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-semibold text-white hover:bg-slate-700"
           >
-            Close
+            Close &amp; back to Today’s Worklist
           </button>
         </div>
       </div>
