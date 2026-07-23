@@ -27,6 +27,13 @@ function isRecentlyCaptured(createdAt: string | null | undefined): boolean {
   return Date.now() - created <= NEW_LEAD_WINDOW_MS;
 }
 
+// SDR lead ids use the Salesforce Lead prefix (00Q). Lead-scoped work-it (a
+// lead with no linked account) reuses the account work-it mutations keyed by the
+// lead id, so those methods accept a lead id as well as a real account id.
+function isLeadId(id: string): boolean {
+  return id.startsWith("00Q");
+}
+
 function toMatch(account: Account): AccountSearchMatch {
   return {
     id: account.id,
@@ -248,7 +255,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
     ownerName: string,
   ): Promise<Contact> {
     const store = getMockStore();
-    if (!store.accounts.has(accountId)) {
+    if (!store.accounts.has(accountId) && !isLeadId(accountId)) {
       throw new Error(`Account ${accountId} not found`);
     }
 
@@ -273,7 +280,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
 
   async applyHygieneField(accountId: string, field: string): Promise<void> {
     const store = getMockStore();
-    if (!store.accounts.has(accountId)) {
+    if (!store.accounts.has(accountId) && !isLeadId(accountId)) {
       throw new Error(`Account ${accountId} not found`);
     }
     const applied = store.appliedHygieneFields.get(accountId) ?? new Set<string>();
@@ -283,7 +290,7 @@ export class MockSalesforceProvider implements SalesforceProvider {
 
   async pushToOutreach(accountId: string, push: OutreachPush): Promise<void> {
     const store = getMockStore();
-    if (!store.accounts.has(accountId)) {
+    if (!store.accounts.has(accountId) && !isLeadId(accountId)) {
       throw new Error(`Account ${accountId} not found`);
     }
     store.outreachPushes.set(accountId, push);
