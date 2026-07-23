@@ -253,6 +253,21 @@ export function DedupeChecklist({
                     <div className="text-xs text-muted-foreground">
                       {shown ? check.reason : "Checking…"}
                     </div>
+                    {shown && check.facts && check.facts.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {check.facts.map((fact) => (
+                          <span
+                            key={fact.label}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-[11px]"
+                          >
+                            <span className="uppercase tracking-[0.3px] text-muted-foreground">
+                              {fact.label}
+                            </span>
+                            <span className="font-semibold text-foreground">{fact.value}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {!shown ? (
                     <div className="size-[15px] shrink-0 animate-spin rounded-full border-2 border-border border-t-primary" />

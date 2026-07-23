@@ -16,8 +16,9 @@ function chk(
   badgeType: "pf" | "yn",
   state: DedupeCheck["state"],
   reason: string,
+  facts?: DedupeCheck["facts"],
 ): DedupeCheck {
-  return { key, label, question, badgeType, state, reason };
+  return { key, label, question, badgeType, state, reason, ...(facts ? { facts } : {}) };
 }
 
 // ABM/nurture statuses that mean the account is already being actively engaged,
@@ -91,26 +92,27 @@ export function evaluateLeadWorkability(
       "No linked account on this lead — nothing to reconcile",
     );
   } else {
-    // When the account carries an active-engagement status, surface the owner so
-    // the rep coordinates with them; otherwise fall back to the account's own
-    // workability nuance (blocked / review).
-    const ownerClause = statusShowsOwner(account.abmNurtureStatus)
-      ? `, owned by ${account.ownerName} (${account.abmNurtureStatus})`
-      : acct.final_status === "NOT WORKABLE"
-        ? ` (account currently blocked: ${acct.reason})`
-        : acct.final_status === "WORKABLE WITH REVIEW"
-          ? ` (account is workable with review)`
-          : "";
+    // Break the evidence into scannable label/value chips instead of one long
+    // sentence: Account, plus Owner/Status when the account is actively engaged
+    // (Working / Nurture / Interested), plus Last activity when known.
+    const engaged = statusShowsOwner(account.abmNurtureStatus);
     const activity = formatAccountActivity(account.lastActivityDate);
-    const activityClause = activity ? `, last account activity ${activity}` : "";
-    assoc = chk(
-      "assoc",
-      "Account Association",
-      assocQuestion,
-      "pf",
-      "warn",
-      `Maps to ${account.name}${ownerClause}${activityClause} — verify the linked account association before working`,
-    );
+    const facts: NonNullable<DedupeCheck["facts"]> = [{ label: "Account", value: account.name }];
+    if (engaged) {
+      facts.push({ label: "Owner", value: account.ownerName });
+      facts.push({ label: "Status", value: account.abmNurtureStatus! });
+    }
+    if (activity) facts.push({ label: "Last activity", value: activity });
+
+    // Short action line; the chips carry the detail.
+    const reason = engaged
+      ? "Linked account is actively engaged — coordinate with the owner before working."
+      : acct.final_status === "NOT WORKABLE"
+        ? `Linked account is currently blocked: ${acct.reason}`
+        : acct.final_status === "WORKABLE WITH REVIEW"
+          ? "Linked account is workable with review — verify before working."
+          : "Verify the linked account association before working.";
+    assoc = chk("assoc", "Account Association", assocQuestion, "pf", "warn", reason, facts);
   }
 
   // 3. Ownership and ROE — is the lead or its account owned by someone else?
