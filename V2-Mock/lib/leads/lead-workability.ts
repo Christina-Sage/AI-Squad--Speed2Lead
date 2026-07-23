@@ -8,6 +8,7 @@ import {
   type FinalStatus,
 } from "@/lib/workability/engine";
 import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
+import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 
 function chk(
   key: string,
@@ -17,8 +18,18 @@ function chk(
   state: DedupeCheck["state"],
   reason: string,
   facts?: DedupeCheck["facts"],
+  href?: string,
 ): DedupeCheck {
-  return { key, label, question, badgeType, state, reason, ...(facts ? { facts } : {}) };
+  return {
+    key,
+    label,
+    question,
+    badgeType,
+    state,
+    reason,
+    ...(facts ? { facts } : {}),
+    ...(href ? { href } : {}),
+  };
 }
 
 // ABM/nurture statuses that mean the account is already being actively engaged,
@@ -112,7 +123,17 @@ export function evaluateLeadWorkability(
         : acct.final_status === "WORKABLE WITH REVIEW"
           ? "Linked account is workable with review — verify before working."
           : "Verify the linked account association before working.";
-    assoc = chk("assoc", "Account Association", assocQuestion, "pf", "warn", reason, facts);
+    // The badge links straight to the associated account in Salesforce.
+    assoc = chk(
+      "assoc",
+      "Account Association",
+      assocQuestion,
+      "pf",
+      "warn",
+      reason,
+      facts,
+      buildSalesforceAccountUrl(account.id),
+    );
   }
 
   // 3. Ownership and ROE — is the lead or its account owned by someone else?

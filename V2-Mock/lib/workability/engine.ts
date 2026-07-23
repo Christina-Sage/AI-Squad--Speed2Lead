@@ -37,6 +37,12 @@ export interface DedupeCheck {
    * instead of packing everything into one sentence. Omit for simple checks.
    */
   facts?: { label: string; value: string }[];
+  /**
+   * Optional external link for the check's badge — e.g. the Account Association
+   * badge links to the associated account in Salesforce. Rendered as an anchor
+   * (new tab) when set; otherwise the badge is a plain span.
+   */
+  href?: string;
 }
 
 export interface WorkabilityResult {
