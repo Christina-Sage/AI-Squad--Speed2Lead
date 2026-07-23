@@ -1,5 +1,6 @@
 import type { Contact } from "@/lib/salesforce/types";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
+import { DEMO_CONTACTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 
 export const CONTACTS: Contact[] = [
   {
@@ -84,52 +85,6 @@ export const CONTACTS: Contact[] = [
     lastActivityDate: daysAgo(55),
   },
 
-  // ROE-window contacts for the expanded BDR demo accounts: each has activity
-  // inside the 30-day ROE protection window, owned by another rep, so the linked
-  // account is NOT WORKABLE and lands in "Blocked by de-dupe".
-  {
-    id: "003-SMPV-1",
-    name: "Jordan Wells",
-    title: "VP of Finance",
-    ownerId: "u-pat",
-    ownerName: "Pat Lee",
-    accountId: "0015Y00000SMPV01",
-    lastActivityDate: daysAgo(4),
-  },
-  {
-    id: "003-WLCH-1",
-    name: "Avery Nolan",
-    title: "Controller",
-    ownerId: "u-jamie",
-    ownerName: "Jamie Park",
-    accountId: "0015Y00000WLCH01",
-    lastActivityDate: daysAgo(11),
-  },
-  {
-    id: "003-APDL-1",
-    name: "Sasha Kim",
-    title: "Head of RevOps",
-    ownerId: "u-alex",
-    ownerName: "Alex Rivera",
-    accountId: "0015Y00000APDL01",
-    lastActivityDate: daysAgo(19),
-  },
-  {
-    id: "003-DLFP-1",
-    name: "Robin Shah",
-    title: "Finance Director",
-    ownerId: "u-pat",
-    ownerName: "Pat Lee",
-    accountId: "0015Y00000DLFP01",
-    lastActivityDate: daysAgo(7),
-  },
-  {
-    id: "003-CDGN-1",
-    name: "Dana Fields",
-    title: "Director of Finance",
-    ownerId: "u-jamie",
-    ownerName: "Jamie Park",
-    accountId: "0015Y00000CDGN01",
-    lastActivityDate: daysAgo(22),
-  },
+  // ROE-window contacts for the generated per-product demo accounts.
+  ...DEMO_CONTACTS,
 ];
