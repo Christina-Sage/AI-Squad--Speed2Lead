@@ -13,6 +13,11 @@ export const CUSTOMER_TAM_BLANK = "CUSTOMER_TAM_BLANK";
 export const CUSTOMER_EXPIRED_TAM = "CUSTOMER_EXPIRED_TAM";
 export const TAM_EXPIRED = "TAM_EXPIRED";
 
+/** An expired TAM of any product line, e.g. "Expired Intacct TAM", "Expired X3 TAM". */
+export function isExpiredTam(tam: TamStatus): boolean {
+  return tam !== null && tam.startsWith("Expired ");
+}
+
 export function evaluateCustomerTam(type: AccountType, tam: TamStatus): CustomerTamResult {
   const isCustomer = type === "Customer";
 
@@ -24,7 +29,7 @@ export function evaluateCustomerTam(type: AccountType, tam: TamStatus): Customer
     };
   }
 
-  if (isCustomer && tam === "Expired Intacct TAM") {
+  if (isCustomer && isExpiredTam(tam)) {
     return {
       customerStatus: "WARNING",
       tamStatus: "WARNING",
@@ -40,7 +45,7 @@ export function evaluateCustomerTam(type: AccountType, tam: TamStatus): Customer
     };
   }
 
-  if (!isCustomer && tam === "Expired Intacct TAM") {
+  if (!isCustomer && isExpiredTam(tam)) {
     return {
       customerStatus: "PASS",
       tamStatus: "WARNING",

@@ -8,6 +8,7 @@ import {
   type FinalStatus,
 } from "@/lib/workability/engine";
 import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
+import { isExpiredTam } from "@/lib/workability/customer-tam";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 
@@ -158,8 +159,8 @@ export function evaluateLeadWorkability(
   const tamQuestion = "Does the account fall within your territory?";
   if (!account || !acct) {
     tam = chk("tam", "TAM", tamQuestion, "pf", "na", "No linked account — territory can't be validated");
-  } else if (account.tam === "Expired Intacct TAM" && acct.customer_status === "PASS") {
-    tam = chk("tam", "TAM", tamQuestion, "pf", "warn", `TAM: Expired Intacct TAM on ${account.name} — verify before working`);
+  } else if (isExpiredTam(account.tam) && acct.customer_status === "PASS") {
+    tam = chk("tam", "TAM", tamQuestion, "pf", "warn", `TAM: ${account.tam} on ${account.name} — verify before working`);
   } else {
     tam = chk(
       "tam",

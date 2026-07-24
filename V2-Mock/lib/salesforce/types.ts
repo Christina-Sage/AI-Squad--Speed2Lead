@@ -2,7 +2,12 @@ import type { Product } from "@/lib/products";
 
 export type AccountType = "Customer" | "Prospect" | "Partner" | string;
 
-export type TamStatus = "Intacct" | "Expired Intacct TAM" | null;
+/**
+ * TAM (Territory Account Manager) coverage, keyed to the account's product line:
+ * an active TAM is the product name (e.g. "Intacct", "X3", "BMS"), an expired
+ * one reads "Expired {product} TAM", and `null` means the TAM field is blank.
+ */
+export type TamStatus = Product | `Expired ${Product} TAM` | null;
 
 /** 6sense Account Buying Stage, synced onto the Global SF account record. */
 export type BuyingStage = "Target" | "Awareness" | "Consideration" | "Purchase" | "Decision";
