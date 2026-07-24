@@ -279,9 +279,11 @@ function build(): Generated {
           break;
 
         case "partner":
-          // Active partner deal registration.
+          // Active partner deal registration — the partner usually took over the
+          // territory, so the internal TAM has lapsed (expired) alongside it.
           accounts.push({
             ...base,
+            tam: `Expired ${product} TAM`,
             intacct: { hasOpenOpps: false, varStatus: `Registered - ${PARTNERS[g % PARTNERS.length]}` },
           });
           break;
