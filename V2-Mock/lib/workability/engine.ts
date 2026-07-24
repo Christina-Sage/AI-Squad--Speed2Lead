@@ -9,6 +9,7 @@ import {
   isExpiredTam,
   CUSTOMER_TAM_BLANK,
   CUSTOMER_EXPIRED_TAM,
+  CUSTOMER_EXISTING,
   TAM_EXPIRED,
   type CustomerTamResult,
 } from "@/lib/workability/customer-tam";
@@ -148,6 +149,12 @@ function buildReasonAndRecommendation(
         recommendation: "Review before assigning account",
       };
     }
+    if (customerTam.reasonCodes.includes(CUSTOMER_EXISTING)) {
+      return {
+        reason: `Account Type is Customer — an existing customer must be reviewed before working.`,
+        recommendation: "Review with the account owner / Customer Success before assigning.",
+      };
+    }
     if (customerTam.reasonCodes.includes(TAM_EXPIRED)) {
       return {
         reason: `This account's TAM is expired. Verify TAM status before working.`,
@@ -190,7 +197,9 @@ function buildChecks(
     customerState === "pass"
       ? `Type: ${account.type} — not an existing customer`
       : customerState === "warn"
-        ? `Type: Customer with ${account.tam} — verify customer status before working`
+        ? customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM)
+          ? `Type: Customer with ${account.tam} — verify customer status before working`
+          : `Type: Customer — existing customer, review before working`
         : `Type: Customer with TAM blank — potential direct customer relationship. Route to Customer Success.`;
 
   const tamState: CheckState = customerTam.tamStatus === "WARNING" && customerState === "pass" ? "warn" : "pass";
@@ -302,6 +311,7 @@ export function evaluateWorkability(
     !hardFail &&
     (customerTam.reasonCodes.includes(TAM_EXPIRED) ||
       customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
+      customerTam.reasonCodes.includes(CUSTOMER_EXISTING) ||
       duplicates.length > 0);
 
   const final_status: FinalStatus = hardFail

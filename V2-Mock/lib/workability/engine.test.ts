@@ -61,16 +61,22 @@ describe("evaluateWorkability", () => {
     expect(result.reason_codes).not.toContain("TAM_BLANK");
   });
 
-  it("TAM Validation is PASS when TAM is Intacct, for both Customer and Prospect", () => {
+  it("Prospect + active TAM is fully WORKABLE (PASS/PASS)", () => {
     const prospect = evaluateWorkability(bundle(baseAccount({ type: "Prospect", tam: "Intacct" })));
     expect(prospect.tam_validation_status).toBe("PASS");
     expect(prospect.customer_status).toBe("PASS");
+    expect(prospect.final_status).toBe("WORKABLE");
+  });
 
+  it("existing Customer + active TAM -> WORKABLE WITH REVIEW (never auto-workable)", () => {
     const customer = evaluateWorkability(
       bundle(baseAccount({ type: "Customer", tam: "Intacct" }), { contacts: [cleanContact] }),
     );
+    // The TAM itself is fine; it's the existing-customer status that needs review.
     expect(customer.tam_validation_status).toBe("PASS");
-    expect(customer.customer_status).toBe("PASS");
+    expect(customer.customer_status).toBe("WARNING");
+    expect(customer.final_status).toBe("WORKABLE WITH REVIEW");
+    expect(customer.reason_codes).toContain("CUSTOMER_EXISTING");
   });
 
   it("TAM Validation is WARNING when TAM is Expired Intacct TAM, even for a non-customer", () => {
