@@ -59,7 +59,10 @@ function formatAccountActivity(dateStr: string | null): string | null {
  * Opportunity, Partner Relationship) with an SDR-only Account Association check
  * and a lead-level Duplicate Lead check. Account-dependent checks are derived
  * from the linked account's own workability so the two stay in sync, and read
- * "not applicable" rather than failing when the lead has no linked account.
+ * "not applicable" (which does not force review) when the lead has no linked
+ * account. Net effect on the verdict: a lead with a linked account is workable
+ * with review (confirm the association), a lead with no account is workable, and
+ * a hard-fail on any check makes it not workable.
  */
 export function evaluateLeadWorkability(
   lead: SdrLead,
@@ -118,23 +121,22 @@ export function evaluateLeadWorkability(
     }
     if (activity) facts.push({ label: "Last activity", value: activity });
 
-    // A lead mapped to a clean, workable, un-engaged account needs no
-    // reconciliation — it passes. Otherwise flag it for review with the reason.
-    const cleanWorkable = !engaged && acct.final_status === "WORKABLE";
+    // A lead with a linked account always needs review — the rep confirms the
+    // association (and the account's own status) before working the lead.
     const reason = engaged
       ? "Linked account is actively engaged — coordinate with the owner before working."
       : acct.final_status === "NOT WORKABLE"
         ? `Linked account is currently blocked: ${acct.reason}`
         : acct.final_status === "WORKABLE WITH REVIEW"
           ? "Linked account is workable with review — verify before working."
-          : `Maps to ${account.name} — account is workable`;
+          : `Maps to ${account.name} — verify the association before working`;
     // The badge links straight to the associated account in Salesforce.
     assoc = chk(
       "assoc",
       "Account Association",
       assocQuestion,
       "pf",
-      cleanWorkable ? "pass" : "warn",
+      "warn",
       reason,
       facts,
       buildSalesforceAccountUrl(account.id),
@@ -245,7 +247,10 @@ export function evaluateLeadWorkability(
   const checks: DedupeCheck[] = [customer, tam, roe, dup, assoc, openOpp, dqOpp, partner];
 
   const hasFail = checks.some((c) => c.state === "fail");
-  const hasSoft = checks.some((c) => c.state === "warn" || c.state === "na");
+  // Only real warnings drive review. "na" (an account-level check that can't run
+  // because the lead has no linked account) does not — a lead with no account
+  // association is workable, a lead with one needs review (Account Association).
+  const hasSoft = checks.some((c) => c.state === "warn");
   const final_status: FinalStatus = hasFail
     ? "NOT WORKABLE"
     : hasSoft
@@ -298,16 +303,22 @@ function buildLeadReason(
     };
   }
   if (finalStatus === "WORKABLE WITH REVIEW") {
-    if (!lead.accountId) {
+    if (accountName) {
       return {
-        reason:
-          "This lead has no linked account, so the account-level checks (TAM, open opportunity, customer status) could not run.",
-        recommendation: "Confirm or create the account, then re-check before working the lead.",
+        reason: `Linked to ${accountName} — verify the account association before working the lead.`,
+        recommendation: "Review the account association, then proceed.",
       };
     }
+    const firstWarn = checks.find((c) => c.state === "warn");
     return {
-      reason: `The linked account (${accountName}) is workable with review — verify it before working the lead.`,
-      recommendation: "Review the account, then proceed.",
+      reason: firstWarn?.reason ?? "This lead needs review before working.",
+      recommendation: "Review the flagged item, then proceed.",
+    };
+  }
+  if (!lead.accountId) {
+    return {
+      reason: "No linked account association — nothing to reconcile. Clear to work.",
+      recommendation: "Lead is workable. Proceed.",
     };
   }
   return {
