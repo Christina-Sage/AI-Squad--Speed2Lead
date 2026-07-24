@@ -198,29 +198,30 @@ export function evaluateLeadWorkability(
     customer = chk("customer", "Customer Status", customerQuestion, "pf", "pass", `${account.name} is a ${account.type} — not an existing customer`);
   }
 
-  // 6. Disqualified opportunity — is the linked account in a DQ cooling-off
-  // window (or otherwise suppressed)? Mirrors the BDR Disqualified Opportunity check.
+  // 6. Disqualified opportunity — a recently-closed DQ opp on the linked account
+  // flags the lead for review (not a hard block). Mirrors the BDR check.
   const dqQuestion = "Blocking DQ opp?";
   let dqOpp: DedupeCheck;
-  if (acct && acct.dq_opportunity_status === "FAIL") {
-    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "fail", acct.dq_opportunity_detail.reason);
+  if (acct && acct.dq_opportunity_status === "REVIEW") {
+    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "warn", acct.dq_opportunity_detail.reason);
   } else {
-    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", "No disqualified opportunity on record");
+    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", "No disqualified opportunity within the cooling-off window");
   }
 
-  // 7. Partner relationship — blocks when the linked account has an active
-  // partner deal registration OR the lead itself came in as a VAR lead.
+  // 7. Partner relationship — flags for review (coordinate with the channel)
+  // when the linked account has an active deal registration OR the lead itself
+  // came in through a VAR. It does not make the lead unworkable.
   const partnerQuestion = "Partner conflict found?";
   const varLead = /\bVAR\b|reseller|value[- ]?added/i.test(lead.source ?? "");
   let partner: DedupeCheck;
-  if (acct && acct.partner_status === "FAIL") {
+  if (acct && acct.partner_status === "REVIEW") {
     partner = chk(
       "partner",
       "Partner Relationship",
       partnerQuestion,
       "yn",
-      "fail",
-      `${acct.partner_detail.varStatus ?? "Partner deal registration"} — a partner holds an active deal registration on ${account?.name}. Route through the partner/channel team.`,
+      "warn",
+      `${acct.partner_detail.varStatus ?? "Partner deal registration"} — a partner holds an active deal registration on ${account?.name}. Coordinate with the partner/channel team.`,
     );
   } else if (varLead) {
     partner = chk(
@@ -228,8 +229,8 @@ export function evaluateLeadWorkability(
       "Partner Relationship",
       partnerQuestion,
       "yn",
-      "fail",
-      `Lead came in through a VAR (${lead.source}) — route through the partner/channel team.`,
+      "warn",
+      `Lead came in through a VAR (${lead.source}) — coordinate with the partner/channel team.`,
     );
   } else if (acct) {
     partner = chk("partner", "Partner Relationship", partnerQuestion, "yn", "pass", `No partner or VAR relationship on ${account?.name}`);

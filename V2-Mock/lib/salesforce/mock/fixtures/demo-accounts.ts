@@ -320,10 +320,10 @@ function build(): Generated {
         }
 
         case "dq": {
-          // A disqualified opp that reached Discovery+ and closed inside the
-          // 6-month cooling-off window.
+          // A disqualified opp that reached Discovery+. Some closed inside the
+          // 30-day cooling-off (-> review), others past it (-> clear to re-work).
           accounts.push(base);
-          const closed = 30 + (g % 5) * 25; // 30..130 days ago (< 6 months)
+          const closed = 10 + (g % 5) * 15; // 10,25 (<30, review) / 40,55,70 (clear)
           opportunities.push({
             id: `006-DEMO-${prodChar}${pad3(si)}`,
             name: `${name} - ${product} Evaluation`,

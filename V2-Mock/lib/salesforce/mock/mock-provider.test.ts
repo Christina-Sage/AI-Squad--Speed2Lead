@@ -24,9 +24,11 @@ const expectedFinalStatusByDomain: Record<string, string> = {
   "stark.io": "NOT WORKABLE",
   // v2: Wayne's DQ'd opp never reached Discovery, so it no longer blocks.
   "wayne.com": "WORKABLE",
-  // v2: new checks — DQ cooling-off and partner deal registration.
-  "umbrella-pharma.com": "NOT WORKABLE",
-  "umbrella-security.com": "NOT WORKABLE",
+  // DQ opp reached Discovery but closed 60 days ago — past the 30-day
+  // cooling-off, so it no longer blocks.
+  "umbrella-pharma.com": "WORKABLE",
+  // Active partner deal registration flags for review, it does not block.
+  "umbrella-security.com": "WORKABLE WITH REVIEW",
 };
 
 describe("MockSalesforceProvider + engine integration", () => {

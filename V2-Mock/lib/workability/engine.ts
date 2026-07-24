@@ -62,8 +62,8 @@ export interface WorkabilityResult {
   roe_scope: RoeScope;
   roe_status: "PASS" | "FAIL";
   open_opportunity_status: "PASS" | "FAIL";
-  dq_opportunity_status: "PASS" | "FAIL";
-  partner_status: "PASS" | "FAIL";
+  dq_opportunity_status: "PASS" | "REVIEW";
+  partner_status: "PASS" | "REVIEW";
   customer_status: CustomerTamResult["customerStatus"];
   tam_validation_status: CustomerTamResult["tamStatus"];
   final_status: FinalStatus;
@@ -133,19 +133,6 @@ function buildReasonAndRecommendation(
         recommendation: "Do not work this account. Coordinate with the account owner / Customer Success.",
       };
     }
-    if (dqOpp.status === "FAIL") {
-      const d = dqOpp.blockingOpportunities[0];
-      return {
-        reason: `A disqualified opportunity ("${d.name}") reached ${d.furthestStage} before closing, so the account is in the six-month cooling-off window (${d.monthsRemaining} month${d.monthsRemaining === 1 ? "" : "s"} left).`,
-        recommendation: "Do not work this account until the cooling-off window has passed.",
-      };
-    }
-    if (partner.status === "FAIL") {
-      return {
-        reason: `${partner.varStatus} — a partner holds an active deal registration on this account.`,
-        recommendation: "Do not work this account. Route through the partner/channel team.",
-      };
-    }
   }
 
   if (finalStatus === "WORKABLE WITH REVIEW") {
@@ -161,6 +148,18 @@ function buildReasonAndRecommendation(
         recommendation: "Review before assigning account",
       };
     }
+    if (dqOpp.status === "REVIEW") {
+      return {
+        reason: dqOpp.reason,
+        recommendation: "Review before working — confirm the disqualified opp has been closed 30 days.",
+      };
+    }
+    if (partner.status === "REVIEW") {
+      return {
+        reason: `${partner.varStatus} — a partner holds an active deal registration on this account.`,
+        recommendation: "Review with the partner/channel team before working.",
+      };
+    }
     if (duplicates.length > 0) {
       return {
         reason: duplicateReason(duplicates),
@@ -171,7 +170,7 @@ function buildReasonAndRecommendation(
 
   return {
     reason:
-      "All six checks clear — no ROE violation, no open opportunity, no disqualified-opp cooling-off, and no customer/TAM/partner concerns.",
+      "All checks clear — no ROE violation, no open opportunity, no customer/TAM concern, and no disqualified-opp or partner review needed.",
     recommendation: "Account is workable. Proceed.",
   };
 }
@@ -272,7 +271,7 @@ function buildChecks(
       label: "Disqualified Opportunity",
       question: "Blocking DQ opp?",
       badgeType: "yn",
-      state: dqOpp.status === "PASS" ? "pass" : "fail",
+      state: dqOpp.status === "PASS" ? "pass" : "warn",
       reason: dqOpp.reason,
     },
     {
@@ -280,7 +279,7 @@ function buildChecks(
       label: "Partner Relationship",
       question: "Partner conflict found?",
       badgeType: "yn",
-      state: partner.status === "PASS" ? "pass" : "fail",
+      state: partner.status === "PASS" ? "pass" : "warn",
       reason: partner.reason,
     },
   ];
@@ -303,8 +302,6 @@ export function evaluateWorkability(
   const hardFail =
     roe.status === "FAIL" ||
     openOpp.status === "FAIL" ||
-    dqOpp.status === "FAIL" ||
-    partner.status === "FAIL" ||
     customerTam.reasonCodes.includes(CUSTOMER_TAM_BLANK) ||
     customerTam.reasonCodes.includes(CUSTOMER_EXISTING);
 
@@ -312,6 +309,8 @@ export function evaluateWorkability(
     !hardFail &&
     (customerTam.reasonCodes.includes(TAM_EXPIRED) ||
       customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
+      dqOpp.status === "REVIEW" ||
+      partner.status === "REVIEW" ||
       duplicates.length > 0);
 
   const final_status: FinalStatus = hardFail
@@ -333,8 +332,8 @@ export function evaluateWorkability(
   const reason_codes: string[] = [
     ...(roe.status === "FAIL" ? ["ROE_VIOLATION"] : []),
     ...(openOpp.status === "FAIL" ? ["OPEN_OPPORTUNITY"] : []),
-    ...(dqOpp.status === "FAIL" ? [DQ_OPP_COOLING_OFF] : []),
-    ...(partner.status === "FAIL" ? [PARTNER_REGISTERED] : []),
+    ...(dqOpp.status === "REVIEW" ? [DQ_OPP_COOLING_OFF] : []),
+    ...(partner.status === "REVIEW" ? [PARTNER_REGISTERED] : []),
     ...(duplicates.length > 0 ? [DUPLICATE_ACCOUNT] : []),
     ...customerTam.reasonCodes,
   ];
