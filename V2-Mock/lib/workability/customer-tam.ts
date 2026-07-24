@@ -11,6 +11,8 @@ export interface CustomerTamResult {
 
 export const CUSTOMER_TAM_BLANK = "CUSTOMER_TAM_BLANK";
 export const CUSTOMER_EXPIRED_TAM = "CUSTOMER_EXPIRED_TAM";
+/** Existing customer with an active TAM — workable only after review. */
+export const CUSTOMER_EXISTING = "CUSTOMER_EXISTING";
 export const TAM_EXPIRED = "TAM_EXPIRED";
 
 /** An expired TAM of any product line, e.g. "Expired Intacct TAM", "Expired X3 TAM". */
@@ -50,6 +52,16 @@ export function evaluateCustomerTam(type: AccountType, tam: TamStatus): Customer
       customerStatus: "PASS",
       tamStatus: "WARNING",
       reasonCodes: [TAM_EXPIRED],
+    };
+  }
+
+  // Existing customer with an active TAM (blank and expired handled above): the
+  // TAM is fine, but an existing customer is never auto-workable — flag for review.
+  if (isCustomer) {
+    return {
+      customerStatus: "WARNING",
+      tamStatus: "PASS",
+      reasonCodes: [CUSTOMER_EXISTING],
     };
   }
 
