@@ -50,6 +50,7 @@ export function DedupeChecklist({
   runningTitle = "Running the checks…",
   actions,
   onWorkIt,
+  onAssigned,
   collapsible = false,
   collapsed = false,
   onToggleCollapsed,
@@ -69,6 +70,10 @@ export function DedupeChecklist({
   // When provided, the "Work it" affordance becomes an in-page button (calls
   // onWorkIt) instead of a link to the standalone /work-it route.
   onWorkIt?: () => void;
+  // Called after a successful "Assign to me" with the new owner name, so a
+  // client-rendered parent (the in-page worklist focus) can update the owner
+  // display without a full server refresh.
+  onAssigned?: (ownerName: string) => void;
   // Accordion mode: once you're working the record, the checklist collapses to
   // a header you can re-expand. Defaults keep the standalone/lead views intact.
   collapsible?: boolean;
@@ -119,6 +124,7 @@ export function DedupeChecklist({
         return;
       }
       toast("Account assigned to you");
+      if (typeof data.account?.ownerName === "string") onAssigned?.(data.account.ownerName);
       router.refresh();
     } catch {
       setAssignError("Something went wrong while assigning this account.");

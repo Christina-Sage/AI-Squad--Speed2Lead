@@ -10,9 +10,12 @@ import { cn } from "@/lib/utils";
 export function OwnerEditor({
   accountId,
   currentOwnerName,
+  onOwnerChange,
 }: {
   accountId: string;
   currentOwnerName: string;
+  /** Fired with the new owner name after a successful change (for client parents). */
+  onOwnerChange?: (ownerName: string) => void;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -34,6 +37,7 @@ export function OwnerEditor({
         setError(data.error ?? "Failed to update owner.");
         return;
       }
+      onOwnerChange?.(typeof data.account?.ownerName === "string" ? data.account.ownerName : user.name);
       router.refresh();
     } catch {
       setError("Something went wrong while updating the owner.");

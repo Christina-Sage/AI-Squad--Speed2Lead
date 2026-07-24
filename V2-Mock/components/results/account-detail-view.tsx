@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 import { DedupeChecklist } from "@/components/results/dedupe-checklist";
@@ -45,6 +46,14 @@ export function AccountDetailView({
 }) {
   const crmUrl = salesforceUrl ?? buildSalesforceAccountUrl(result.account_id);
 
+  // Owner override for the in-page worklist focus, where `result` is client
+  // state that `router.refresh()` doesn't re-fetch. Assigning locally reflects
+  // the new owner in both the checklist button and the Owner field. Keyed by
+  // account id so it's derived (not effect-reset) and never leaks across records.
+  const [assigned, setAssigned] = useState<{ accountId: string; owner: string } | null>(null);
+  const owner = assigned?.accountId === result.account_id ? assigned.owner : result.owner;
+  const setOwner = (name: string) => setAssigned({ accountId: result.account_id, owner: name });
+
   return (
     <div>
       <DedupeChecklist
@@ -53,10 +62,11 @@ export function AccountDetailView({
         finalStatus={result.final_status}
         reason={result.reason}
         recommendation={result.recommendation}
-        ownerName={result.owner}
-        isCurrentOwner={result.owner === demoUserName}
+        ownerName={owner}
+        isCurrentOwner={owner === demoUserName}
         salesforceUrl={crmUrl}
         onWorkIt={onWorkIt}
+        onAssigned={setOwner}
         collapsible={collapsible}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
@@ -87,7 +97,11 @@ export function AccountDetailView({
           <SummaryField label="TAM">{result.tam_status}</SummaryField>
           <SummaryField label="Team">{result.team}</SummaryField>
           <SummaryField label="Owner">
-            <OwnerEditor accountId={result.account_id} currentOwnerName={result.owner} />
+            <OwnerEditor
+              accountId={result.account_id}
+              currentOwnerName={owner}
+              onOwnerChange={setOwner}
+            />
           </SummaryField>
           <SummaryField label="ABM Account Status">
             <AbmStatusEditor accountId={result.account_id} currentStatus={result.abm_nurture_status} />
