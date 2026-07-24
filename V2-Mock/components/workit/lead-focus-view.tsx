@@ -136,6 +136,7 @@ export function LeadFocusView({
                 initialAppliedFields={data.workItState.appliedHygieneFields}
                 initialAddedNames={data.workItState.addedContactNames}
                 initialPush={data.workItState.outreachPush}
+                lead={{ name: result.name, title: result.title, email: result.email }}
               />
             </>
           )}
