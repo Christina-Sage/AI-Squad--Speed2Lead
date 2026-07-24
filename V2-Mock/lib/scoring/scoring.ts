@@ -132,25 +132,89 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
   },
 };
 
+// 6sense buying stage → intent baseline. A Decision-stage account shows far more
+// intent than a Target-stage one; without a stage we assume low intent.
+const INTENT_BY_STAGE: Record<string, number> = {
+  Target: 34,
+  Awareness: 48,
+  Consideration: 63,
+  Purchase: 77,
+  Decision: 87,
+};
+
+// Rating → fit baseline (P1 is the strongest ICP match).
+const FIT_BY_RATING: Record<string, number> = { P1: 82, P2: 70, P3: 59 };
+
+/**
+ * Deterministic ±range jitter derived from the account id, so accounts that
+ * share a rating / buying stage don't all resolve to the identical score. Pure
+ * function of the id (no Math.random) so scores are stable across renders.
+ */
+function idJitter(id: string, salt: string, range: number): number {
+  let h = 2166136261;
+  const s = `${id}:${salt}`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % (range * 2 + 1)) - range;
+}
+
+function clampScore(n: number): number {
+  return Math.max(10, Math.min(95, Math.round(n)));
+}
+
+/**
+ * Fit/intent for accounts not in FIT_INTENT_FIXTURES (all generated demo
+ * accounts, most base accounts). Derived from the account's rating (fit) and
+ * 6sense buying stage (intent) so the "Should I work it?" score actually
+ * separates strong from weak accounts, rather than collapsing to a flat mid-50s.
+ */
 function defaultFitIntent(bundle: AccountBundle): { fit: ScorePillar; intent: ScorePillar } {
   const { account } = bundle;
   const priorityVertical = account.industry.toLowerCase().includes("nonprofit");
+
+  const fitBase = account.rating ? FIT_BY_RATING[account.rating] : priorityVertical ? 62 : 55;
+  const fitValue = clampScore(fitBase + (priorityVertical ? 4 : 0) + idJitter(account.id, "fit", 5));
+
+  const stage = account.buyingStage ?? null;
+  const intentBase = stage ? INTENT_BY_STAGE[stage] : 32;
+  const intentValue = clampScore(intentBase + idJitter(account.id, "intent", 6));
+  const highIntent = stage === "Purchase" || stage === "Decision";
+  const midIntent = stage === "Consideration";
+
   return {
     fit: {
-      value: priorityVertical ? 62 : 55,
+      value: fitValue,
       signals: [
-        { label: "ICP match", value: `${account.industry} · unsized`, good: priorityVertical },
-        { label: "Product fit", value: "Intacct core financials", good: true },
-        { label: "Vertical", value: account.industry, good: priorityVertical },
+        {
+          label: "ICP match",
+          value: `${account.industry}${priorityVertical ? " · priority vertical" : ""}`,
+          good: priorityVertical || account.rating === "P1" || account.rating === "P2",
+        },
+        { label: "Product fit", value: `${account.product} core financials`, good: true },
+        {
+          label: "Rating",
+          value: account.rating ? `${account.rating} account` : "Unrated",
+          good: account.rating === "P1" || account.rating === "P2",
+        },
         { label: "Segment", value: "Unknown", good: false },
       ],
     },
     intent: {
-      value: 35,
+      value: intentValue,
       signals: [
-        { label: "Web intent", value: "None detected", good: false },
+        {
+          label: "Web intent",
+          value: highIntent
+            ? "Active buying-stage signals this week"
+            : midIntent
+              ? "Some research activity"
+              : "Low recent activity",
+          good: highIntent || midIntent,
+        },
+        { label: "6sense Buying Stage", value: stage ?? "Not set", good: highIntent || midIntent },
         { label: "Outreach activity", value: "Never contacted", good: false },
-        { label: "ABM Vertical Segmentation", value: "No tier assigned", good: false },
       ],
     },
   };
