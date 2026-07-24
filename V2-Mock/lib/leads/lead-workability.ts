@@ -53,11 +53,12 @@ function formatAccountActivity(dateStr: string | null): string | null {
 }
 
 /**
- * Lead-level "Can I work it?" verdict (build-plan step 6). A lead-level version of
- * the six-check account verdict. Checks that depend on an account (association,
- * open opportunity, existing customer) read as "not applicable" rather than
- * failing when the lead has no linked account. Account-dependent checks are
- * derived from the linked account's own workability so the two stay in sync.
+ * Lead-level "Can I work it?" verdict (build-plan step 6). Mirrors the BDR
+ * account checklist (Customer Status, TAM, ROE, Open Opportunity, Disqualified
+ * Opportunity, Partner Relationship) with an SDR-only Account Association check
+ * and a lead-level Duplicate Lead check. Account-dependent checks are derived
+ * from the linked account's own workability so the two stay in sync, and read
+ * "not applicable" rather than failing when the lead has no linked account.
  */
 export function evaluateLeadWorkability(
   lead: SdrLead,
@@ -73,19 +74,19 @@ export function evaluateLeadWorkability(
   const dup = duplicateInfo
     ? chk(
         "dup",
-        "Duplicate Check",
-        "Already a lead or contact in Salesforce?",
+        "Duplicate Lead",
+        "Any duplicate lead records?",
         "yn",
         "fail",
         `Duplicate of existing lead "${duplicateInfo.duplicateOf}" (same ${duplicateInfo.matchedOn})`,
       )
     : chk(
         "dup",
-        "Duplicate Check",
-        "Already a lead or contact in Salesforce?",
+        "Duplicate Lead",
+        "Any duplicate lead records?",
         "yn",
         "pass",
-        "No matching lead or contact found in Salesforce",
+        "No duplicate lead found — name and email are unique",
       );
 
   // 2. Account association — a net-new SDR lead with no linked account has
@@ -137,52 +138,107 @@ export function evaluateLeadWorkability(
     );
   }
 
-  // 3. Ownership and ROE — is the lead or its account owned by someone else?
+  // 3. ROE — is the lead or its account owned by / in conflict with another rep?
   const leadOwnedByOther = lead.ownerName !== "House Account";
+  const roeQuestion = "Any lead/contact conflict with another rep?";
   let roe: DedupeCheck;
   if (leadOwnedByOther) {
-    roe = chk("roe", "Ownership & ROE", "Owned by another rep?", "pf", "fail", `Lead is owned by ${lead.ownerName}`);
+    roe = chk("roe", "ROE", roeQuestion, "pf", "fail", `Lead is owned by ${lead.ownerName}`);
   } else if (acct && acct.roe_status === "FAIL") {
-    roe = chk("roe", "Ownership & ROE", "Owned by another rep?", "pf", "fail", `ROE conflict on ${account?.name}: ${acct.reason}`);
+    roe = chk("roe", "ROE", roeQuestion, "pf", "fail", `ROE conflict on ${account?.name}: ${acct.reason}`);
   } else if (acct) {
-    roe = chk("roe", "Ownership & ROE", "Owned by another rep?", "pf", "pass", `Lead unassigned (House); no ROE conflict on the lead or ${account?.name}`);
+    roe = chk("roe", "ROE", roeQuestion, "pf", "pass", `Lead unassigned (House); no owner conflict on the lead or ${account?.name}`);
   } else {
-    roe = chk("roe", "Ownership & ROE", "Owned by another rep?", "pf", "pass", "Lead unassigned (House); account-level ROE not applicable");
+    roe = chk("roe", "ROE", roeQuestion, "pf", "pass", "Lead unassigned (House); account-level ROE not applicable");
+  }
+
+  // 3b. TAM — does the linked account fall within team territory? Mirrors the
+  // BDR TAM check; warns on an expired Intacct TAM, N/A without a linked account.
+  let tam: DedupeCheck;
+  const tamQuestion = "Does the account fall within your territory?";
+  if (!account || !acct) {
+    tam = chk("tam", "TAM", tamQuestion, "pf", "na", "No linked account — territory can't be validated");
+  } else if (account.tam === "Expired Intacct TAM" && acct.customer_status === "PASS") {
+    tam = chk("tam", "TAM", tamQuestion, "pf", "warn", `TAM: Expired Intacct TAM on ${account.name} — verify before working`);
+  } else {
+    tam = chk(
+      "tam",
+      "TAM",
+      tamQuestion,
+      "pf",
+      "pass",
+      account.tam === null ? "TAM: Blank — falls within team territory" : `TAM: ${account.tam}`,
+    );
   }
 
   // 4. Open opportunity on the linked account.
+  const openOppQuestion = "Does an open opp already exist?";
   let openOpp: DedupeCheck;
   if (!acct) {
-    openOpp = chk("openOpp", "Open Opportunity", "Open opp on the linked account?", "yn", "na", "No linked account — check not applicable");
+    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "na", "No linked account — check not applicable");
   } else if (acct.open_opportunity_status === "FAIL") {
-    openOpp = chk("openOpp", "Open Opportunity", "Open opp on the linked account?", "yn", "fail", acct.open_opportunity_detail.openOpportunities[0]
+    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "fail", acct.open_opportunity_detail.openOpportunities[0]
       ? `Open opp: "${acct.open_opportunity_detail.openOpportunities[0].name}" on ${account?.name}`
       : `Open opportunity on ${account?.name}`);
   } else {
-    openOpp = chk("openOpp", "Open Opportunity", "Open opp on the linked account?", "yn", "pass", `No open opportunity on ${account?.name}`);
+    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "pass", `No open opportunity on ${account?.name}`);
   }
 
-  // 5. Existing customer check on the linked account.
+  // 5. Customer status of the linked account (is this a prospect, not a customer?).
+  const customerQuestion = "Is this a prospect (not an existing customer)?";
   let customer: DedupeCheck;
   if (!acct || !account) {
-    customer = chk("customer", "Existing Customer", "Linked account already a customer?", "pf", "na", "No linked account — check not applicable");
+    customer = chk("customer", "Customer Status", customerQuestion, "pf", "na", "No linked account — check not applicable");
   } else if (acct.customer_status === "BLOCKED") {
-    customer = chk("customer", "Existing Customer", "Linked account already a customer?", "pf", "fail", `${account.name} is an existing customer — route to Customer Success`);
+    customer = chk("customer", "Customer Status", customerQuestion, "pf", "fail", `${account.name} is an existing customer — route to Customer Success`);
   } else if (acct.customer_status === "WARNING") {
-    customer = chk("customer", "Existing Customer", "Linked account already a customer?", "pf", "warn", `${account.name} is a Customer with an expired TAM — verify before working`);
+    customer = chk("customer", "Customer Status", customerQuestion, "pf", "warn", `${account.name} is a Customer with an expired TAM — verify before working`);
   } else {
-    customer = chk("customer", "Existing Customer", "Linked account already a customer?", "pf", "pass", `${account.name} is a ${account.type} — not an existing customer`);
+    customer = chk("customer", "Customer Status", customerQuestion, "pf", "pass", `${account.name} is a ${account.type} — not an existing customer`);
   }
 
-  // 6. Suppression or cooling-off (uses the account DQ cooling-off when present).
-  let suppression: DedupeCheck;
+  // 6. Disqualified opportunity — is the linked account in a DQ cooling-off
+  // window (or otherwise suppressed)? Mirrors the BDR Disqualified Opportunity check.
+  const dqQuestion = "Blocking DQ opp?";
+  let dqOpp: DedupeCheck;
   if (acct && acct.dq_opportunity_status === "FAIL") {
-    suppression = chk("suppression", "Suppression / Cooling-off", "Suppressed or in a cooling-off window?", "yn", "fail", acct.dq_opportunity_detail.reason);
+    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "fail", acct.dq_opportunity_detail.reason);
   } else {
-    suppression = chk("suppression", "Suppression / Cooling-off", "Suppressed or in a cooling-off window?", "yn", "pass", "No suppression flag or DQ cooling-off on this lead");
+    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", "No disqualified opportunity on record");
   }
 
-  const checks: DedupeCheck[] = [dup, assoc, roe, openOpp, customer, suppression];
+  // 7. Partner relationship — blocks when the linked account has an active
+  // partner deal registration OR the lead itself came in as a VAR lead.
+  const partnerQuestion = "Partner conflict found?";
+  const varLead = /\bVAR\b|reseller|value[- ]?added/i.test(lead.source ?? "");
+  let partner: DedupeCheck;
+  if (acct && acct.partner_status === "FAIL") {
+    partner = chk(
+      "partner",
+      "Partner Relationship",
+      partnerQuestion,
+      "yn",
+      "fail",
+      `${acct.partner_detail.varStatus ?? "Partner deal registration"} — a partner holds an active deal registration on ${account?.name}. Route through the partner/channel team.`,
+    );
+  } else if (varLead) {
+    partner = chk(
+      "partner",
+      "Partner Relationship",
+      partnerQuestion,
+      "yn",
+      "fail",
+      `Lead came in through a VAR (${lead.source}) — route through the partner/channel team.`,
+    );
+  } else if (acct) {
+    partner = chk("partner", "Partner Relationship", partnerQuestion, "yn", "pass", `No partner or VAR relationship on ${account?.name}`);
+  } else {
+    partner = chk("partner", "Partner Relationship", partnerQuestion, "yn", "pass", "No partner or VAR relationship found");
+  }
+
+  // Ordered to mirror the BDR account checklist, with the SDR-only Account
+  // Association slotted in after the duplicate check.
+  const checks: DedupeCheck[] = [customer, tam, roe, dup, assoc, openOpp, dqOpp, partner];
 
   const hasFail = checks.some((c) => c.state === "fail");
   const hasSoft = checks.some((c) => c.state === "warn" || c.state === "na");
@@ -241,7 +297,7 @@ function buildLeadReason(
     if (!lead.accountId) {
       return {
         reason:
-          "This lead has no linked account, so two account-level checks (open opportunity, existing customer) could not run.",
+          "This lead has no linked account, so the account-level checks (TAM, open opportunity, customer status) could not run.",
         recommendation: "Confirm or create the account, then re-check before working the lead.",
       };
     }
@@ -252,7 +308,7 @@ function buildLeadReason(
   }
   return {
     reason:
-      "No duplicate, the lead maps to a workable account, no ROE conflict, no open opportunity, and no suppression.",
+      "All checks clear — not an existing customer, in territory, no ROE conflict, no duplicate, no open opportunity, no DQ cooling-off, and no partner conflict.",
     recommendation: "Lead is workable. Proceed.",
   };
 }

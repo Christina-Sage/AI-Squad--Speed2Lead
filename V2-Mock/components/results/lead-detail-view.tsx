@@ -93,7 +93,7 @@ export function LeadDetailView({
         isCurrentOwner={false}
         salesforceUrl={crmUrl}
         title="Can I work this lead?"
-        subtitle="Lead-level six-check checklist"
+        subtitle="Lead-level de-dupe & workability checklist"
         runningTitle="Running the lead checks…"
         actions={actions}
         collapsible={collapsible}
