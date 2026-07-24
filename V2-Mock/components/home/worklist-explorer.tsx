@@ -96,6 +96,8 @@ function MiniBar({ label, value }: { label: string; value: number }) {
 
 export function WorklistExplorer({
   mode,
+  team,
+  product,
   demoUserName,
   priorityLabel,
   accountRows = [],
@@ -106,6 +108,8 @@ export function WorklistExplorer({
   justWorkedId = null,
 }: {
   mode: "accounts" | "leads";
+  team: string;
+  product: string;
   demoUserName: string;
   priorityLabel?: string;
   accountRows?: AccountRow[];
@@ -282,9 +286,13 @@ export function WorklistExplorer({
     if (focusedKey) backBtnRef.current?.focus();
   }, [focusedKey]);
 
+  // Make the workflow separation explicit: BDR works accounts/contacts, SDR
+  // works leads — always within the one selected product line.
+  const unitOfWork = mode === "leads" ? "Leads" : "Accounts & contacts";
+  const workflowLabel = `${team} · ${product} · ${unitOfWork}`;
   const workableSub =
     mode === "leads"
-      ? `SDR leads${priorityLabel ? ` in ${priorityLabel}` : ""}, ranked by “Should I work it?” score`
+      ? `Ranked by “Should I work it?” score${priorityLabel ? ` · ${priorityLabel}` : ""}`
       : `Ranked by “Should I work it?” score — Fit 40% · Intent 35% · Workability 25%`;
 
   // Worked-state. Worked rows keep their DOM position (we map the row props
@@ -409,6 +417,13 @@ export function WorklistExplorer({
       <div className="mb-6 rounded-[14px] border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
           <h2 className="text-[15.5px] font-semibold">Today&rsquo;s Worklist</h2>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-[0.4px] uppercase ${
+              mode === "leads" ? "bg-primary-soft text-primary" : "bg-muted text-foreground"
+            }`}
+          >
+            {workflowLabel}
+          </span>
           <span className="text-[12.5px] text-muted-foreground">{workableSub}</span>
           {activeTotal > 0 && (
             <span className="ml-auto text-[12.5px] font-semibold text-muted-foreground">

@@ -152,6 +152,8 @@ export default async function Home({
 
       <WorklistExplorer
         mode={mode}
+        team={team}
+        product={product}
         demoUserName={demoUser.name}
         priorityLabel={team === "SDR" ? priority : undefined}
         accountRows={accountRows}
