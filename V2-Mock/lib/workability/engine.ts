@@ -127,6 +127,12 @@ function buildReasonAndRecommendation(
         recommendation: "Do not work this account until customer status is validated.",
       };
     }
+    if (customerTam.reasonCodes.includes(CUSTOMER_EXISTING)) {
+      return {
+        reason: `Account Type is Customer with an active TAM — an existing customer that is actively managed.`,
+        recommendation: "Do not work this account. Coordinate with the account owner / Customer Success.",
+      };
+    }
     if (dqOpp.status === "FAIL") {
       const d = dqOpp.blockingOpportunities[0];
       return {
@@ -147,12 +153,6 @@ function buildReasonAndRecommendation(
       return {
         reason: `Account Type is Customer and its TAM is expired. Verify customer status before working.`,
         recommendation: "Review before assigning account",
-      };
-    }
-    if (customerTam.reasonCodes.includes(CUSTOMER_EXISTING)) {
-      return {
-        reason: `Account Type is Customer — an existing customer must be reviewed before working.`,
-        recommendation: "Review with the account owner / Customer Success before assigning.",
       };
     }
     if (customerTam.reasonCodes.includes(TAM_EXPIRED)) {
@@ -197,10 +197,10 @@ function buildChecks(
     customerState === "pass"
       ? `Type: ${account.type} — not an existing customer`
       : customerState === "warn"
-        ? customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM)
-          ? `Type: Customer with ${account.tam} — verify customer status before working`
-          : `Type: Customer — existing customer, review before working`
-        : `Type: Customer with TAM blank — potential direct customer relationship. Route to Customer Success.`;
+        ? `Type: Customer with ${account.tam} — verify customer status before working`
+        : customerTam.reasonCodes.includes(CUSTOMER_EXISTING)
+          ? `Type: Customer with an active TAM — existing customer, actively managed. Do not work.`
+          : `Type: Customer with TAM blank — potential direct customer relationship. Route to Customer Success.`;
 
   const tamState: CheckState = customerTam.tamStatus === "WARNING" && customerState === "pass" ? "warn" : "pass";
   const tamReason =
@@ -305,13 +305,13 @@ export function evaluateWorkability(
     openOpp.status === "FAIL" ||
     dqOpp.status === "FAIL" ||
     partner.status === "FAIL" ||
-    customerTam.reasonCodes.includes(CUSTOMER_TAM_BLANK);
+    customerTam.reasonCodes.includes(CUSTOMER_TAM_BLANK) ||
+    customerTam.reasonCodes.includes(CUSTOMER_EXISTING);
 
   const needsReview =
     !hardFail &&
     (customerTam.reasonCodes.includes(TAM_EXPIRED) ||
       customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
-      customerTam.reasonCodes.includes(CUSTOMER_EXISTING) ||
       duplicates.length > 0);
 
   const final_status: FinalStatus = hardFail

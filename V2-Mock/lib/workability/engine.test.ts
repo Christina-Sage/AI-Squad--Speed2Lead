@@ -68,14 +68,14 @@ describe("evaluateWorkability", () => {
     expect(prospect.final_status).toBe("WORKABLE");
   });
 
-  it("existing Customer + active TAM -> WORKABLE WITH REVIEW (never auto-workable)", () => {
+  it("existing Customer + active TAM -> NOT WORKABLE (actively managed)", () => {
     const customer = evaluateWorkability(
       bundle(baseAccount({ type: "Customer", tam: "Intacct" }), { contacts: [cleanContact] }),
     );
-    // The TAM itself is fine; it's the existing-customer status that needs review.
+    // The TAM itself is fine; the existing-customer status blocks the account.
     expect(customer.tam_validation_status).toBe("PASS");
-    expect(customer.customer_status).toBe("WARNING");
-    expect(customer.final_status).toBe("WORKABLE WITH REVIEW");
+    expect(customer.customer_status).toBe("BLOCKED");
+    expect(customer.final_status).toBe("NOT WORKABLE");
     expect(customer.reason_codes).toContain("CUSTOMER_EXISTING");
   });
 
