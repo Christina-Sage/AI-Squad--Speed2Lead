@@ -470,7 +470,7 @@ export function WorkItPanel({
                               <ConfirmedPill />
                               <p className="mt-1 text-[11.5px] text-muted-foreground">
                                 {row.matched
-                                  ? "Matched Salesforce contact"
+                                  ? `Matched Salesforce ${row.detail.toLowerCase()}`
                                   : "Confirmed — added to Salesforce"}
                               </p>
                             </div>
