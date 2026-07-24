@@ -10,6 +10,7 @@ import {
 } from "@/lib/research/propublica";
 import { researchWebsite } from "@/lib/research/website";
 import { getWikipediaSummary } from "@/lib/research/wikipedia";
+import { seededResearchContacts } from "@/lib/research/seeded-contacts";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ");
@@ -172,6 +173,10 @@ export async function researchAccount(
   } catch {
     // Wikipedia is a best-effort supplement; ignore failures.
   }
+
+  // Deterministic per-account seeds so demo accounts show a stable cast even
+  // when the live web fetch returns nothing.
+  rawContacts = [...rawContacts, ...seededResearchContacts(account.id)];
 
   const dedupedContacts = Array.from(
     new Map(rawContacts.map((c) => [`${normalizeName(c.name)}|${c.title}`, c])).values(),

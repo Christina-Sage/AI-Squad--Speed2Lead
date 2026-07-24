@@ -113,7 +113,6 @@ export function LeadFocusView({
           {!loading && !error && data && (
             <>
               <AccountFitCard
-                accountId={workItId}
                 score={score}
                 accountName={data.account.name}
                 domain={data.account.domain}
@@ -123,9 +122,6 @@ export function LeadFocusView({
                 fteCount={data.fteCount}
                 intel={data.intel}
                 research={data.research}
-                foundContacts={data.foundContacts}
-                existingRecords={data.existingRecords}
-                initialAddedNames={data.workItState.addedContactNames}
               />
               <WorkItPanel
                 accountId={workItId}
@@ -138,6 +134,7 @@ export function LeadFocusView({
                 sequences={data.sequences}
                 signals={data.signals}
                 initialAppliedFields={data.workItState.appliedHygieneFields}
+                initialAddedNames={data.workItState.addedContactNames}
                 initialPush={data.workItState.outreachPush}
               />
             </>

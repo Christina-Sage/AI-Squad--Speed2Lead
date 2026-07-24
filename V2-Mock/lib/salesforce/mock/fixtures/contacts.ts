@@ -85,6 +85,46 @@ export const CONTACTS: Contact[] = [
     lastActivityDate: daysAgo(55),
   },
 
+  // Halcyon Robotics (0015Y00000HLCN01) — ICP finance contacts already on file.
+  // Each matches Salesforce, so the Existing Contacts card auto-confirms them.
+  // No activity so they don't affect ROE / workability.
+  {
+    id: "003-HLCN-1",
+    name: "Dana Reyes",
+    title: "CFO",
+    ownerId: "house",
+    ownerName: "House Account",
+    accountId: "0015Y00000HLCN01",
+    lastActivityDate: null,
+  },
+  {
+    id: "003-HLCN-2",
+    name: "Marcus Lin",
+    title: "Director of Finance",
+    ownerId: "house",
+    ownerName: "House Account",
+    accountId: "0015Y00000HLCN01",
+    lastActivityDate: null,
+  },
+  {
+    id: "003-HLCN-3",
+    name: "Priya Shah",
+    title: "Controller",
+    ownerId: "house",
+    ownerName: "House Account",
+    accountId: "0015Y00000HLCN01",
+    lastActivityDate: null,
+  },
+  {
+    id: "003-HLCN-4",
+    name: "Tom Alvarez",
+    title: "Staff Accountant",
+    ownerId: "house",
+    ownerName: "House Account",
+    accountId: "0015Y00000HLCN01",
+    lastActivityDate: null,
+  },
+
   // ROE-window contacts for the generated per-product demo accounts.
   ...DEMO_CONTACTS,
 ];

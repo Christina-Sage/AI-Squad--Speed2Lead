@@ -1,38 +1,18 @@
-"use client";
-
-import { useState } from "react";
-import { useToast } from "@/components/ui/toaster";
 import type { AccountScore } from "@/lib/scoring/scoring";
 import type { CompanyIntel } from "@/lib/research/company-intel";
 import type { CompanyResearchResult } from "@/lib/research/types";
-import type { PanelContact, PanelExistingRecord } from "@/components/workit/work-it-panel";
 import { formatCurrency } from "@/lib/workit/format";
 
 /**
  * "Should I work it?" account-fit card (mockup C). One box that consolidates the
- * eight account-fit-audit checks after Work-it: the overall score + pillars up
- * top, then the firmographics, intent, contacts, growth and hiring signals that
- * used to live in the separate Company Research / Growth Signals / Finance
- * Hiring / Found Contacts cards — each labelled with the tool it came from.
+ * account-fit-audit checks after Work-it: the overall score + pillars up top,
+ * then the firmographics, intent, growth and hiring signals that used to live in
+ * the separate Company Research / Growth Signals / Finance Hiring cards — each
+ * labelled with the tool it came from. Contacts have their own dedicated
+ * Existing Contacts card in the work-it panel below.
  */
 
 type Status = "good" | "watch";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("");
-}
-
-function ConfirmedPill() {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.3px] text-success uppercase">
-      ✓ Confirmed
-    </span>
-  );
-}
 
 function Dot({ status }: { status: Status }) {
   return (
@@ -100,7 +80,6 @@ function SignalRow({ label, value, good }: { label: string; value: string; good:
 }
 
 export function AccountFitCard({
-  accountId,
   score,
   accountName,
   domain,
@@ -110,11 +89,7 @@ export function AccountFitCard({
   fteCount,
   intel,
   research,
-  foundContacts,
-  existingRecords,
-  initialAddedNames,
 }: {
-  accountId: string;
   score: AccountScore;
   accountName: string;
   domain: string;
@@ -124,40 +99,7 @@ export function AccountFitCard({
   fteCount: number | null;
   intel: CompanyIntel | null;
   research: CompanyResearchResult;
-  foundContacts: PanelContact[];
-  existingRecords: PanelExistingRecord[];
-  initialAddedNames: string[];
 }) {
-  const toast = useToast();
-  const [added, setAdded] = useState<Set<string>>(
-    () => new Set(initialAddedNames.map((n) => n.toLowerCase())),
-  );
-  const [busy, setBusy] = useState<string | null>(null);
-
-  const isAdded = (c: PanelContact) => c.inSalesforce || added.has(c.name.toLowerCase());
-
-  async function addContact(c: PanelContact) {
-    setBusy(c.name);
-    try {
-      const res = await fetch("/api/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId, name: c.name, title: c.title }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        toast(data.error ?? "Failed to create contact");
-        return;
-      }
-      setAdded((prev) => new Set(prev).add(c.name.toLowerCase()));
-      toast(`Confirmed — added to Salesforce: ${c.name}`);
-    } catch {
-      toast("Failed to confirm contact");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   const revenueSource = intel
     ? "ZoomInfo"
     : research.revenue.source === "990"
@@ -173,14 +115,6 @@ export function AccountFitCard({
         ? "Company website"
         : "Not found";
 
-  // Salesforce cross-reference outcome for the contacts banner + row pills.
-  // Existing SFDC records and research finds that matched Salesforce are
-  // "confirmed"; a research find with no Salesforce match needs the rep's
-  // review and stays flagged until they Confirm it (writing it to Salesforce).
-  const confirmedFoundCount = foundContacts.filter(isAdded).length;
-  const reviewCount = foundContacts.length - confirmedFoundCount;
-  const confirmedCount = existingRecords.length + confirmedFoundCount;
-  const hasContacts = existingRecords.length > 0 || foundContacts.length > 0;
   const growthSignals = intel?.growthSignals ?? [];
   const hiringSignals = intel?.hiringSignals ?? [];
 
@@ -251,101 +185,6 @@ export function AccountFitCard({
             {score.intent.signals.map((s) => (
               <SignalRow key={s.label} label={s.label} value={s.value} good={s.good} />
             ))}
-          </div>
-        </div>
-
-        {/* Contacts — checked against Salesforce: matches confirmed, new finds flagged for review */}
-        <div>
-          <p className={sectionLabel}>
-            Contacts{" "}
-            <span className="font-normal normal-case">— ICP contacts, checked against Salesforce</span>
-          </p>
-
-          {hasContacts && (
-            <div className="mb-3 flex items-start gap-2.5 rounded-[11px] border border-success-bg bg-success-soft px-4 py-2.5">
-              <span className="mt-px flex size-[20px] shrink-0 items-center justify-center rounded-full bg-success-bg text-[12px] font-extrabold text-success">
-                ✓
-              </span>
-              <p className="text-[12.5px] leading-snug">
-                Checked Salesforce on <b>{accountName}</b> — {confirmedCount} ICP contact
-                {confirmedCount === 1 ? "" : "s"} confirmed and pre-selected.
-                {reviewCount > 0
-                  ? ` ${reviewCount} ${reviewCount === 1 ? "needs" : "need"} your review.`
-                  : " None need your review."}
-              </p>
-            </div>
-          )}
-
-          <div className="rounded-[11px] border border-border bg-background">
-            {!hasContacts ? (
-              <p className="px-4 py-3 text-xs text-muted-foreground italic">
-                No contacts on file and no ICP matches found in public sources.
-              </p>
-            ) : (
-              <>
-                {existingRecords.map((r) => (
-                  <div
-                    key={`${r.name}-${r.kind}`}
-                    className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                      {initials(r.name)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13.5px] font-semibold">{r.name}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {r.title} · {r.kind}
-                      </span>
-                    </span>
-                    <ConfirmedPill />
-                  </div>
-                ))}
-                {foundContacts.map((c) => {
-                  const confirmed = isAdded(c);
-                  return (
-                    <div
-                      key={`${c.name}-${c.title}`}
-                      className={`flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 ${
-                        confirmed ? "" : "bg-warning-bg/25"
-                      }`}
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
-                        {initials(c.name)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13.5px] font-semibold">
-                          {c.name}{" "}
-                          {c.isIcpMatch && (
-                            <span className="ml-1 rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold tracking-[0.4px] text-success uppercase">
-                              ICP
-                            </span>
-                          )}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {c.title} · {c.source === "990" ? "Form 990" : "Website"}
-                        </span>
-                      </span>
-                      {confirmed ? (
-                        <ConfirmedPill />
-                      ) : (
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.3px] text-warning uppercase">
-                            ⚠ Needs your review
-                          </span>
-                          <button
-                            className="rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold hover:border-muted-foreground disabled:opacity-45"
-                            disabled={busy === c.name}
-                            onClick={() => addContact(c)}
-                          >
-                            {busy === c.name ? "Confirming…" : "Confirm"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </>
-            )}
           </div>
         </div>
 
