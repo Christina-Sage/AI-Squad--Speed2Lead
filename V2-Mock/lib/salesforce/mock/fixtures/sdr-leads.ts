@@ -93,7 +93,7 @@ export const SDR_LEADS: SdrLead[] = [
     ownerName: "House Account",
     status: "Open - Not Contacted",
     priorityGroup: "P4/5",
-    product: "SSG",
+    product: "Intacct",
     fit: 62,
     intent: 40,
     workability: 56,
