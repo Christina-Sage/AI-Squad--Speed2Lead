@@ -134,6 +134,7 @@ export function WorkItPanel({
   initialAppliedFields,
   initialAddedNames,
   initialPush,
+  lead,
 }: {
   accountId: string;
   accountName?: string;
@@ -147,43 +148,59 @@ export function WorkItPanel({
   initialAppliedFields: string[];
   initialAddedNames: string[];
   initialPush: OutreachPush | null;
+  /**
+   * SDR-lead mode. When set, the lead itself is the unit of work: the Existing
+   * Contacts card is hidden and the lead is the single, pre-selected contact to
+   * push to Outreach (no account-contact confirm/review flow).
+   */
+  lead?: { name: string; title?: string | null; email?: string | null };
 }) {
   const toast = useToast();
 
   // Unified list for the Existing Contacts card: Salesforce records already on
   // file (auto-confirmed) + new research finds that need review before pushing.
-  const contactRows: ContactRow[] = [
-    ...existingRecords.map((r) => ({
-      name: r.name,
-      title: r.title,
-      role: classifyIcpRole(r.title),
-      matched: true,
-      detail: r.kind,
-    })),
-    ...foundContacts
-      .filter((c) => !c.inSalesforce)
-      .map((c) => ({
-        name: c.name,
-        title: c.title,
-        role: classifyIcpRole(c.title),
-        matched: false,
-        detail: c.source === "990" ? "Form 990" : "Website",
-      })),
-  ];
-  const initialConfirmed = new Set<string>([
-    ...existingRecords.map((r) => r.name.toLowerCase()),
-    ...initialAddedNames.map((n) => n.toLowerCase()),
-  ]);
+  // Empty in lead mode — the card is hidden and the lead is what gets pushed.
+  const contactRows: ContactRow[] = lead
+    ? []
+    : [
+        ...existingRecords.map((r) => ({
+          name: r.name,
+          title: r.title,
+          role: classifyIcpRole(r.title),
+          matched: true,
+          detail: r.kind,
+        })),
+        ...foundContacts
+          .filter((c) => !c.inSalesforce)
+          .map((c) => ({
+            name: c.name,
+            title: c.title,
+            role: classifyIcpRole(c.title),
+            matched: false,
+            detail: c.source === "990" ? "Form 990" : "Website",
+          })),
+      ];
+  const initialConfirmed = new Set<string>(
+    lead
+      ? [lead.name.toLowerCase()]
+      : [
+          ...existingRecords.map((r) => r.name.toLowerCase()),
+          ...initialAddedNames.map((n) => n.toLowerCase()),
+        ],
+  );
 
   // Matched records + already-added finds are confirmed and pre-selected; a new
-  // find stays locked (unselectable) until the rep confirms it.
+  // find stays locked (unselectable) until the rep confirms it. In lead mode the
+  // lead is the confirmed, pre-selected target.
   const [confirmed, setConfirmed] = useState<Set<string>>(() => new Set(initialConfirmed));
   const [selected, setSelected] = useState<Set<string>>(
     () =>
       new Set(
-        contactRows
-          .filter((row) => initialConfirmed.has(row.name.toLowerCase()))
-          .map((row) => row.name),
+        lead
+          ? [lead.name]
+          : contactRows
+              .filter((row) => initialConfirmed.has(row.name.toLowerCase()))
+              .map((row) => row.name),
       ),
   );
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
@@ -272,12 +289,14 @@ export function WorkItPanel({
     });
   }
 
-  // Only confirmed contacts can enter a sequence; the Existing Contacts card
-  // above drives selection and confirmation.
-  const pushable: { name: string; subtitle: string }[] = confirmedRows.map((row) => ({
-    name: row.name,
-    subtitle: `${row.title} · ${row.matched ? "In SFDC" : row.detail}`,
-  }));
+  // What can enter a sequence. In lead mode it's just the lead; otherwise the
+  // confirmed contacts from the Existing Contacts card above.
+  const pushable: { name: string; subtitle: string }[] = lead
+    ? [{ name: lead.name, subtitle: lead.title ? `${lead.title} · Lead` : "Lead" }]
+    : confirmedRows.map((row) => ({
+        name: row.name,
+        subtitle: `${row.title} · ${row.matched ? "In SFDC" : row.detail}`,
+      }));
 
   async function pushOutreach() {
     const names = pushable.filter((p) => selected.has(p.name)).map((p) => p.name);
@@ -302,11 +321,12 @@ export function WorkItPanel({
       const prospects: OutreachProspect[] = names.map((name) => {
         const contact = foundContacts.find((c) => c.name === name);
         const record = existingRecords.find((r) => r.name === name);
+        const isLead = lead?.name === name;
         return {
           name,
-          title: contact?.title ?? record?.title ?? null,
+          title: contact?.title ?? record?.title ?? (isLead ? (lead?.title ?? null) : null),
           company: accountName ?? null,
-          email: deriveEmail(name, domain),
+          email: (isLead ? lead?.email : null) ?? deriveEmail(name, domain),
         };
       });
       setOutreachPanel({ prospects, sequence });
@@ -392,6 +412,7 @@ export function WorkItPanel({
         )}
       </Card>
 
+      {!lead && (
       <Card title="Existing Contacts" sub="ICP contacts, checked against Salesforce">
         {contactRows.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
@@ -525,6 +546,7 @@ export function WorkItPanel({
           </>
         )}
       </Card>
+      )}
 
       <Card
         title="Push to Outreach"
