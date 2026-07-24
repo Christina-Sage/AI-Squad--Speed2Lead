@@ -251,7 +251,7 @@ function build(): Generated {
         industry,
         type: "Prospect",
         product,
-        tam: "Intacct",
+        tam: product,
         buyingStage,
         rating,
         abmNurtureStatus: null,
@@ -266,7 +266,7 @@ function build(): Generated {
 
       if (slot.kind === "review") {
         // Expired TAM on a prospect -> WORKABLE WITH REVIEW.
-        accounts.push({ ...base, tam: "Expired Intacct TAM" });
+        accounts.push({ ...base, tam: `Expired ${product} TAM` });
         return;
       }
 

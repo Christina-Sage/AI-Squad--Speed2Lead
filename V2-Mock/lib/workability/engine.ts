@@ -6,6 +6,7 @@ import { evaluateDqOpportunities, type DqOppResult } from "@/lib/workability/dq-
 import { evaluatePartner, type PartnerResult } from "@/lib/workability/partner";
 import {
   evaluateCustomerTam,
+  isExpiredTam,
   CUSTOMER_TAM_BLANK,
   CUSTOMER_EXPIRED_TAM,
   TAM_EXPIRED,
@@ -143,13 +144,13 @@ function buildReasonAndRecommendation(
   if (finalStatus === "WORKABLE WITH REVIEW") {
     if (customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM)) {
       return {
-        reason: `Account Type is Customer and TAM is Expired Intacct TAM. Verify customer status before working.`,
+        reason: `Account Type is Customer and its TAM is expired. Verify customer status before working.`,
         recommendation: "Review before assigning account",
       };
     }
     if (customerTam.reasonCodes.includes(TAM_EXPIRED)) {
       return {
-        reason: `TAM is Expired Intacct TAM for this account. Verify TAM status before working.`,
+        reason: `This account's TAM is expired. Verify TAM status before working.`,
         recommendation: "Review before assigning account",
       };
     }
@@ -189,15 +190,15 @@ function buildChecks(
     customerState === "pass"
       ? `Type: ${account.type} — not an existing customer`
       : customerState === "warn"
-        ? `Type: Customer with Expired Intacct TAM — verify customer status before working`
+        ? `Type: Customer with ${account.tam} — verify customer status before working`
         : `Type: Customer with TAM blank — potential direct customer relationship. Route to Customer Success.`;
 
   const tamState: CheckState = customerTam.tamStatus === "WARNING" && customerState === "pass" ? "warn" : "pass";
   const tamReason =
     account.tam === null
       ? "TAM: Blank — falls within team territory"
-      : account.tam === "Expired Intacct TAM"
-        ? "TAM: Expired Intacct TAM — verify before working"
+      : isExpiredTam(account.tam)
+        ? `TAM: ${account.tam} — verify before working`
         : `TAM: ${account.tam}`;
 
   const roeReason =
