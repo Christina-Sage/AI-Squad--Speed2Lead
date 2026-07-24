@@ -579,7 +579,8 @@ export function WorklistExplorer({
               <div className="text-[11.5px] text-destructive">{lead.reason}</div>
             </button>
           ))}
-        {blockedRows.map((acct) => {
+        {mode === "accounts" &&
+          blockedRows.map((acct) => {
           if (!acctVisible(acct.id)) return null;
           return (
           <button
