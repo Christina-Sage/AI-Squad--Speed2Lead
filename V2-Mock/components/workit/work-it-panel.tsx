@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
-import { CheckIcon, ChevronDownIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
 import { buildAccountNote } from "@/lib/workit/account-note";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
 import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
 import { classifyIcpRole, type IcpRole } from "@/lib/research/icp";
+import { buildSalesforceNewContactUrl } from "@/lib/salesforce/urls";
 import { OutreachProspectPanel, type OutreachProspect } from "@/components/workit/outreach-prospect-panel";
 
 /** Best-effort work email from a person's name + company domain (mock only). */
@@ -478,18 +479,28 @@ export function WorkItPanel({
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <ReviewPill />
+                                <a
+                                  href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
+                                >
+                                  Add in Salesforce
+                                  <ExternalLinkIcon className="size-3.5" />
+                                </a>
                                 <button
                                   type="button"
                                   className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
                                   disabled={busy === row.name}
                                   onClick={() => confirmContact(row)}
                                 >
-                                  {busy === row.name ? "Adding…" : "Confirm & add"}
+                                  {busy === row.name ? "Syncing…" : "Confirm & add"}
                                 </button>
                               </div>
-                              <p className="mt-1 max-w-[290px] text-[11.5px] text-muted-foreground">
-                                New contact from research — no matching Salesforce name + title.
-                                Confirm this is a real, current contact before pushing.
+                              <p className="mt-1 max-w-[340px] text-[11.5px] text-muted-foreground">
+                                New contact from research — not in Salesforce yet. Open{" "}
+                                <b>Add in Salesforce</b> to create the record on this account, then{" "}
+                                <b>Confirm &amp; add</b> to sync it and confirm it landed.
                               </p>
                             </div>
                           )}
