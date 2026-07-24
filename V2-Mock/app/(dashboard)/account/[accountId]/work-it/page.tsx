@@ -105,7 +105,6 @@ export default async function WorkItPage({
 
       {score && (
         <AccountFitCard
-          accountId={accountId}
           score={score}
           accountName={account.name}
           domain={account.domain}
@@ -115,20 +114,21 @@ export default async function WorkItPage({
           fteCount={fteCount}
           intel={intel}
           research={research}
-          foundContacts={foundContacts}
-          existingRecords={existingRecords}
-          initialAddedNames={workItState.addedContactNames}
         />
       )}
 
       <WorkItPanel
         accountId={accountId}
+        accountName={account.name}
+        domain={account.domain}
+        industry={account.industry}
         foundContacts={foundContacts}
         existingRecords={existingRecords}
         hygiene={hygiene}
         sequences={SEQUENCES}
         signals={signals}
         initialAppliedFields={workItState.appliedHygieneFields}
+        initialAddedNames={workItState.addedContactNames}
         initialPush={workItState.outreachPush}
       />
 

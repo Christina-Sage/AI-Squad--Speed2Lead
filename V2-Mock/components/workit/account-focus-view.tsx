@@ -113,7 +113,6 @@ export function AccountFocusView({
             <>
               {score && (
                 <AccountFitCard
-                  accountId={accountId}
                   score={score}
                   accountName={data.account.name}
                   domain={data.account.domain}
@@ -123,9 +122,6 @@ export function AccountFocusView({
                   fteCount={data.fteCount}
                   intel={data.intel}
                   research={data.research}
-                  foundContacts={data.foundContacts}
-                  existingRecords={data.existingRecords}
-                  initialAddedNames={data.workItState.addedContactNames}
                 />
               )}
               <WorkItPanel
@@ -139,6 +135,7 @@ export function AccountFocusView({
                 sequences={data.sequences}
                 signals={data.signals}
                 initialAppliedFields={data.workItState.appliedHygieneFields}
+                initialAddedNames={data.workItState.addedContactNames}
                 initialPush={data.workItState.outreachPush}
               />
             </>

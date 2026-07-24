@@ -8,6 +8,7 @@ import { buildAccountNote } from "@/lib/workit/account-note";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
 import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
+import { classifyIcpRole, type IcpRole } from "@/lib/research/icp";
 import { OutreachProspectPanel, type OutreachProspect } from "@/components/workit/outreach-prospect-panel";
 
 /** Best-effort work email from a person's name + company domain (mock only). */
@@ -61,6 +62,41 @@ function initials(name: string): string {
     .join("");
 }
 
+/** One row in the Existing Contacts table. */
+interface ContactRow {
+  name: string;
+  title: string;
+  role: IcpRole | null;
+  /** Already a Salesforce record on file (auto-confirmed) vs. a new research find. */
+  matched: boolean;
+  /** Secondary label for the Push chip: "Contact" / "Lead" / "Website" / "Form 990". */
+  detail: string;
+}
+
+function RolePill({ role }: { role: IcpRole }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-primary/40 px-2 py-0.5 text-[10.5px] font-bold tracking-[0.4px] text-primary uppercase">
+      {role}
+    </span>
+  );
+}
+
+function ConfirmedPill() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold text-success">
+      ✓ Confirmed
+    </span>
+  );
+}
+
+function ReviewPill() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold text-warning">
+      ⚠ Needs your review
+    </span>
+  );
+}
+
 function Card({
   title,
   sub,
@@ -95,6 +131,7 @@ export function WorkItPanel({
   sequences,
   signals,
   initialAppliedFields,
+  initialAddedNames,
   initialPush,
 }: {
   accountId: string;
@@ -107,12 +144,46 @@ export function WorkItPanel({
   sequences: string[];
   signals: PanelSignals;
   initialAppliedFields: string[];
+  initialAddedNames: string[];
   initialPush: OutreachPush | null;
 }) {
   const toast = useToast();
-  // Found contacts start selected; existing SFDC contacts/leads are opt-in.
+
+  // Unified list for the Existing Contacts card: Salesforce records already on
+  // file (auto-confirmed) + new research finds that need review before pushing.
+  const contactRows: ContactRow[] = [
+    ...existingRecords.map((r) => ({
+      name: r.name,
+      title: r.title,
+      role: classifyIcpRole(r.title),
+      matched: true,
+      detail: r.kind,
+    })),
+    ...foundContacts
+      .filter((c) => !c.inSalesforce)
+      .map((c) => ({
+        name: c.name,
+        title: c.title,
+        role: classifyIcpRole(c.title),
+        matched: false,
+        detail: c.source === "990" ? "Form 990" : "Website",
+      })),
+  ];
+  const initialConfirmed = new Set<string>([
+    ...existingRecords.map((r) => r.name.toLowerCase()),
+    ...initialAddedNames.map((n) => n.toLowerCase()),
+  ]);
+
+  // Matched records + already-added finds are confirmed and pre-selected; a new
+  // find stays locked (unselectable) until the rep confirms it.
+  const [confirmed, setConfirmed] = useState<Set<string>>(() => new Set(initialConfirmed));
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(foundContacts.map((c) => c.name)),
+    () =>
+      new Set(
+        contactRows
+          .filter((row) => initialConfirmed.has(row.name.toLowerCase()))
+          .map((row) => row.name),
+      ),
   );
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
   const [push, setPush] = useState<OutreachPush | null>(initialPush);
@@ -148,7 +219,10 @@ export function WorkItPanel({
     }
   }
 
+  const isConfirmed = (name: string) => confirmed.has(name.toLowerCase());
+
   function toggleSelected(name: string) {
+    if (!isConfirmed(name)) return; // locked until confirmed
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -157,17 +231,52 @@ export function WorkItPanel({
     });
   }
 
-  // Everything that can enter a sequence: research finds + existing SFDC records.
-  const pushable: { name: string; subtitle: string }[] = [
-    ...foundContacts.map((c) => ({
-      name: c.name,
-      subtitle: `${c.title}${c.inSalesforce ? " · In SFDC" : ""}`,
-    })),
-    ...existingRecords.map((r) => ({
-      name: r.name,
-      subtitle: `${r.title} · ${r.kind}`,
-    })),
-  ];
+  // Confirm a new research find: writes it to Salesforce (as before), then marks
+  // it confirmed and selects it so it flows into the Push to Outreach list.
+  async function confirmContact(row: ContactRow) {
+    setBusy(row.name);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId, name: row.name, title: row.title }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast(data.error ?? "Failed to confirm contact");
+        return;
+      }
+      setConfirmed((prev) => new Set(prev).add(row.name.toLowerCase()));
+      setSelected((prev) => new Set(prev).add(row.name));
+      toast(`Confirmed — added to Salesforce: ${row.name}`);
+    } catch {
+      toast("Failed to confirm contact");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const confirmedRows = contactRows.filter((row) => isConfirmed(row.name));
+  const reviewCount = contactRows.length - confirmedRows.length;
+  const selectedContactCount = contactRows.filter((row) => selected.has(row.name)).length;
+  const allConfirmedSelected =
+    confirmedRows.length > 0 && confirmedRows.every((row) => selected.has(row.name));
+
+  function toggleAllContacts() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allConfirmedSelected) confirmedRows.forEach((row) => next.delete(row.name));
+      else confirmedRows.forEach((row) => next.add(row.name));
+      return next;
+    });
+  }
+
+  // Only confirmed contacts can enter a sequence; the Existing Contacts card
+  // above drives selection and confirmation.
+  const pushable: { name: string; subtitle: string }[] = confirmedRows.map((row) => ({
+    name: row.name,
+    subtitle: `${row.title} · ${row.matched ? "In SFDC" : row.detail}`,
+  }));
 
   async function pushOutreach() {
     const names = pushable.filter((p) => selected.has(p.name)).map((p) => p.name);
@@ -279,6 +388,130 @@ export function WorkItPanel({
               )}
             </div>
           ))
+        )}
+      </Card>
+
+      <Card title="Existing Contacts" sub="ICP contacts, checked against Salesforce">
+        {contactRows.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">
+            No Salesforce contacts on file and no ICP matches found in research.
+          </p>
+        ) : (
+          <>
+            <div className="mb-4 flex items-start gap-2.5 rounded-[11px] border border-success-bg bg-success-soft px-4 py-2.5">
+              <span className="mt-px flex size-[20px] shrink-0 items-center justify-center rounded-full bg-success-bg text-[12px] font-extrabold text-success">
+                ✓
+              </span>
+              <p className="text-[12.5px] leading-snug">
+                Checked Salesforce on <b>{accountName ?? "this account"}</b> — {confirmedRows.length}{" "}
+                ICP contact{confirmedRows.length === 1 ? "" : "s"} confirmed and pre-selected.
+                {reviewCount > 0 ? (
+                  <>
+                    {" "}
+                    <span className="font-semibold text-warning">
+                      {reviewCount} {reviewCount === 1 ? "needs" : "need"} your review
+                    </span>{" "}
+                    ({reviewCount === 1 ? "a new contact that doesn’t" : "new contacts that don’t"}{" "}
+                    match an existing record).
+                  </>
+                ) : (
+                  " All checked against Salesforce — none need review."
+                )}
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-border text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase">
+                    <th className="w-9 py-2 pr-2 font-bold">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all confirmed contacts"
+                        className="size-4 accent-success align-middle"
+                        checked={allConfirmedSelected}
+                        onChange={toggleAllContacts}
+                      />
+                    </th>
+                    <th className="py-2 pr-3 font-bold">Contact</th>
+                    <th className="py-2 pr-3 font-bold">Title</th>
+                    <th className="py-2 pr-3 font-bold">ICP Role</th>
+                    <th className="py-2 font-bold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contactRows.map((row) => {
+                    const conf = isConfirmed(row.name);
+                    return (
+                      <tr
+                        key={`${row.name}-${row.title}`}
+                        className={`border-b border-border last:border-b-0 ${conf ? "" : "bg-warning-bg/20"}`}
+                      >
+                        <td className="py-3 pr-2 align-top">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${row.name}`}
+                            className="size-4 accent-success align-middle disabled:opacity-40"
+                            checked={selected.has(row.name)}
+                            disabled={!conf}
+                            onChange={() => toggleSelected(row.name)}
+                          />
+                        </td>
+                        <td className="py-3 pr-3 align-top text-[13.5px] font-semibold">{row.name}</td>
+                        <td className="py-3 pr-3 align-top text-[13px] text-muted-foreground">
+                          {row.title}
+                        </td>
+                        <td className="py-3 pr-3 align-top">
+                          {row.role && <RolePill role={row.role} />}
+                        </td>
+                        <td className="py-3 align-top">
+                          {conf ? (
+                            <div>
+                              <ConfirmedPill />
+                              <p className="mt-1 text-[11.5px] text-muted-foreground">
+                                {row.matched
+                                  ? "Matched Salesforce contact"
+                                  : "Confirmed — added to Salesforce"}
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <ReviewPill />
+                                <button
+                                  type="button"
+                                  className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
+                                  disabled={busy === row.name}
+                                  onClick={() => confirmContact(row)}
+                                >
+                                  {busy === row.name ? "Adding…" : "Confirm & add"}
+                                </button>
+                              </div>
+                              <p className="mt-1 max-w-[290px] text-[11.5px] text-muted-foreground">
+                                New contact from research — no matching Salesforce name + title.
+                                Confirm this is a real, current contact before pushing.
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 border-t border-border pt-3 text-[12.5px] text-muted-foreground">
+              <b className="text-foreground">{selectedContactCount}</b> selected · added to the Push
+              to Outreach list below
+              {reviewCount > 0 && (
+                <>
+                  {" "}
+                  · <b className="text-warning">{reviewCount}</b> awaiting review
+                </>
+              )}
+            </div>
+          </>
         )}
       </Card>
 
