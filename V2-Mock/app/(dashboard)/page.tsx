@@ -10,7 +10,17 @@ import {
 } from "@/components/home/worklist-explorer";
 import { getSalesforceProvider } from "@/lib/salesforce/provider";
 import { computeDuplicateLeads } from "@/lib/leads/lead-dedupe";
+import { evaluateLeadWorkability } from "@/lib/leads/lead-workability";
 import { evaluateWorkability, blockedByLabel } from "@/lib/workability/engine";
+
+// Short "why blocked" label for a NOT-WORKABLE lead, keyed by its failing check.
+const LEAD_BLOCK_LABEL: Record<string, string> = {
+  dup: "Duplicate",
+  assoc: "Account blocked",
+  roe: "ROE / owned by rep",
+  openOpp: "Open opportunity",
+  customer: "Existing customer",
+};
 import { scoreAccount } from "@/lib/scoring/scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { getCurrentPriority, PRIORITY_COOKIE } from "@/lib/priority";
@@ -76,39 +86,51 @@ export default async function Home({
   }
   accountRows.sort((a, b) => b.priority - a.priority);
 
-  // SDR lead worklist: filtered to the selected product and priority group,
-  // ranked by score. Duplicate leads (same name/email as an earlier lead) are
-  // pulled out of the workable list into "Blocked by de-dupe".
-  const allLeads = await provider.listSdrLeads();
-  const duplicateLeads = computeDuplicateLeads(allLeads);
-  const visibleLeads = allLeads.filter((l) => l.product === product && l.priorityGroup === priority);
-  const leadRows: LeadRow[] = visibleLeads
-    .filter((l) => !duplicateLeads.has(l.id))
-    .sort((a, b) => b.score - a.score)
-    .map((l) => ({
-      id: l.id,
-      name: l.name,
-      title: l.title,
-      accountId: l.accountId,
-      accountName: l.accountName,
-      domain: l.domain,
-      fit: l.fit,
-      intent: l.intent,
-      workability: l.workability,
-      score: l.score,
-      isNew: l.isNew,
-    }));
-  const blockedLeadRows: BlockedLeadRow[] = visibleLeads
-    .filter((l) => duplicateLeads.has(l.id))
-    .map((l) => {
-      const info = duplicateLeads.get(l.id)!;
-      return {
-        id: l.id,
-        name: l.name,
-        subtitle: l.accountName ?? l.title,
-        reason: `Duplicate ${info.matchedOn} — matches “${info.duplicateOf}”`,
-      };
-    });
+  // SDR lead worklist (SDR mode only): each visible lead gets its full
+  // "Can I work this lead?" verdict. NOT WORKABLE leads drop into the blocked
+  // list; the rest are ranked by score and tagged Workable / Review.
+  const leadRows: LeadRow[] = [];
+  const blockedLeadRows: BlockedLeadRow[] = [];
+  if (team === "SDR") {
+    const allLeads = await provider.listSdrLeads();
+    const duplicateLeads = computeDuplicateLeads(allLeads);
+    const visibleLeads = allLeads.filter((l) => l.product === product && l.priorityGroup === priority);
+    for (const item of visibleLeads) {
+      const bundle = await provider.getSdrLeadBundle(item.id);
+      if (!bundle) continue;
+      const dupInfo = duplicateLeads.get(item.id) ?? null;
+      const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, dupInfo);
+      if (result.final_status === "NOT WORKABLE") {
+        const failKey = result.checks.find((c) => c.state === "fail")?.key ?? "";
+        blockedLeadRows.push({
+          id: item.id,
+          name: item.name,
+          subtitle: item.accountName ?? item.title,
+          reason: dupInfo
+            ? `Duplicate ${dupInfo.matchedOn} — matches “${dupInfo.duplicateOf}”`
+            : LEAD_BLOCK_LABEL[failKey] ?? "Not workable",
+          badge: dupInfo ? "Duplicate" : "Don’t work",
+        });
+      } else {
+        leadRows.push({
+          id: item.id,
+          name: item.name,
+          title: item.title,
+          accountId: item.accountId,
+          accountName: item.accountName,
+          domain: item.domain,
+          fit: item.fit,
+          intent: item.intent,
+          workability: item.workability,
+          score: item.score,
+          finalStatus:
+            result.final_status === "WORKABLE WITH REVIEW" ? "WORKABLE WITH REVIEW" : "WORKABLE",
+          isNew: item.isNew,
+        });
+      }
+    }
+    leadRows.sort((a, b) => b.score - a.score);
+  }
 
   const mode = team === "SDR" ? "leads" : "accounts";
 

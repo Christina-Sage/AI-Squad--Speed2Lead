@@ -118,21 +118,23 @@ export function evaluateLeadWorkability(
     }
     if (activity) facts.push({ label: "Last activity", value: activity });
 
-    // Short action line; the chips carry the detail.
+    // A lead mapped to a clean, workable, un-engaged account needs no
+    // reconciliation — it passes. Otherwise flag it for review with the reason.
+    const cleanWorkable = !engaged && acct.final_status === "WORKABLE";
     const reason = engaged
       ? "Linked account is actively engaged — coordinate with the owner before working."
       : acct.final_status === "NOT WORKABLE"
         ? `Linked account is currently blocked: ${acct.reason}`
         : acct.final_status === "WORKABLE WITH REVIEW"
           ? "Linked account is workable with review — verify before working."
-          : "Verify the linked account association before working.";
+          : `Maps to ${account.name} — account is workable`;
     // The badge links straight to the associated account in Salesforce.
     assoc = chk(
       "assoc",
       "Account Association",
       assocQuestion,
       "pf",
-      "warn",
+      cleanWorkable ? "pass" : "warn",
       reason,
       facts,
       buildSalesforceAccountUrl(account.id),
