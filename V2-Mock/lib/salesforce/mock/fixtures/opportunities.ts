@@ -24,8 +24,8 @@ export const OPPORTUNITIES: Opportunity[] = [
     createdDate: daysAgo(400),
   },
   {
-    // Reached Discovery before being disqualified 2 months ago — inside the
-    // 6-month cooling-off window, so the account is blocked (~4 months left).
+    // Reached Discovery before being disqualified, closed 60 days ago — past the
+    // 30-day cooling-off, so the account is clear to re-work.
     id: "006-UMBP-1",
     name: "Umbrella Pharma - Intacct Evaluation",
     accountId: "0015Y00000UMBP01",
@@ -49,6 +49,34 @@ export const OPPORTUNITIES: Opportunity[] = [
     createdDate: daysAgo(45),
     furthestStage: "Prospecting",
     closedDate: daysAgo(18),
+  },
+  {
+    // Reached Discovery, DQ'd and closed 15 days ago — inside the 30-day
+    // cooling-off, so Halcyon Robotics flags for review.
+    id: "006-HLCN-1",
+    name: "Halcyon Robotics - Intacct Evaluation",
+    accountId: "0015Y00000HLCN01",
+    ownerId: "u-pat",
+    ownerName: "Pat Lee",
+    stage: "Closed Lost - Disqualified",
+    isClosed: true,
+    createdDate: daysAgo(75),
+    furthestStage: "Evaluation",
+    closedDate: daysAgo(15),
+  },
+  {
+    // Reached Discovery, DQ'd but closed 60 days ago — past the 30-day
+    // cooling-off, so Meadowlark is clear to re-work.
+    id: "006-MDWL-1",
+    name: "Meadowlark Community Fund - Intacct Evaluation",
+    accountId: "0015Y00000MDWL01",
+    ownerId: "u-jamie",
+    ownerName: "Jamie Park",
+    stage: "Closed Lost - Disqualified",
+    isClosed: true,
+    createdDate: daysAgo(120),
+    furthestStage: "Discovery",
+    closedDate: daysAgo(60),
   },
 
   // DQ cooling-off opps for the generated per-product demo accounts.
