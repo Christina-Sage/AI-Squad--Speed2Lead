@@ -134,8 +134,8 @@ export default async function Home({
         priorityLabel={team === "SDR" ? priority : undefined}
         accountRows={accountRows}
         leadRows={leadRows}
-        blockedRows={blockedRows}
-        blockedLeadRows={blockedLeadRows}
+        blockedRows={mode === "accounts" ? blockedRows : []}
+        blockedLeadRows={mode === "leads" ? blockedLeadRows : []}
         workedMap={workedMap}
         justWorkedId={justWorkedId}
       />
