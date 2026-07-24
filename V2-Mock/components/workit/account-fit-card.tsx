@@ -26,6 +26,14 @@ function initials(name: string): string {
     .join("");
 }
 
+function ConfirmedPill() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.3px] text-success uppercase">
+      ✓ Confirmed
+    </span>
+  );
+}
+
 function Dot({ status }: { status: Status }) {
   return (
     <span
@@ -142,9 +150,9 @@ export function AccountFitCard({
         return;
       }
       setAdded((prev) => new Set(prev).add(c.name.toLowerCase()));
-      toast(`Contact created in Salesforce: ${c.name}`);
+      toast(`Confirmed — added to Salesforce: ${c.name}`);
     } catch {
-      toast("Failed to create contact");
+      toast("Failed to confirm contact");
     } finally {
       setBusy(null);
     }
@@ -165,7 +173,14 @@ export function AccountFitCard({
         ? "Company website"
         : "Not found";
 
-  const contactCount = existingRecords.length;
+  // Salesforce cross-reference outcome for the contacts banner + row pills.
+  // Existing SFDC records and research finds that matched Salesforce are
+  // "confirmed"; a research find with no Salesforce match needs the rep's
+  // review and stays flagged until they Confirm it (writing it to Salesforce).
+  const confirmedFoundCount = foundContacts.filter(isAdded).length;
+  const reviewCount = foundContacts.length - confirmedFoundCount;
+  const confirmedCount = existingRecords.length + confirmedFoundCount;
+  const hasContacts = existingRecords.length > 0 || foundContacts.length > 0;
   const growthSignals = intel?.growthSignals ?? [];
   const hiringSignals = intel?.hiringSignals ?? [];
 
@@ -239,16 +254,30 @@ export function AccountFitCard({
           </div>
         </div>
 
-        {/* Contacts — on file + ICP matches found (with Add-to-Salesforce) */}
+        {/* Contacts — checked against Salesforce: matches confirmed, new finds flagged for review */}
         <div>
           <p className={sectionLabel}>
             Contacts{" "}
-            <span className="font-normal normal-case">
-              — {contactCount} on file{contactCount >= 3 ? " (high coverage)" : contactCount === 0 ? " (none yet)" : ""}
-            </span>
+            <span className="font-normal normal-case">— ICP contacts, checked against Salesforce</span>
           </p>
+
+          {hasContacts && (
+            <div className="mb-3 flex items-start gap-2.5 rounded-[11px] border border-success-bg bg-success-soft px-4 py-2.5">
+              <span className="mt-px flex size-[20px] shrink-0 items-center justify-center rounded-full bg-success-bg text-[12px] font-extrabold text-success">
+                ✓
+              </span>
+              <p className="text-[12.5px] leading-snug">
+                Checked Salesforce on <b>{accountName}</b> — {confirmedCount} ICP contact
+                {confirmedCount === 1 ? "" : "s"} confirmed and pre-selected.
+                {reviewCount > 0
+                  ? ` ${reviewCount} ${reviewCount === 1 ? "needs" : "need"} your review.`
+                  : " None need your review."}
+              </p>
+            </div>
+          )}
+
           <div className="rounded-[11px] border border-border bg-background">
-            {existingRecords.length === 0 && foundContacts.length === 0 ? (
+            {!hasContacts ? (
               <p className="px-4 py-3 text-xs text-muted-foreground italic">
                 No contacts on file and no ICP matches found in public sources.
               </p>
@@ -264,49 +293,57 @@ export function AccountFitCard({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13.5px] font-semibold">{r.name}</span>
-                      <span className="block text-xs text-muted-foreground">{r.title}</span>
-                    </span>
-                    <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground">
-                      {r.kind}
-                    </span>
-                  </div>
-                ))}
-                {foundContacts.map((c) => (
-                  <div
-                    key={`${c.name}-${c.title}`}
-                    className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
-                      {initials(c.name)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13.5px] font-semibold">
-                        {c.name}{" "}
-                        {c.isIcpMatch && (
-                          <span className="ml-1 rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold tracking-[0.4px] text-success uppercase">
-                            ICP
-                          </span>
-                        )}
-                      </span>
                       <span className="block text-xs text-muted-foreground">
-                        {c.title} · {c.source === "990" ? "Form 990" : "Website"}
+                        {r.title} · {r.kind}
                       </span>
                     </span>
-                    {isAdded(c) ? (
-                      <span className="rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
-                        In SFDC
-                      </span>
-                    ) : (
-                      <button
-                        className="rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold hover:border-muted-foreground disabled:opacity-45"
-                        disabled={busy === c.name}
-                        onClick={() => addContact(c)}
-                      >
-                        {busy === c.name ? "Adding…" : "+ Add to Salesforce"}
-                      </button>
-                    )}
+                    <ConfirmedPill />
                   </div>
                 ))}
+                {foundContacts.map((c) => {
+                  const confirmed = isAdded(c);
+                  return (
+                    <div
+                      key={`${c.name}-${c.title}`}
+                      className={`flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 ${
+                        confirmed ? "" : "bg-warning-bg/25"
+                      }`}
+                    >
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary">
+                        {initials(c.name)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13.5px] font-semibold">
+                          {c.name}{" "}
+                          {c.isIcpMatch && (
+                            <span className="ml-1 rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold tracking-[0.4px] text-success uppercase">
+                              ICP
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {c.title} · {c.source === "990" ? "Form 990" : "Website"}
+                        </span>
+                      </span>
+                      {confirmed ? (
+                        <ConfirmedPill />
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.3px] text-warning uppercase">
+                            ⚠ Needs your review
+                          </span>
+                          <button
+                            className="rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold hover:border-muted-foreground disabled:opacity-45"
+                            disabled={busy === c.name}
+                            onClick={() => addContact(c)}
+                          >
+                            {busy === c.name ? "Confirming…" : "Confirm"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </>
             )}
           </div>
