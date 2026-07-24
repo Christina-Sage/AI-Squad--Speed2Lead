@@ -29,12 +29,14 @@ export interface BlockedRow {
   blockedBy: string;
 }
 
-/** A duplicate SDR lead pulled out of the worklist into "Blocked by de-dupe". */
+/** A NOT-WORKABLE SDR lead pulled out of the worklist into the blocked list. */
 export interface BlockedLeadRow {
   id: string;
   name: string;
   subtitle: string;
   reason: string;
+  /** Badge label for the row (e.g. "Duplicate", "Don't work"). Defaults to "Don't work". */
+  badge?: string;
 }
 
 export interface LeadRow {
@@ -48,6 +50,8 @@ export interface LeadRow {
   intent: number;
   workability: number;
   score: number;
+  /** Lead-level verdict — drives the Workable / Review badge on the row. */
+  finalStatus: "WORKABLE" | "WORKABLE WITH REVIEW";
   /** Freshly captured web-form lead — drives the "New" badge on the row. */
   isNew: boolean;
 }
@@ -454,6 +458,17 @@ export function WorklistExplorer({
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold">
                         {lead.name}
+                        {!leadOutcome(lead) && (
+                          <span
+                            className={`ml-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] uppercase ${
+                              lead.finalStatus === "WORKABLE WITH REVIEW"
+                                ? "bg-warning-bg text-warning"
+                                : "bg-success-bg text-success"
+                            }`}
+                          >
+                            {lead.finalStatus === "WORKABLE WITH REVIEW" ? "Review" : "Workable"}
+                          </span>
+                        )}
                         {!leadOutcome(lead) && lead.isNew && (
                           <span className="ml-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-primary uppercase">
                             New
@@ -571,7 +586,7 @@ export function WorklistExplorer({
                 <div className="text-sm font-semibold">
                   {lead.name}{" "}
                   <span className="ml-1.5 rounded-full bg-destructive-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-destructive uppercase">
-                    Duplicate
+                    {lead.badge ?? "Don’t work"}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">{lead.subtitle}</div>
