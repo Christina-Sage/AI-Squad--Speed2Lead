@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useToast } from "@/components/ui/toaster";
 import type { DedupeCheck, FinalStatus } from "@/lib/workability/engine";
 
@@ -13,6 +13,11 @@ export const VERDICT_EXTRA_MS = 150;
 export function analyzedKey(entityId: string) {
   return `dedupe-analyzed-${entityId}`;
 }
+
+// "Already analyzed?" only ever changes when this component's own timer writes
+// it, so useSyncExternalStore needs no real subscription — the value is read on
+// each render and the finished-animation state re-render picks up the write.
+const NOOP_SUBSCRIBE = () => () => {};
 
 function badgeFor(check: DedupeCheck): { text: string; cls: string } {
   const green = "bg-success-bg text-success";
@@ -82,32 +87,41 @@ export function DedupeChecklist({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [revealed, setRevealed] = useState(0);
-  const [done, setDone] = useState(false);
+  // Client-only (sessionStorage) — read via useSyncExternalStore so it never
+  // triggers a setState inside an effect. The server snapshot is false, so SSR
+  // renders the running state and the real value applies after hydration.
+  const alreadyAnalyzed = useSyncExternalStore(
+    NOOP_SUBSCRIBE,
+    () => sessionStorage.getItem(analyzedKey(accountId)) === "1",
+    () => false,
+  );
+  const [animatedReveal, setAnimatedReveal] = useState(0);
+  const [animationDone, setAnimationDone] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
   const ok = finalStatus !== "NOT WORKABLE";
+  // A revisit skips the reveal animation and shows the finished checklist.
+  const revealed = alreadyAnalyzed ? checks.length : animatedReveal;
+  const done = alreadyAnalyzed || animationDone;
 
   useEffect(() => {
-    const already = sessionStorage.getItem(analyzedKey(accountId)) === "1";
-    if (already) {
-      setRevealed(checks.length);
-      setDone(true);
-      return;
-    }
+    if (alreadyAnalyzed) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     checks.forEach((_, i) => {
-      timers.push(setTimeout(() => setRevealed(i + 1), CHECK_BASE_DELAY_MS + i * CHECK_STEP_MS));
+      timers.push(setTimeout(() => setAnimatedReveal(i + 1), CHECK_BASE_DELAY_MS + i * CHECK_STEP_MS));
     });
     timers.push(
       setTimeout(() => {
-        setDone(true);
+        setAnimationDone(true);
         sessionStorage.setItem(analyzedKey(accountId), "1");
       }, CHECK_BASE_DELAY_MS + checks.length * CHECK_STEP_MS + VERDICT_EXTRA_MS),
     );
     return () => timers.forEach(clearTimeout);
-  }, [accountId, checks.length]);
+    // checks.length captures everything the timers depend on; the array
+    // identity intentionally does not re-trigger the animation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, checks.length, alreadyAnalyzed]);
 
   async function assignToMe() {
     setAssigning(true);

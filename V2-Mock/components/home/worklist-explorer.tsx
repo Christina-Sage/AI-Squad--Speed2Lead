@@ -131,9 +131,13 @@ export function WorklistExplorer({
   const [importReport, setImportReport] = useState<
     { total: number; matched: number; notFound: string[] } | null
   >(null);
-  // Latest rows for the import matcher (the listener is registered once).
+  // Latest rows for the import matcher (the listener is registered once, so it
+  // reads current rows through this ref). Updated in an effect rather than
+  // during render — the listener only ever fires after commit.
   const rowsRef = useRef({ accountRows, blockedRows });
-  rowsRef.current = { accountRows, blockedRows };
+  useEffect(() => {
+    rowsRef.current = { accountRows, blockedRows };
+  });
   const clearImport = useCallback(() => {
     setImportIds(null);
     setImportReport(null);
