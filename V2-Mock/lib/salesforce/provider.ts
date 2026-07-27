@@ -4,6 +4,7 @@ import type { LeadIntakeInput } from "@/lib/leads/lead-intake";
 import type { DuplicateMatch } from "@/lib/workability/duplicate";
 import type { OutreachPush } from "@/lib/outreach";
 import { MockSalesforceProvider } from "@/lib/salesforce/mock/mock-provider";
+import { GlobalSalesforceProvider } from "@/lib/salesforce/global-provider";
 
 export type SearchType = "domain" | "global_account_id" | "account_name";
 
@@ -72,9 +73,11 @@ export function getSalesforceProvider(): SalesforceProvider {
   switch (providerName) {
     case "mock":
       return new MockSalesforceProvider();
+    case "global-sf":
+      return new GlobalSalesforceProvider();
     default:
       throw new Error(
-        `Unknown SALESFORCE_PROVIDER "${providerName}". Only "mock" is implemented in v1.`,
+        `Unknown SALESFORCE_PROVIDER "${providerName}". Use "mock" or "global-sf".`,
       );
   }
 }

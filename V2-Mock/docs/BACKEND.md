@@ -270,6 +270,49 @@ Everything runs through interfaces designed for real integrations, but most sour
 - **Caching**: paid APIs (ZoomInfo, Sales Navigator) should be cached in Postgres with a TTL (e.g. 30 days) instead of hit on every page view.
 - **Secrets**: each integration adds env vars in Vercel (API keys / OAuth credentials), same pattern as `DATABASE_URL` today.
 
+### 10.5 ZoomInfo & Outreach — connection detail
+
+A closer look at the two integrations most often asked about. The API specifics below reflect what these APIs publicly are; confirm endpoints, auth, and field names against the live docs ([ZoomInfo](https://docs.zoominfo.com/docs/overview), [Outreach](https://developers.outreach.io/api)) before building. Neither is a rebuild — each replaces the inside of a seam that already exists and today returns fixture data labeled with the real source name.
+
+**ZoomInfo — company enrichment + a second contact source**
+
+- *What it is*: an Enterprise REST API. Auth is two-step — exchange username / client-ID / private key for a short-lived JWT (~1 hour), then send it as a Bearer token. Core endpoints: **Enrich** (`/enrich/company` by domain → revenue, HQ, employees, parent, industry) and **Search** (`/search/contact` by company + title → the ICP-contact path). Calls are billed per lookup.
+- *Seam 1 — firmographics*: `getCompanyIntel(account)` in `lib/research/company-intel.ts` today returns `INTEL_FIXTURES[account.id]` with `revenue.source: "ZoomInfo"` already stamped on it. Replace the fixture lookup with an Enrich-by-domain call and map the response onto the existing `CompanyIntel` shape (`revenue`, `hqLocation`, `locations`, `parentAccount`, `funding`). `getCompanyIntelByDomain()` is already domain-keyed — the natural call signature for Enrich.
+- *Seam 2 — contacts*: `researchAccount()` in `lib/research/research-account.ts` concatenates contact sources into `rawContacts` (990 officers + website scrape today). ZoomInfo Search-contact becomes another source in that list; the downstream `crossReferenceSalesforce()` + `matchesIcp()` filtering is unchanged, so new contacts get the same ICP / in-Salesforce treatment. This is also the feed for the planned **Existing Contacts** section.
+- *Watch out*:
+  - **Cost** — enrichment is billed per lookup. Cache in Postgres with a TTL (~30 days) from day one, or every page view bills a call.
+  - **Source labels are load-bearing** — `CompanyIntel` hardcodes `source: "ZoomInfo"` for revenue and `"LinkedIn Sales Navigator"` for employees. ZoomInfo returns both revenue *and* employee count, so decide whether FTE stays on the separate Sales Nav integration or re-points to ZoomInfo; don't leave the label lying.
+
+**Outreach — replace the in-memory push with a real one**
+
+- *What it is*: OAuth 2.0 authorization-code flow (register an app → client ID/secret → exchange for access + refresh tokens; access tokens are short-lived, ~2 hours, refreshed to renew). The API is JSON:API-formatted REST. Relevant resources: `GET /sequences`, `POST /prospects` (find-or-create), `POST /sequenceStates` (the actual "enroll prospect in sequence" action, linking prospect + sequence + mailbox). Webhooks push `delivered` / `replied` / `bounced` events back.
+- *Seam — one function, two halves*: `POST /api/outreach` (`app/api/outreach/route.ts`).
+  - **Sequence list**: `SEQUENCES` / `SEQUENCE_GROUPS` in `lib/outreach.ts` are hardcoded (the 33 real sequences). Replace with a cached `GET /sequences` fetch. The server-side guard `SEQUENCES.includes(sequence)` in the route stays — it just validates against the fetched list instead of the constant.
+  - **The push**: the route today calls `provider.pushToOutreach()` (in-memory record + audit-log write). Real version: per contact, `POST /prospects` (find-or-create), then `POST /sequenceStates` to enroll. The `writeAuditLog()` call stays and becomes the local record of a real push. Per §10.3, attach ZoomInfo revenue/growth signals as prospect custom fields so reps see them on the Outreach dashboard.
+- *Watch out*:
+  - **Contact identity is thin** — the push sends `contactNames: string[]` (names only). Outreach prospects are keyed on **email**. Find-or-create needs email + name (ideally the prospect ID). This is the one place the real integration forces an upstream data-shape change: the push payload and the Existing Contacts rows must carry email, not just name.
+  - **Token lifecycle** — refresh tokens must persist server-side (Postgres, next to `DATABASE_URL`) and rotate. Serverless functions don't share memory, so a token can't live in a module variable — the same constraint that already forces owner/ABM changes into Postgres.
+
+**Bottom line**: the architecture is ready — the seams exist and are listed in §10.4. The real work is the unglamorous parts: caching billed ZoomInfo calls, persisting and rotating the Outreach OAuth token, and carrying contact email through the push so Outreach can key prospects.
+
+### 10.6 Turning an integration on
+
+All five integrations are now wired behind a single credential surface: **`lib/integrations/config.ts`**. Each seam checks an `isXConfigured()` flag and uses the live client when its env vars are present, or falls back to today's mock when they aren't. **With zero env vars set, the app runs entirely on fixtures** — the demo needs no configuration.
+
+Set the vars in Vercel (Project → Settings → Environment Variables); `.env.example` lists every one. "Just an API key" is literally true only for 6sense — the OAuth/JWT providers each need a small credential set.
+
+| Integration | Env vars | Seam it activates | Extra step beyond credentials |
+|---|---|---|---|
+| **Salesforce** | `SALESFORCE_PROVIDER=global-sf`, `SALESFORCE_CLIENT_ID/SECRET/REFRESH_TOKEN`, `SALESFORCE_LOGIN_URL`, `SALESFORCE_API_VERSION` | `getSalesforceProvider()` → `GlobalSalesforceProvider` | Fill `FIELD_MAP` in `lib/salesforce/global-provider.ts` with your org's custom-field API names |
+| **ZoomInfo** | `ZOOMINFO_USERNAME`, `ZOOMINFO_CLIENT_ID`, `ZOOMINFO_PRIVATE_KEY` | `enrichCompanyByDomain()` in the work-it route (falls back to fixture) | — |
+| **Outreach** | `OUTREACH_CLIENT_ID/SECRET/REFRESH_TOKEN`, `OUTREACH_MAILBOX_EMAIL` | live sequence list + `pushProspectsToSequence()` in `/api/outreach` | Push payload must carry contact **email** (`contacts: [{name,email}]`) |
+| **Sales Navigator** | `SALESNAV_ACCESS_TOKEN` (+ client id/secret) | `getHeadcountByDomain()` | Partner-program approval to get the token |
+| **6sense** | `SIXSENSE_API_TOKEN` | `getIntentByDomain()` | — |
+
+Client modules live in `lib/integrations/` (`zoominfo.ts`, `outreach.ts`, `sales-navigator.ts`, `sixsense.ts`) plus `lib/salesforce/global-provider.ts`. Their auth flows and endpoints are written to each provider's public API spec and are **UNTESTED against live endpoints** — verify against the live docs before enabling in production. `integrationStatus()` returns a machine-readable view of what's live vs. mock, handy for confirming a deploy picked up the vars.
+
+Two seams keep their sync fixture even when a provider is configured, to avoid rippling async through server rendering: `getCompanyIntel()` (used by `scoring.ts`) and the ABM/intent fields on the account. The live ZoomInfo/6sense data flows through the async work-it route instead. Re-point these when you move scoring off the fixture.
+
 ### Known mock limitations
 - In-memory state (fixtures, work-it actions) resets whenever the server restarts, and on Vercel isn't shared between serverless instances. Owner/ABM changes are the exception — they persist in Postgres.
 - V1 and V2 share the same Neon database, so assignments made in one show up in the other.
