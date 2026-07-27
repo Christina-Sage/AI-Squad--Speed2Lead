@@ -47,12 +47,42 @@ export interface PanelExistingRecord {
   kind: "Contact" | "Lead";
 }
 
+/**
+ * 6Sense / growth signals the rep pastes into Outreach. Optional — only the
+ * account work-it path resolves the full 6Sense breakdown; leads pass what they
+ * have and the note degrades gracefully.
+ */
+export interface OutreachNoteSignals {
+  /** 6Sense trending research keywords. */
+  sixSenseKeywords: string[];
+  /** 6Sense de-anonymized website-visit summary. */
+  websiteVisits: string;
+  /** 6Sense buying-stage reading — the intent trigger. */
+  buyingStage: string;
+  /** Growth signals (new hires, locations, expansion). */
+  growthSignals: string[];
+}
+
+/** ZoomInfo enrichment the rep pastes into Outreach. */
+export interface ZoomInfoNoteSignals {
+  /** Related / installed technologies detected by ZoomInfo. */
+  technologies: string[];
+  /** Active ZoomInfo Intent topics. */
+  intentTopics: string[];
+  /** De-anonymized website sightings (WebSights) summary. */
+  webSightings: string | null;
+}
+
 export interface PanelSignals {
   revenue: string;
   fte: string;
   source: string;
   intent: string;
   whyPrioritized: string;
+  /** 6Sense + growth signals, grouped under "Outreach" in the copy note. */
+  outreach?: OutreachNoteSignals;
+  /** ZoomInfo technographics / intent / WebSights, grouped in the copy note. */
+  zoomInfo?: ZoomInfoNoteSignals;
 }
 
 function initials(name: string): string {
@@ -721,11 +751,6 @@ export function WorkItPanel({
                         </ul>
                       </div>
                     ))}
-                    {accountNote.hashtags.length > 0 && (
-                      <div className="mt-3 border-t border-border pt-2 text-[12px] font-semibold text-primary">
-                        {accountNote.hashtags.join(" ")}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

@@ -11,6 +11,7 @@ import { SEQUENCES } from "@/lib/outreach";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { WorkItPanel, type PanelSignals } from "@/components/workit/work-it-panel";
 import { AccountFitCard } from "@/components/workit/account-fit-card";
+import { buildNoteSourceSignals } from "@/lib/workit/account-note";
 import { formatCurrency } from "@/lib/workit/format";
 
 export default async function WorkItPage({
@@ -62,6 +63,7 @@ export default async function WorkItPage({
     whyPrioritized: score
       ? `score ${score.priority} (${score.tier}): fit ${score.fit.value}, intent ${score.intent.value}, workability ${score.workability.value}`
       : "passed all six de-dupe checks",
+    ...buildNoteSourceSignals({ intentDetail: score?.intent.detail, intel }),
   };
 
   const foundContacts = research.foundContacts.map((c) => ({

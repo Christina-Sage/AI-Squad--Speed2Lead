@@ -6,6 +6,7 @@ import { evaluateWorkability } from "@/lib/workability/engine";
 import { scoreAccount } from "@/lib/scoring/scoring";
 import { buildHygieneSuggestions } from "@/lib/workit/hygiene";
 import { getCompanyIntel } from "@/lib/research/company-intel";
+import { buildNoteSourceSignals } from "@/lib/workit/account-note";
 import { SEQUENCES } from "@/lib/outreach";
 import { isZoomInfoConfigured, isOutreachConfigured } from "@/lib/integrations/config";
 import { enrichCompanyByDomain } from "@/lib/integrations/zoominfo";
@@ -85,6 +86,7 @@ export async function GET(
     whyPrioritized: score
       ? `score ${score.priority} (${score.tier}): fit ${score.fit.value}, intent ${score.intent.value}, workability ${score.workability.value}`
       : "passed all six de-dupe checks",
+    ...buildNoteSourceSignals({ intentDetail: score?.intent.detail, intel }),
   };
 
   const foundContacts = research.foundContacts.map((c) => ({

@@ -1,4 +1,10 @@
-import type { PanelSignals } from "@/components/workit/work-it-panel";
+import type {
+  PanelSignals,
+  OutreachNoteSignals,
+  ZoomInfoNoteSignals,
+} from "@/components/workit/work-it-panel";
+import type { IntentDetail } from "@/lib/scoring/scoring";
+import type { CompanyIntel } from "@/lib/research/company-intel";
 
 export interface AccountNoteSection {
   title: string;
@@ -9,13 +15,43 @@ export interface AccountNote {
   /** Display heading, e.g. "ACME ROBOTICS · Account brief". */
   meta: string;
   sections: AccountNoteSection[];
-  hashtags: string[];
   /** Plain-text rendering copied to the clipboard for pasting into Outreach. */
   text: string;
 }
 
-function hashtag(value: string): string {
-  return `#${value.replace(/[^a-zA-Z0-9]/g, "")}`;
+/**
+ * Maps the 6Sense intent breakdown + ZoomInfo enrichment onto the Outreach /
+ * ZoomInfo note groups the copy note renders. Kept here so all three call sites
+ * (work-it page + the two work-it API routes) build the same shape. Returns an
+ * empty object when neither source has anything, so the note falls back to the
+ * plain score line.
+ */
+export function buildNoteSourceSignals(input: {
+  intentDetail?: IntentDetail | null;
+  intel?: CompanyIntel | null;
+}): { outreach?: OutreachNoteSignals; zoomInfo?: ZoomInfoNoteSignals } {
+  const { intentDetail, intel } = input;
+  const result: { outreach?: OutreachNoteSignals; zoomInfo?: ZoomInfoNoteSignals } = {};
+
+  const growthSignals = intel?.growthSignals ?? [];
+  if (intentDetail || growthSignals.length > 0) {
+    result.outreach = {
+      sixSenseKeywords: intentDetail?.keywords ?? [],
+      websiteVisits: intentDetail?.websiteVisits.value ?? "",
+      buyingStage: intentDetail?.buyingStage.value ?? "",
+      growthSignals,
+    };
+  }
+
+  if (intel?.zoomInfo) {
+    result.zoomInfo = {
+      technologies: intel.zoomInfo.technologies,
+      intentTopics: intel.zoomInfo.intentTopics,
+      webSightings: intel.zoomInfo.webSightings,
+    };
+  }
+
+  return result;
 }
 
 /**
@@ -41,16 +77,53 @@ export function buildAccountNote(input: {
   if (companyBits.length > 0) {
     sections.push({ title: "Company", lines: [companyBits.join(" · ")] });
   }
-  sections.push({
-    title: "Why prioritized",
-    lines: [signals.whyPrioritized, `Intent: ${signals.intent}`],
-  });
 
-  const hashtags: string[] = [];
-  if (industry) hashtags.push(hashtag(industry));
-  const tier = signals.whyPrioritized.match(/\(([^)]+)\)/)?.[1];
-  if (tier) hashtags.push(hashtag(tier));
-  if (signals.intent && !/^no\b/i.test(signals.intent)) hashtags.push("#HighIntent");
+  // Outreach bucket — 6Sense keywords, growth signals, website visits, and the
+  // intent/trigger reading. Only present on the account work-it path.
+  const outreach = signals.outreach;
+  const outreachLines: string[] = [];
+  if (outreach) {
+    if (outreach.sixSenseKeywords.length > 0) {
+      outreachLines.push(`6Sense keywords: ${outreach.sixSenseKeywords.join(", ")}`);
+    }
+    if (outreach.buyingStage) {
+      outreachLines.push(`Intent & triggers: ${outreach.buyingStage}`);
+    }
+    if (outreach.websiteVisits) {
+      outreachLines.push(`Website visits: ${outreach.websiteVisits}`);
+    }
+    outreach.growthSignals.forEach((g) => outreachLines.push(`Growth: ${g}`));
+  }
+
+  // ZoomInfo bucket — related technologies, intent topics, and WebSights.
+  const zoomInfo = signals.zoomInfo;
+  const zoomInfoLines: string[] = [];
+  if (zoomInfo) {
+    if (zoomInfo.technologies.length > 0) {
+      zoomInfoLines.push(`Related technologies: ${zoomInfo.technologies.join(", ")}`);
+    }
+    if (zoomInfo.intentTopics.length > 0) {
+      zoomInfoLines.push(`Intent: ${zoomInfo.intentTopics.join(", ")}`);
+    }
+    if (zoomInfo.webSightings) {
+      zoomInfoLines.push(`Web sightings: ${zoomInfo.webSightings}`);
+    }
+  }
+
+  const hasSourceSignals = outreachLines.length > 0 || zoomInfoLines.length > 0;
+
+  // When neither source resolved a breakdown (e.g. a lead with no 6Sense data),
+  // fall back to the single headline intent line so the note isn't just Company.
+  if (!hasSourceSignals) {
+    sections.push({ title: "Signals", lines: [`Intent: ${signals.intent}`] });
+  }
+
+  if (outreachLines.length > 0) {
+    sections.push({ title: "Signals", lines: outreachLines });
+  }
+  if (zoomInfoLines.length > 0) {
+    sections.push({ title: "ZoomInfo", lines: zoomInfoLines });
+  }
 
   const meta = `${accountName.toUpperCase()} · Account brief`;
 
@@ -58,10 +131,9 @@ export function buildAccountNote(input: {
     `${accountName.toUpperCase()} — Account brief`,
     "",
     ...sections.flatMap((s) => [s.title, ...s.lines.map((l) => `- ${l}`), ""]),
-    hashtags.join(" "),
   ]
     .join("\n")
     .trim();
 
-  return { meta, sections, hashtags, text };
+  return { meta, sections, text };
 }

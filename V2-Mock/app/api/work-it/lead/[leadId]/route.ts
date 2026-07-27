@@ -5,6 +5,7 @@ import { researchAccount } from "@/lib/research/research-account";
 import { scoreLead } from "@/lib/leads/lead-scoring";
 import { buildHygieneSuggestions } from "@/lib/workit/hygiene";
 import { getCompanyIntelByDomain } from "@/lib/research/company-intel";
+import { buildNoteSourceSignals } from "@/lib/workit/account-note";
 import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 import { SEQUENCES } from "@/lib/outreach";
 import { formatCurrency } from "@/lib/workit/format";
@@ -83,6 +84,7 @@ export async function GET(
     source: sourceLabel,
     intent: score.intent.signals[0].value,
     whyPrioritized: `score ${score.priority} (${score.tier}): fit ${score.fit.value}, intent ${score.intent.value}, workability ${score.workability.value}`,
+    ...buildNoteSourceSignals({ intentDetail: score.intent.detail, intel }),
   };
 
   const foundContacts = research.foundContacts.map((c) => ({
