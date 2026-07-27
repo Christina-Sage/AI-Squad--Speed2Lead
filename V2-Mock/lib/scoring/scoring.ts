@@ -9,9 +9,37 @@ export interface ScoreSignal {
   good: boolean;
 }
 
+/** A single intent source's headline reading + whether it's a positive signal. */
+export interface IntentReading {
+  value: string;
+  good: boolean;
+}
+
+/**
+ * Per-source intent breakdown, surfaced as labelled boxes in the account-fit
+ * card. Each field maps to one of the marketing/intent integrations the SDR
+ * team relies on (6sense, Eloqua, Folloze). Like the rest of the intent data
+ * these systems are not modelled in the mock, so the readings are fixture- or
+ * stage-derived and labelled with their source in the UI.
+ */
+export interface IntentDetail {
+  /** 6sense trending research keywords for the account. */
+  keywords: string[];
+  /** 6sense de-anonymized website visit summary. */
+  websiteVisits: IntentReading;
+  /** 6sense buying stage reading. */
+  buyingStage: IntentReading;
+  /** Eloqua email-campaign engagement. */
+  emailCampaigns: IntentReading;
+  /** Folloze personalized content-board engagement. */
+  folloze: IntentReading;
+}
+
 export interface ScorePillar {
   value: number;
   signals: ScoreSignal[];
+  /** Only populated for the intent pillar. */
+  detail?: IntentDetail;
 }
 
 export interface AccountScore {
@@ -48,6 +76,13 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
         { label: "ABM Vertical Segmentation", value: "Tier 1 — Decision stage", good: true },
         { label: "Recycled MQL", value: "Webinar signup 21 days ago", good: true },
       ],
+      detail: {
+        keywords: ["nonprofit fund accounting", "Sage Intacct", "grant management", "fund accounting software"],
+        websiteVisits: { value: "Pricing ×3, product tour ×1 this week", good: true },
+        buyingStage: { value: "Decision", good: true },
+        emailCampaigns: { value: "Opened 2 of 4 nurture emails, no reply", good: false },
+        folloze: { value: "Viewed nonprofit board — 3 assets, 4m 20s", good: true },
+      },
     },
   },
   "0015Y00000ACME01": {
@@ -68,6 +103,13 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
         { label: "ABM Vertical Segmentation", value: "Tier 1 — Purchase stage", good: true },
         { label: "Recycled MQL", value: "None", good: false },
       ],
+      detail: {
+        keywords: ["multi-entity consolidation", "inventory accounting", "manufacturing ERP", "QuickBooks alternative"],
+        websiteVisits: { value: "Demo request ×2, pricing ×1 this week", good: true },
+        buyingStage: { value: "Purchase", good: true },
+        emailCampaigns: { value: "Replied to nurture email", good: true },
+        folloze: { value: "Manufacturing board — 5 assets, 8m 10s", good: true },
+      },
     },
   },
   "0015Y00000WAYN01": {
@@ -88,6 +130,13 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
         { label: "ABM Vertical Segmentation", value: "Tier 2 — Consideration", good: true },
         { label: "Recycled MQL", value: "DQ'd opp, fresh signal", good: true },
       ],
+      detail: {
+        keywords: ["multi-entity consolidation", "intercompany eliminations", "Sage Intacct"],
+        websiteVisits: { value: "Blog visits only this month", good: false },
+        buyingStage: { value: "Consideration", good: true },
+        emailCampaigns: { value: "No opens in 30 days", good: false },
+        folloze: { value: "Opened board — 1 asset, 35s", good: false },
+      },
     },
   },
   "0015Y00000FBFH01": {
@@ -108,6 +157,13 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
         { label: "ABM Vertical Segmentation", value: "Tier 3", good: false },
         { label: "Recycled MQL", value: "Conference list import", good: true },
       ],
+      detail: {
+        keywords: [],
+        websiteVisits: { value: "None detected", good: false },
+        buyingStage: { value: "Awareness", good: false },
+        emailCampaigns: { value: "Never contacted", good: false },
+        folloze: { value: "No board activity", good: false },
+      },
     },
   },
   "0015Y00000DNRC01": {
@@ -128,6 +184,13 @@ const FIT_INTENT_FIXTURES: Record<string, { fit: ScorePillar; intent: ScorePilla
         { label: "ABM Vertical Segmentation", value: "Tier 3", good: false },
         { label: "Recycled MQL", value: "None", good: false },
       ],
+      detail: {
+        keywords: [],
+        websiteVisits: { value: "None detected", good: false },
+        buyingStage: { value: "Target", good: false },
+        emailCampaigns: { value: "Never contacted", good: false },
+        folloze: { value: "No board activity", good: false },
+      },
     },
   },
 };
@@ -183,6 +246,33 @@ function defaultFitIntent(bundle: AccountBundle): { fit: ScorePillar; intent: Sc
   const highIntent = stage === "Purchase" || stage === "Decision";
   const midIntent = stage === "Consideration";
 
+  // Per-source intent detail for the labelled boxes. Keywords lean on the
+  // account's product + industry; the readings scale with the 6sense stage.
+  const productKeyword = `Sage ${account.product}`;
+  const intentDetail: IntentDetail = highIntent
+    ? {
+        keywords: [productKeyword, `${account.industry} accounting`, "cloud ERP", "month-end close automation"],
+        websiteVisits: { value: "Pricing ×3, demo request ×1 this week", good: true },
+        buyingStage: { value: stage!, good: true },
+        emailCampaigns: { value: "Opened 3 of 5 nurture emails", good: true },
+        folloze: { value: "Viewed personalized board — 4 assets, 6m", good: true },
+      }
+    : midIntent
+      ? {
+          keywords: [productKeyword, `${account.industry} software`, "ERP comparison"],
+          websiteVisits: { value: "Product & blog pages this month", good: true },
+          buyingStage: { value: stage!, good: true },
+          emailCampaigns: { value: "Opened 1 of 4 emails, no reply", good: false },
+          folloze: { value: "Opened board — 1 asset, 40s", good: false },
+        }
+      : {
+          keywords: [],
+          websiteVisits: { value: "None detected", good: false },
+          buyingStage: { value: stage ?? "Not set", good: false },
+          emailCampaigns: { value: "Never contacted", good: false },
+          folloze: { value: "No board activity", good: false },
+        };
+
   return {
     fit: {
       value: fitValue,
@@ -216,6 +306,7 @@ function defaultFitIntent(bundle: AccountBundle): { fit: ScorePillar; intent: Sc
         { label: "6sense Buying Stage", value: stage ?? "Not set", good: highIntent || midIntent },
         { label: "Outreach activity", value: "Never contacted", good: false },
       ],
+      detail: intentDetail,
     },
   };
 }

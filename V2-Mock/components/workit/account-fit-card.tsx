@@ -118,6 +118,14 @@ export function AccountFitCard({
   const growthSignals = intel?.growthSignals ?? [];
   const hiringSignals = intel?.hiringSignals ?? [];
 
+  const intentDetail = score.intent.detail;
+  // Signals already surfaced as their own box above (web intent → website visits,
+  // buying stage → its own box) are dropped so the secondary row shows only the
+  // extras: outreach activity, ABM tier, recycled MQL, etc.
+  const otherIntentSignals = score.intent.signals.filter(
+    (s) => s.label !== "Web intent" && s.label !== "6sense Buying Stage",
+  );
+
   const sectionLabel = "mb-2 text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase";
 
   return (
@@ -178,14 +186,79 @@ export function AccountFitCard({
           )}
         </div>
 
-        {/* Intent */}
+        {/* Intent — surfaced as labelled boxes so buying signals are as scannable
+            as the firmographics above (previously a dashed list that was easy to miss). */}
         <div>
           <p className={sectionLabel}>Intent</p>
-          <div className="rounded-[11px] border border-border bg-background px-4 py-2">
-            {score.intent.signals.map((s) => (
-              <SignalRow key={s.label} label={s.label} value={s.value} good={s.good} />
-            ))}
-          </div>
+          {intentDetail ? (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                <Cell
+                  label="6Sense Keywords"
+                  status={intentDetail.keywords.length ? "good" : "watch"}
+                  value={
+                    intentDetail.keywords.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {intentDetail.keywords.map((kw) => (
+                          <span
+                            key={kw}
+                            className="rounded-full bg-primary-soft px-2.5 py-0.5 text-[11.5px] font-bold text-primary"
+                          >
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      "No keyword surge detected"
+                    )
+                  }
+                  source="Trending research topics · 6sense"
+                />
+                <Cell
+                  label="6Sense Website Visits"
+                  status={intentDetail.websiteVisits.good ? "good" : "watch"}
+                  value={intentDetail.websiteVisits.value}
+                  source="De-anonymized visits · 6sense"
+                />
+                <Cell
+                  label="6Sense Buying Stage"
+                  status={intentDetail.buyingStage.good ? "good" : "watch"}
+                  value={intentDetail.buyingStage.value}
+                  source="Predictive buying stage · 6sense"
+                />
+                <Cell
+                  label="Eloqua / Email Campaigns"
+                  status={intentDetail.emailCampaigns.good ? "good" : "watch"}
+                  value={intentDetail.emailCampaigns.value}
+                  source="Campaign engagement · Eloqua"
+                />
+                <Cell
+                  label="Folloze Data"
+                  status={intentDetail.folloze.good ? "good" : "watch"}
+                  value={intentDetail.folloze.value}
+                  source="Content-board engagement · Folloze"
+                />
+              </div>
+              {otherIntentSignals.length > 0 && (
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  {otherIntentSignals.map((s) => (
+                    <Cell
+                      key={s.label}
+                      label={s.label}
+                      value={s.value}
+                      status={s.good ? "good" : "watch"}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rounded-[11px] border border-border bg-background px-4 py-2">
+              {score.intent.signals.map((s) => (
+                <SignalRow key={s.label} label={s.label} value={s.value} good={s.good} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Growth signals */}
