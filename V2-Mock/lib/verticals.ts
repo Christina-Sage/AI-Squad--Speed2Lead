@@ -13,15 +13,15 @@ export interface VerticalInfo {
   label: string;
 }
 
-// Sage sales verticals shown in the top-bar selector. Order mirrors the source
-// list. "All-Vertical/Horizontal" is the neutral default (no vertical focus).
-// Selecting a vertical persists the choice; it does not filter the worklist yet
-// (accounts carry an `industry`, not a sales vertical — mapping the two is a
-// separate decision).
+// Sage sales verticals shown in the top-bar selector (Intacct only). Order
+// mirrors the source list. "All Vertical" is the neutral default (no vertical
+// focus). Selecting a vertical persists the choice; it does not filter the
+// worklist yet (accounts carry an `industry`, not a sales vertical — mapping
+// the two is a separate decision).
 export const VERTICALS: VerticalInfo[] = [
   { id: "hospitality", label: "Hospitality" },
   { id: "general-business", label: "General Business" },
-  { id: "all", label: "All-Vertical/Horizontal" },
+  { id: "all", label: "All Vertical" },
   { id: "nfp", label: "Not For Profit" },
   { id: "healthcare", label: "Healthcare" },
   { id: "financial-services", label: "Financial Services" },

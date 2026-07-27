@@ -46,7 +46,9 @@ export default async function DashboardLayout({
           </span>
           <span className="flex-1" />
           <div className="flex items-center gap-3">
-            <VerticalSwitcher currentVertical={currentVertical} />
+            {currentProduct === "Intacct" && (
+              <VerticalSwitcher currentVertical={currentVertical} />
+            )}
             <ProductSwitcher currentProduct={currentProduct} />
             <TeamSwitcher currentTeam={currentTeam} />
             {currentTeam === "SDR" && <PrioritySwitcher currentPriority={currentPriority} />}
