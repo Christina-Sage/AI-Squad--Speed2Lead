@@ -64,7 +64,7 @@ export async function GET(
 
   // For-profit firmographics come from ZoomInfo (revenue) + LinkedIn Sales
   // Navigator (employees); nonprofits use the 990 figures from research.
-  const intel = isNonprofit ? null : getCompanyIntelByDomain(domain);
+  const intel = isNonprofit ? null : getCompanyIntelByDomain(domain, industry);
 
   const sourceLabel = intel
     ? "Web search · ZoomInfo · LinkedIn Sales Navigator"
