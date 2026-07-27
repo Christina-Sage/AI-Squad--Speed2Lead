@@ -25,6 +25,23 @@ export interface FundingEvent {
   investors: string;
 }
 
+/**
+ * ZoomInfo enrichment surfaced in the "Account summary notes" the rep copies
+ * into Outreach: the account's detected technology stack, active ZoomInfo
+ * Intent topics, and de-anonymized website sightings (WebSights). Not wired to
+ * the live ZoomInfo API in this mock — synthesized deterministically and
+ * backfilled onto every non-nonprofit account by the getters below, so it is
+ * always present on returned intel.
+ */
+export interface ZoomInfoEnrichment {
+  /** Related / installed technologies detected by ZoomInfo. */
+  technologies: string[];
+  /** Active ZoomInfo Intent topics (surging research themes). */
+  intentTopics: string[];
+  /** De-anonymized website-sightings (WebSights) summary, or null if none. */
+  webSightings: string | null;
+}
+
 export interface CompanyIntel {
   revenue: { amount: number | null; source: "ZoomInfo" };
   employees: { count: number | null; source: "LinkedIn Sales Navigator" };
@@ -36,6 +53,12 @@ export interface CompanyIntel {
   funding: FundingEvent | null;
   growthSignals: string[];
   hiringSignals: HiringSignal[];
+  /**
+   * ZoomInfo technographics / intent / WebSights. Optional on the fixtures so
+   * hand-authored intel need not spell it out; `getCompanyIntel` and
+   * `getCompanyIntelByDomain` backfill it deterministically when absent.
+   */
+  zoomInfo?: ZoomInfoEnrichment;
 }
 
 const INTEL_FIXTURES: Record<string, CompanyIntel> = {
@@ -475,6 +498,96 @@ function hiringFor(industry: string, seed: string): HiringSignal[] {
   return signals;
 }
 
+// ---------------------------------------------------------------------------
+// ZoomInfo enrichment (technographics / intent / WebSights)
+//
+// The Outreach copy-paste note leans on ZoomInfo for the incumbent tech stack,
+// active intent topics, and de-anonymized website sightings. ZoomInfo isn't
+// wired in this mock, so these are synthesized deterministically from the same
+// stable seed, and skewed toward the finance/ERP context that makes an account
+// a "why now" — an incumbent accounting/ERP system plus adjacent back-office
+// tools, intent topics that map to the product, and a WebSights reading.
+// ---------------------------------------------------------------------------
+
+// Incumbent accounting/ERP systems ZoomInfo would flag — the competitive
+// "what are they on today" signal. One is picked per account.
+const INCUMBENT_ERPS = [
+  "NetSuite",
+  "QuickBooks Enterprise",
+  "Sage 100",
+  "Microsoft Dynamics GP",
+  "SAP Business One",
+  "Oracle EBS",
+];
+
+// Adjacent back-office / data tools that commonly co-occur; 2–3 are picked to
+// round out the detected stack.
+const ADJACENT_TECH = [
+  "Salesforce CRM",
+  "Coupa",
+  "Concur",
+  "Bill.com",
+  "Workday",
+  "Snowflake",
+  "Tableau",
+  "FloQast",
+  "Adaptive Insights",
+  "Expensify",
+];
+
+const ZI_INTENT_TOPICS = [
+  "Cloud ERP",
+  "Financial Consolidation",
+  "Accounts Payable Automation",
+  "Month-End Close",
+  "Multi-Entity Accounting",
+  "Revenue Recognition (ASC 606)",
+  "Spend Management",
+];
+
+/** Deterministically pick `n` distinct items from `arr` using seed + salt. */
+function pickMany<T>(arr: T[], seed: string, salt: string, n: number): T[] {
+  const out: T[] = [];
+  const pool = [...arr];
+  for (let i = 0; i < n && pool.length > 0; i++) {
+    const idx = hashString(`${seed}:${salt}:${i}`) % pool.length;
+    out.push(pool.splice(idx, 1)[0]);
+  }
+  return out;
+}
+
+function zoomInfoEnrichmentFor(seed: string, industry: string, hq: string): ZoomInfoEnrichment {
+  const incumbent = pick(INCUMBENT_ERPS, seed, "ziincumbent");
+  const adjacentCount = 2 + (hashString(`${seed}:ziadjn`) % 2); // 2..3
+  const technologies = [incumbent, ...pickMany(ADJACENT_TECH, seed, "ziadj", adjacentCount)];
+
+  // Lead the intent topics with the industry-appropriate "why now" when there
+  // is one, then fill the rest from the general finance-topic pool.
+  const industryTopic = industryHiringClue(industry);
+  const filler = pickMany(ZI_INTENT_TOPICS, seed, "ziintent", industryTopic ? 2 : 3);
+  const intentTopics = industryTopic ? [industryTopic, ...filler] : filler;
+
+  // WebSights: de-anonymized visits to sage.com from the account's HQ metro.
+  const visits = 2 + (hashString(`${seed}:ziweb`) % 5); // 2..6
+  const dept = pick(["Finance", "Accounting", "IT / Finance", "Operations"], seed, "ziwebdept");
+  const days = pick([14, 21, 30], seed, "ziwebdays");
+  const webSightings =
+    hashString(`${seed}:ziwebhas`) % 4 === 0
+      ? null // ~1/4 have no de-anonymized sightings
+      : `${visits} visits to sage.com from ${hq} (${dept}) in the last ${days} days`;
+
+  return { technologies, intentTopics, webSightings };
+}
+
+/** Ensure returned intel always carries ZoomInfo enrichment. */
+function withZoomInfo(intel: CompanyIntel, seed: string, industry: string): CompanyIntel {
+  if (intel.zoomInfo) return intel;
+  return {
+    ...intel,
+    zoomInfo: zoomInfoEnrichmentFor(seed, industry, intel.hqLocation ?? "the account HQ"),
+  };
+}
+
 function syntheticIntel(seed: string, industry: string, displayName: string): CompanyIntel {
   const size = pick(bandFor(industry), seed, "size");
   const hq = pick(HQ_CITIES, seed, "hq");
@@ -487,6 +600,7 @@ function syntheticIntel(seed: string, industry: string, displayName: string): Co
     funding: fundingFor(industry, seed),
     growthSignals: growthFor(hq, seed),
     hiringSignals: hiringFor(industry, seed),
+    zoomInfo: zoomInfoEnrichmentFor(seed, industry, hq),
   };
 }
 
@@ -518,7 +632,8 @@ function displayNameFromDomain(domain: string): string {
 export function getCompanyIntelByDomain(domain: string, industry = "Technology"): CompanyIntel | null {
   const key = domain.trim().toLowerCase();
   if (!key) return null;
-  return INTEL_BY_DOMAIN[key] ?? syntheticIntel(key, industry, displayNameFromDomain(key));
+  const base = INTEL_BY_DOMAIN[key] ?? syntheticIntel(key, industry, displayNameFromDomain(key));
+  return withZoomInfo(base, key, industry);
 }
 
 function isNonprofit(account: Account): boolean {
@@ -533,5 +648,7 @@ function isNonprofit(account: Account): boolean {
  */
 export function getCompanyIntel(account: Account): CompanyIntel | null {
   if (isNonprofit(account)) return null;
-  return INTEL_FIXTURES[account.id] ?? syntheticIntel(account.id, account.industry, account.name);
+  const base =
+    INTEL_FIXTURES[account.id] ?? syntheticIntel(account.id, account.industry, account.name);
+  return withZoomInfo(base, account.id, account.industry);
 }
