@@ -376,6 +376,33 @@ function bandFor(industry: string): { revenue: number; employees: number }[] {
   return key ? FIRMO_BANDS[key] : DEFAULT_BAND;
 }
 
+// Sub-verticals — the finer classification WorkIt infers from web search /
+// ZoomInfo beyond the top-level industry (e.g. Manufacturing → Food & Beverage).
+// One is picked deterministically per account so it never changes between runs.
+const SUBVERTICALS: Record<string, string[]> = {
+  Manufacturing: ["Food & Beverage", "Industrial Equipment", "Consumer Products", "Aerospace & Defense"],
+  Technology: ["SaaS", "Fintech", "Cybersecurity", "Cloud Infrastructure"],
+  Healthcare: ["Medical Devices", "Health Systems", "Biotech", "Home Health"],
+  "Wholesale Distribution": ["Food Distribution", "Building Materials", "Industrial Supply", "Consumer Electronics"],
+  "Financial Services": ["Asset Management", "Insurance", "Lending", "Wealth Advisory"],
+  "Business Services": ["Marketing Services", "Staffing", "Consulting", "Facilities Management"],
+  Hospitality: ["Hotels & Resorts", "Restaurant Groups", "Senior Living", "Event Management"],
+  Nonprofit: ["Human Services", "Education", "Foundation", "Arts & Culture"],
+};
+
+/**
+ * Deterministic sub-vertical for an account, derived from its top-level industry
+ * and a stable seed (account id / name). Returns null when the industry has no
+ * known sub-vertical mapping, so callers can omit the line rather than guess.
+ */
+export function getSubvertical(industry: string, seed: string): string | null {
+  const key = Object.keys(SUBVERTICALS).find((k) =>
+    industry.toLowerCase().includes(k.toLowerCase()),
+  );
+  if (!key) return null;
+  return pick(SUBVERTICALS[key], seed, "subvertical");
+}
+
 function footprintFor(industry: string, seed: string): string {
   const ind = industry.toLowerCase();
   const n = 2 + (hashString(`${seed}:sites`) % 6); // 2..7

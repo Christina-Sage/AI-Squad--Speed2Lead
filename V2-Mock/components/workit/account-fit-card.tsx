@@ -1,6 +1,6 @@
 import { ChevronRightIcon } from "lucide-react";
 import type { AccountScore } from "@/lib/scoring/scoring";
-import type { CompanyIntel } from "@/lib/research/company-intel";
+import { getSubvertical, type CompanyIntel } from "@/lib/research/company-intel";
 import type { CompanyResearchResult } from "@/lib/research/types";
 import { formatCurrency } from "@/lib/workit/format";
 
@@ -133,6 +133,10 @@ export function AccountFitCard({
         ? "Company website"
         : "Not found";
 
+  // Sub-vertical inferred beneath the top-level industry (e.g. Manufacturing →
+  // Food & Beverage). Seeded off the account name so it stays stable per account.
+  const subvertical = getSubvertical(industry, accountName);
+
   const growthSignals = intel?.growthSignals ?? [];
   const hiringSignals = intel?.hiringSignals ?? [];
 
@@ -184,7 +188,20 @@ export function AccountFitCard({
         <div>
           <p className={sectionLabel}>Fit &amp; firmographics</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Cell label="Industry" value={industry} source={sourceLabel} />
+            <Cell
+              label="Industry"
+              value={
+                <>
+                  {industry}
+                  {subvertical && (
+                    <span className="mt-0.5 block text-[12px] font-semibold text-muted-foreground">
+                      Subvertical · {subvertical}
+                    </span>
+                  )}
+                </>
+              }
+              source={sourceLabel}
+            />
             <Cell
               label="Revenue"
               value={formatCurrency(revenueAmount)}
