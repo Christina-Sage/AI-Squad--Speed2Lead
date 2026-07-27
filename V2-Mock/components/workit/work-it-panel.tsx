@@ -70,8 +70,15 @@ interface ContactRow {
   role: IcpRole | null;
   /** Already a Salesforce record on file (auto-confirmed) vs. a new research find. */
   matched: boolean;
+  /** Existing record whose title a newer contact now holds — excluded from the push. */
+  inactive: boolean;
   /** Secondary label for the Push chip: "Contact" / "Lead" / "Website" / "Form 990". */
   detail: string;
+}
+
+/** Case-insensitive title key for detecting an existing↔new title collision. */
+function normalizeTitle(title: string): string {
+  return title.trim().toLowerCase();
 }
 
 function RolePill({ role }: { role: IcpRole }) {
@@ -82,18 +89,26 @@ function RolePill({ role }: { role: IcpRole }) {
   );
 }
 
-function ConfirmedPill() {
+function InSalesforcePill() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold text-success">
-      ✓ Confirmed
+      ✓ In Salesforce
     </span>
   );
 }
 
-function ReviewPill() {
+function NewContactPill() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold text-warning">
-      ⚠ Needs your review
+      ⚠ New Contact
+    </span>
+  );
+}
+
+function InactivePill() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11.5px] font-bold text-muted-foreground">
+      ⊘ Inactive
     </span>
   );
 }
@@ -157,6 +172,13 @@ export function WorkItPanel({
 }) {
   const toast = useToast();
 
+  // Titles held by a new research find (not yet in Salesforce). When an existing
+  // Salesforce contact shares one of these titles, someone new appears to be in
+  // that seat, so the existing record is flagged Inactive (see below).
+  const newFindTitles = new Set(
+    foundContacts.filter((c) => !c.inSalesforce).map((c) => normalizeTitle(c.title)),
+  );
+
   // Unified list for the Existing Contacts card: Salesforce records already on
   // file (auto-confirmed) + new research finds that need review before pushing.
   // Empty in lead mode — the card is hidden and the lead is what gets pushed.
@@ -168,6 +190,8 @@ export function WorkItPanel({
           title: r.title,
           role: classifyIcpRole(r.title),
           matched: true,
+          // A newer contact with the same title was found — likely no longer in role.
+          inactive: newFindTitles.has(normalizeTitle(r.title)),
           detail: r.kind,
         })),
         ...foundContacts
@@ -177,14 +201,18 @@ export function WorkItPanel({
             title: c.title,
             role: classifyIcpRole(c.title),
             matched: false,
+            inactive: false,
             detail: c.source === "990" ? "Form 990" : "Website",
           })),
       ];
+  // Inactive existing records are not pre-selected and can't be pushed.
   const initialConfirmed = new Set<string>(
     lead
       ? [lead.name.toLowerCase()]
       : [
-          ...existingRecords.map((r) => r.name.toLowerCase()),
+          ...contactRows
+            .filter((row) => row.matched && !row.inactive)
+            .map((row) => row.name.toLowerCase()),
           ...initialAddedNames.map((n) => n.toLowerCase()),
         ],
   );
@@ -274,8 +302,10 @@ export function WorkItPanel({
     }
   }
 
-  const confirmedRows = contactRows.filter((row) => isConfirmed(row.name));
-  const reviewCount = contactRows.length - confirmedRows.length;
+  const inactiveRows = contactRows.filter((row) => row.inactive);
+  const inactiveCount = inactiveRows.length;
+  const confirmedRows = contactRows.filter((row) => !row.inactive && isConfirmed(row.name));
+  const reviewCount = contactRows.filter((row) => !row.inactive && !isConfirmed(row.name)).length;
   const selectedContactCount = contactRows.filter((row) => selected.has(row.name)).length;
   const allConfirmedSelected =
     confirmedRows.length > 0 && confirmedRows.every((row) => selected.has(row.name));
@@ -425,19 +455,27 @@ export function WorkItPanel({
                 ✓
               </span>
               <p className="text-[12.5px] leading-snug">
-                Checked Salesforce on <b>{accountName ?? "this account"}</b> — {confirmedRows.length}{" "}
-                ICP contact{confirmedRows.length === 1 ? "" : "s"} confirmed and pre-selected.
+                Checked Salesforce on <b>{accountName ?? "this account"}</b> —{" "}
+                <b>{confirmedRows.length}</b> in Salesforce and pre-selected.
+                {inactiveCount > 0 && (
+                  <>
+                    {" "}
+                    <span className="font-semibold text-muted-foreground">
+                      {inactiveCount} inactive
+                    </span>{" "}
+                    (a newer contact holds the same title).
+                  </>
+                )}
                 {reviewCount > 0 ? (
                   <>
                     {" "}
                     <span className="font-semibold text-warning">
-                      {reviewCount} {reviewCount === 1 ? "needs" : "need"} your review
+                      {reviewCount} new contact{reviewCount === 1 ? "" : "s"}
                     </span>{" "}
-                    ({reviewCount === 1 ? "a new contact that doesn’t" : "new contacts that don’t"}{" "}
-                    match an existing record).
+                    to review.
                   </>
                 ) : (
-                  " All checked against Salesforce — none need review."
+                  " No new contacts to review."
                 )}
               </p>
             </div>
@@ -464,10 +502,15 @@ export function WorkItPanel({
                 <tbody>
                   {contactRows.map((row) => {
                     const conf = isConfirmed(row.name);
+                    const rowBg = row.inactive
+                      ? "bg-muted/40"
+                      : conf
+                        ? ""
+                        : "bg-warning-bg/20";
                     return (
                       <tr
                         key={`${row.name}-${row.title}`}
-                        className={`border-b border-border last:border-b-0 ${conf ? "" : "bg-warning-bg/20"}`}
+                        className={`border-b border-border last:border-b-0 ${rowBg}`}
                       >
                         <td className="py-3 pr-2 align-top">
                           <input
@@ -475,11 +518,17 @@ export function WorkItPanel({
                             aria-label={`Select ${row.name}`}
                             className="size-4 accent-success align-middle disabled:opacity-40"
                             checked={selected.has(row.name)}
-                            disabled={!conf}
+                            disabled={!conf || row.inactive}
                             onChange={() => toggleSelected(row.name)}
                           />
                         </td>
-                        <td className="py-3 pr-3 align-top text-[13.5px] font-semibold">{row.name}</td>
+                        <td
+                          className={`py-3 pr-3 align-top text-[13.5px] font-semibold ${
+                            row.inactive ? "text-muted-foreground line-through" : ""
+                          }`}
+                        >
+                          {row.name}
+                        </td>
                         <td className="py-3 pr-3 align-top text-[13px] text-muted-foreground">
                           {row.title}
                         </td>
@@ -487,42 +536,30 @@ export function WorkItPanel({
                           {row.role && <RolePill role={row.role} />}
                         </td>
                         <td className="py-3 align-top">
-                          {conf ? (
-                            <div>
-                              <ConfirmedPill />
-                              <p className="mt-1 text-[11.5px] text-muted-foreground">
-                                {row.matched
-                                  ? `Matched Salesforce ${row.detail.toLowerCase()}`
-                                  : "Confirmed — added to Salesforce"}
-                              </p>
-                            </div>
+                          {row.inactive ? (
+                            <InactivePill />
+                          ) : conf ? (
+                            <InSalesforcePill />
                           ) : (
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <ReviewPill />
-                                <a
-                                  href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
-                                >
-                                  Add in Salesforce
-                                  <ExternalLinkIcon className="size-3.5" />
-                                </a>
-                                <button
-                                  type="button"
-                                  className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
-                                  disabled={busy === row.name}
-                                  onClick={() => confirmContact(row)}
-                                >
-                                  {busy === row.name ? "Syncing…" : "Confirm & add"}
-                                </button>
-                              </div>
-                              <p className="mt-1 max-w-[340px] text-[11.5px] text-muted-foreground">
-                                New contact from research — not in Salesforce yet. Open{" "}
-                                <b>Add in Salesforce</b> to create the record on this account, then{" "}
-                                <b>Confirm &amp; add</b> to sync it and confirm it landed.
-                              </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <NewContactPill />
+                              <a
+                                href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
+                              >
+                                Add in Salesforce
+                                <ExternalLinkIcon className="size-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
+                                disabled={busy === row.name}
+                                onClick={() => confirmContact(row)}
+                              >
+                                {busy === row.name ? "Syncing…" : "Confirm & add"}
+                              </button>
                             </div>
                           )}
                         </td>
@@ -540,6 +577,12 @@ export function WorkItPanel({
                 <>
                   {" "}
                   · <b className="text-warning">{reviewCount}</b> awaiting review
+                </>
+              )}
+              {inactiveCount > 0 && (
+                <>
+                  {" "}
+                  · <b className="text-foreground">{inactiveCount}</b> inactive (excluded)
                 </>
               )}
             </div>
