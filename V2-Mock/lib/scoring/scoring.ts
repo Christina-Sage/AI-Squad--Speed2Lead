@@ -366,21 +366,48 @@ function isDisqualifiedOpp(opp: Opportunity): boolean {
   return opp.isClosed && (stage.includes("disqualified") || stage.includes("closed lost"));
 }
 
+/** Loose name key for detecting whether a research find is already on file. */
+function normalizeContactName(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ");
+}
+
 /**
  * Whether there is anyone to work, and any prior disqualified-opp context.
- * Salesforce contact count is live; ZoomInfo / LinkedIn Sales Navigator counts
- * are illustrative (those tools aren't wired into the mock) but deterministic
- * per account. The ICP persona reuses the researched finance contact that the
- * work-it flow already surfaces for the account.
+ *
+ * The counts here are kept in lockstep with the Existing Contacts card so the
+ * two never tell different stories: `salesforce` is every Salesforce record on
+ * file (contacts + leads — the "In Salesforce" / "Inactive" rows), and the
+ * ZoomInfo + LinkedIn split is the set of seeded research finds that aren't yet
+ * on file (the "New Contact" rows). ZoomInfo / LinkedIn Sales Navigator aren't
+ * wired into the mock, so which tool surfaced each find is illustrative — but
+ * the totals are reflective of what the card actually shows. The ICP persona
+ * reuses the first researched finance find for the account.
  */
 function computeWorkabilityDetail(bundle: AccountBundle): WorkabilityDetail {
   const { account } = bundle;
-  const salesforce = bundle.contacts.length;
-  // Deterministic, always ≥1, so the box shows "there is someone to prospect".
-  const zoomInfo = 4 + idJitter(account.id, "zoominfo", 3);
-  const linkedIn = 3 + idJitter(account.id, "linkedin", 2);
 
-  const icp = seededResearchContacts(account.id)[0] ?? null;
+  // Salesforce records already on file (contacts + leads) — these render as the
+  // "In Salesforce" / "Inactive" rows in the Existing Contacts card.
+  const salesforce = bundle.contacts.length + bundle.leads.length;
+
+  // Seeded research finds that aren't already on file — the "New Contact" rows
+  // in that same card. Cross-referenced by name the same way the research does.
+  const onFileNames = new Set(
+    [...bundle.contacts, ...bundle.leads].map((r) => normalizeContactName(r.name)),
+  );
+  const newFinds = seededResearchContacts(account.id).filter(
+    (c) => !onFileNames.has(normalizeContactName(c.name)),
+  );
+
+  // Attribute the finds across the two enrichment tools deterministically, so
+  // ZoomInfo + LinkedIn always sums to the number of new contacts to review.
+  // One find is credited to LinkedIn Sales Navigator (the ICP-persona source),
+  // the rest to ZoomInfo.
+  const findCount = newFinds.length;
+  const linkedIn = findCount === 0 ? 0 : 1;
+  const zoomInfo = findCount === 0 ? 0 : findCount - 1;
+
+  const icp = newFinds[0] ?? seededResearchContacts(account.id)[0] ?? null;
 
   const dqHistory: DqOppHistory[] = bundle.opportunities.filter(isDisqualifiedOpp).map((opp) => {
     const closedDays = daysSince(opp.closedDate ?? null);

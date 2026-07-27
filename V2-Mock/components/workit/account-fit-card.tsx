@@ -1,6 +1,6 @@
 import { ChevronRightIcon } from "lucide-react";
 import type { AccountScore } from "@/lib/scoring/scoring";
-import type { CompanyIntel } from "@/lib/research/company-intel";
+import { getSubvertical, type CompanyIntel } from "@/lib/research/company-intel";
 import type { CompanyResearchResult } from "@/lib/research/types";
 import { formatCurrency } from "@/lib/workit/format";
 
@@ -133,6 +133,10 @@ export function AccountFitCard({
         ? "Company website"
         : "Not found";
 
+  // Sub-vertical inferred beneath the top-level industry (e.g. Manufacturing →
+  // Food & Beverage). Seeded off the account name so it stays stable per account.
+  const subvertical = getSubvertical(industry, accountName);
+
   const growthSignals = intel?.growthSignals ?? [];
   const hiringSignals = intel?.hiringSignals ?? [];
 
@@ -153,6 +157,20 @@ export function AccountFitCard({
       workDetail.contactSources.zoomInfo +
       workDetail.contactSources.linkedIn
     : 0;
+  // Only surface the sources that actually contributed a contact, so the row
+  // never reads "ZoomInfo 0" and always ties out to the Existing Contacts card.
+  const contactSourceBreakdown = workDetail
+    ? (
+        [
+          ["SF", workDetail.contactSources.salesforce],
+          ["ZoomInfo", workDetail.contactSources.zoomInfo],
+          ["LinkedIn", workDetail.contactSources.linkedIn],
+        ] as const
+      )
+        .filter(([, n]) => n > 0)
+        .map(([label, n]) => `${label} ${n}`)
+        .join(" · ")
+    : "";
 
   const sectionLabel = "mb-1.5 text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase";
 
@@ -184,7 +202,11 @@ export function AccountFitCard({
         <div>
           <p className={sectionLabel}>Fit &amp; firmographics</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Cell label="Industry" value={industry} source={sourceLabel} />
+            <Cell
+              label="Industry"
+              value={subvertical ? `${industry} · ${subvertical}` : industry}
+              source={sourceLabel}
+            />
             <Cell
               label="Revenue"
               value={formatCurrency(revenueAmount)}
@@ -271,7 +293,7 @@ export function AccountFitCard({
                   label="Contacts to work"
                   value={
                     contactSourceTotal > 0
-                      ? `${contactSourceTotal} available · SF ${workDetail.contactSources.salesforce} · ZoomInfo ${workDetail.contactSources.zoomInfo} · LinkedIn ${workDetail.contactSources.linkedIn}`
+                      ? `${contactSourceTotal} available · ${contactSourceBreakdown}`
                       : "None found"
                   }
                 />

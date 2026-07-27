@@ -23,7 +23,7 @@ export async function GET(
 
   const duplicateInfo = duplicateInfoFor(leadId, await provider.listSdrLeads());
   const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, duplicateInfo);
-  const score = scoreLead(bundle.lead, bundle.accountBundle?.account ?? null);
+  const score = scoreLead(bundle.lead, bundle.accountBundle);
 
   return NextResponse.json({ result, score, salesforceUrl: buildSalesforceLeadUrl(leadId) });
 }
