@@ -190,16 +190,7 @@ export function AccountFitCard({
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Cell
               label="Industry"
-              value={
-                <>
-                  {industry}
-                  {subvertical && (
-                    <span className="mt-0.5 block text-[12px] font-semibold text-muted-foreground">
-                      Subvertical · {subvertical}
-                    </span>
-                  )}
-                </>
-              }
+              value={subvertical ? `${industry} · ${subvertical}` : industry}
               source={sourceLabel}
             />
             <Cell
