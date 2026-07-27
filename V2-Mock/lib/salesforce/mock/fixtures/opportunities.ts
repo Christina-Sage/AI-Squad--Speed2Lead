@@ -36,6 +36,12 @@ export const OPPORTUNITIES: Opportunity[] = [
     createdDate: daysAgo(150),
     furthestStage: "Discovery",
     closedDate: daysAgo(60),
+    disqualification: {
+      reason: "No budget approved for the current fiscal year",
+      qualificationNotes: "GxP-compliant reporting need confirmed; multi-entity consolidation across research entities.",
+      problems: "SAP incumbent with a recent renewal; finance team stretched, no bandwidth to switch.",
+      nextSteps: "Re-engage after their fiscal-year budget reset (Q1).",
+    },
   },
   {
     // DQ'd 18 days ago but never reached Discovery — eligible to re-work.
@@ -49,6 +55,12 @@ export const OPPORTUNITIES: Opportunity[] = [
     createdDate: daysAgo(45),
     furthestStage: "Prospecting",
     closedDate: daysAgo(18),
+    disqualification: {
+      reason: "Never connected with an economic buyer",
+      qualificationNotes: "Inbound from a webinar; foundation arm consolidating 12 entities in spreadsheets.",
+      problems: "Only reached an analyst; no CFO/controller engagement, timing unclear.",
+      nextSteps: "New CFO appointed since — worth a fresh intro to the finance lead.",
+    },
   },
   {
     // Reached Discovery, DQ'd and closed 15 days ago — inside the 30-day
@@ -63,6 +75,12 @@ export const OPPORTUNITIES: Opportunity[] = [
     createdDate: daysAgo(75),
     furthestStage: "Evaluation",
     closedDate: daysAgo(15),
+    disqualification: {
+      reason: "Chose to extend their NetSuite trial instead",
+      qualificationNotes: "Post-Series D; VP Finance driving first real ERP; ASC 606 SaaS rev-rec requirement.",
+      problems: "Competitive NetSuite trial already in flight; price sensitivity flagged.",
+      nextSteps: "Check back after the trial lapses (~90 days); lead with SaaS rev-rec depth.",
+    },
   },
   {
     // Reached Discovery, DQ'd but closed 60 days ago — past the 30-day
@@ -77,6 +95,12 @@ export const OPPORTUNITIES: Opportunity[] = [
     createdDate: daysAgo(120),
     furthestStage: "Discovery",
     closedDate: daysAgo(60),
+    disqualification: {
+      reason: "Deprioritized after a leadership change",
+      qualificationNotes: "Nonprofit fund accounting; grant tracking pain confirmed in discovery.",
+      problems: "Executive sponsor left mid-cycle; initiative shelved.",
+      nextSteps: "Confirm new finance leadership, then re-open with the grant-tracking use case.",
+    },
   },
 
   // DQ cooling-off opps for the generated per-product demo accounts.

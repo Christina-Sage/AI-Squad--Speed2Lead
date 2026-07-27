@@ -87,6 +87,23 @@ export interface Contact {
   product?: Product;
 }
 
+/**
+ * Skimmable notes captured when an opportunity was disqualified, surfaced in the
+ * account-fit card so a rep re-working the account can see at a glance what
+ * happened last time. These live on the SF opp record (notes/fields); the mock
+ * populates them on the disqualified fixture opps.
+ */
+export interface DisqualificationNotes {
+  /** Why the opp was disqualified. */
+  reason: string;
+  /** Short qualification / opp notes from the prior cycle. */
+  qualificationNotes?: string;
+  /** Problems or objections that surfaced. */
+  problems?: string;
+  /** What the next steps looked like when it stalled. */
+  nextSteps?: string;
+}
+
 export interface Opportunity {
   id: string;
   name: string;
@@ -99,6 +116,8 @@ export interface Opportunity {
   /** Furthest stage the opp reached before closing — drives the DQ cooling-off rule. */
   furthestStage?: string;
   closedDate?: string | null;
+  /** Present on disqualified opps — the skimmable history shown when re-working. */
+  disqualification?: DisqualificationNotes;
   /** Inherited from the linked account; filled when the bundle is loaded. */
   product?: Product;
 }

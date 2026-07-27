@@ -120,11 +120,25 @@ export function AccountFitCard({
 
   const intentDetail = score.intent.detail;
   // Signals already surfaced as their own box above (web intent → website visits,
-  // buying stage → its own box) are dropped so the secondary row shows only the
-  // extras: outreach activity, ABM tier, recycled MQL, etc.
+  // buying stage → its own box) are dropped, and "Outreach activity" now lives
+  // under Work — so the secondary row shows only the extras that are genuinely
+  // intent: ABM tier, recycled MQL, etc.
   const otherIntentSignals = score.intent.signals.filter(
-    (s) => s.label !== "Web intent" && s.label !== "6sense Buying Stage",
+    (s) =>
+      s.label !== "Web intent" &&
+      s.label !== "6sense Buying Stage" &&
+      s.label !== "Outreach activity",
   );
+
+  const workDetail = score.workability.workDetail;
+  // "Contact availability" is replaced by the richer Contacts-to-work box below;
+  // the rest (Last activity, ROE) still render as boxes.
+  const otherWorkSignals = score.workability.signals.filter((s) => s.label !== "Contact availability");
+  const contactSourceTotal = workDetail
+    ? workDetail.contactSources.salesforce +
+      workDetail.contactSources.zoomInfo +
+      workDetail.contactSources.linkedIn
+    : 0;
 
   const sectionLabel = "mb-2 text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase";
 
@@ -324,16 +338,92 @@ export function AccountFitCard({
           </div>
         )}
 
-        {/* Workability note + company history */}
+        {/* Work — is there anyone to work, an ICP persona to talk to, and what
+            happened on any previously disqualified opp. */}
+        <div>
+          <p className={sectionLabel}>
+            Work{" "}
+            <span className="font-normal normal-case">— contacts to work, ICP fit, prior disqualified opps</span>
+          </p>
+          {workDetail ? (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+                <Cell
+                  label="Contacts to work"
+                  status={contactSourceTotal > 0 ? "good" : "watch"}
+                  value={contactSourceTotal > 0 ? `${contactSourceTotal} available` : "None found"}
+                  source={`Salesforce ${workDetail.contactSources.salesforce} · ZoomInfo ${workDetail.contactSources.zoomInfo} · LinkedIn ${workDetail.contactSources.linkedIn}`}
+                />
+                <Cell
+                  label="ICP contact"
+                  status={workDetail.icpContact.found ? "good" : "watch"}
+                  value={
+                    workDetail.icpContact.found
+                      ? `${workDetail.icpContact.name} — ${workDetail.icpContact.title}`
+                      : "No ICP persona identified"
+                  }
+                  source={workDetail.icpContact.found ? `Source: ${workDetail.icpContact.source}` : undefined}
+                />
+                {otherWorkSignals.map((s) => (
+                  <Cell key={s.label} label={s.label} value={s.value} status={s.good ? "good" : "watch"} />
+                ))}
+              </div>
+
+              {workDetail.dqHistory.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1.5 text-[10.5px] font-bold tracking-[0.5px] text-muted-foreground uppercase">
+                    Disqualified opportunity history
+                  </p>
+                  <div className="rounded-[11px] border border-border bg-background">
+                    {workDetail.dqHistory.map((dq) => (
+                      <div key={dq.name} className="border-b border-dashed border-border px-4 py-2.5 last:border-b-0">
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span className="text-[12.5px] font-bold">{dq.name}</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Last stage: {dq.furthestStage}
+                            {dq.closedAgo ? ` · closed ${dq.closedAgo}` : ""}
+                          </span>
+                        </div>
+                        <ul className="mt-1 space-y-0.5 text-[11.5px] leading-snug text-muted-foreground">
+                          <li>
+                            <b className="font-bold text-foreground">Reason DQ&rsquo;d:</b> {dq.reason}
+                          </li>
+                          {dq.qualificationNotes && (
+                            <li>
+                              <b className="font-bold text-foreground">Notes:</b> {dq.qualificationNotes}
+                            </li>
+                          )}
+                          {dq.problems && (
+                            <li>
+                              <b className="font-bold text-foreground">Problems:</b> {dq.problems}
+                            </li>
+                          )}
+                          {dq.nextSteps && (
+                            <li>
+                              <b className="font-bold text-foreground">Next steps:</b> {dq.nextSteps}
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-[13px] leading-relaxed">
+              {score.workability.signals.map((s, i) => (
+                <span key={s.label}>
+                  {i > 0 && " · "}
+                  {s.label}: <span className={s.good ? "text-success" : "text-warning"}>{s.value}</span>
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+
+        {/* Company history */}
         <p className="text-[13px] leading-relaxed">
-          <b>Workability:</b>{" "}
-          {score.workability.signals.map((s, i) => (
-            <span key={s.label}>
-              {i > 0 && " · "}
-              {s.label}: <span className={s.good ? "text-success" : "text-warning"}>{s.value}</span>
-            </span>
-          ))}
-          <br />
           <b>Company history:</b>{" "}
           <span className="text-muted-foreground">
             {research.companyHistory ?? "No history could be extracted from public sources."}

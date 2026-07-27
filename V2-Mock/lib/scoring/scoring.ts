@@ -1,7 +1,8 @@
-import type { AccountBundle } from "@/lib/salesforce/types";
+import type { AccountBundle, Opportunity } from "@/lib/salesforce/types";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import { getCompanyIntel } from "@/lib/research/company-intel";
 import { computeSegment } from "@/lib/scoring/segment";
+import { seededResearchContacts } from "@/lib/research/seeded-contacts";
 
 export interface ScoreSignal {
   label: string;
@@ -35,11 +36,55 @@ export interface IntentDetail {
   folloze: IntentReading;
 }
 
+/**
+ * Whether there is anyone to actually work — contacts on file / findable in the
+ * prospecting tools, and whether an ICP-fit persona exists to talk to. Counts
+ * come from Salesforce (live) plus ZoomInfo / LinkedIn Sales Navigator (not
+ * modelled in the mock, so illustrative and labelled with their source).
+ */
+export interface ContactSourceAvailability {
+  salesforce: number;
+  zoomInfo: number;
+  linkedIn: number;
+}
+
+export interface IcpContactReading {
+  found: boolean;
+  name?: string;
+  title?: string;
+  source?: string;
+}
+
+/** A past disqualified opp, condensed to skimmable notes for a re-work decision. */
+export interface DqOppHistory {
+  name: string;
+  furthestStage: string;
+  /** e.g. "60 days ago"; null when the close date is unknown. */
+  closedAgo: string | null;
+  reason: string;
+  qualificationNotes?: string;
+  problems?: string;
+  nextSteps?: string;
+}
+
+/**
+ * Work-pillar breakdown surfaced as labelled boxes in the account-fit card:
+ * is there anyone to work, is there an ICP persona to talk to, and what
+ * happened on any previously disqualified opp.
+ */
+export interface WorkabilityDetail {
+  contactSources: ContactSourceAvailability;
+  icpContact: IcpContactReading;
+  dqHistory: DqOppHistory[];
+}
+
 export interface ScorePillar {
   value: number;
   signals: ScoreSignal[];
   /** Only populated for the intent pillar. */
   detail?: IntentDetail;
+  /** Only populated for the workability pillar. */
+  workDetail?: WorkabilityDetail;
 }
 
 export interface AccountScore {
@@ -316,6 +361,49 @@ function daysSince(dateString: string | null): number | null {
   return Math.floor((Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function isDisqualifiedOpp(opp: Opportunity): boolean {
+  const stage = opp.stage.toLowerCase();
+  return opp.isClosed && (stage.includes("disqualified") || stage.includes("closed lost"));
+}
+
+/**
+ * Whether there is anyone to work, and any prior disqualified-opp context.
+ * Salesforce contact count is live; ZoomInfo / LinkedIn Sales Navigator counts
+ * are illustrative (those tools aren't wired into the mock) but deterministic
+ * per account. The ICP persona reuses the researched finance contact that the
+ * work-it flow already surfaces for the account.
+ */
+function computeWorkabilityDetail(bundle: AccountBundle): WorkabilityDetail {
+  const { account } = bundle;
+  const salesforce = bundle.contacts.length;
+  // Deterministic, always ≥1, so the box shows "there is someone to prospect".
+  const zoomInfo = 4 + idJitter(account.id, "zoominfo", 3);
+  const linkedIn = 3 + idJitter(account.id, "linkedin", 2);
+
+  const icp = seededResearchContacts(account.id)[0] ?? null;
+
+  const dqHistory: DqOppHistory[] = bundle.opportunities.filter(isDisqualifiedOpp).map((opp) => {
+    const closedDays = daysSince(opp.closedDate ?? null);
+    return {
+      name: opp.name,
+      furthestStage: opp.furthestStage ?? opp.stage,
+      closedAgo: closedDays === null ? null : `${closedDays} day${closedDays === 1 ? "" : "s"} ago`,
+      reason: opp.disqualification?.reason ?? "Reason not recorded",
+      qualificationNotes: opp.disqualification?.qualificationNotes,
+      problems: opp.disqualification?.problems,
+      nextSteps: opp.disqualification?.nextSteps,
+    };
+  });
+
+  return {
+    contactSources: { salesforce, zoomInfo, linkedIn },
+    icpContact: icp
+      ? { found: true, name: icp.name, title: icp.title, source: "LinkedIn Sales Navigator" }
+      : { found: false },
+    dqHistory,
+  };
+}
+
 /** Workability pillar is computed live from the Salesforce bundle + ROE result. */
 function computeWorkability(bundle: AccountBundle, result: WorkabilityResult): ScorePillar {
   const contactCount = bundle.contacts.length;
@@ -355,6 +443,7 @@ function computeWorkability(bundle: AccountBundle, result: WorkabilityResult): S
         good: roeClear,
       },
     ],
+    workDetail: computeWorkabilityDetail(bundle),
   };
 }
 
