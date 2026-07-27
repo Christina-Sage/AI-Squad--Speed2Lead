@@ -11,6 +11,7 @@ import {
 import { researchWebsite } from "@/lib/research/website";
 import { getWikipediaSummary } from "@/lib/research/wikipedia";
 import { seededResearchContacts } from "@/lib/research/seeded-contacts";
+import { syntheticNonprofitFinancials } from "@/lib/research/company-intel";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ");
@@ -172,6 +173,20 @@ export async function researchAccount(
     if (wikiSummary) companyHistory = wikiSummary;
   } catch {
     // Wikipedia is a best-effort supplement; ignore failures.
+  }
+
+  // Deterministic firmographics fallback so nonprofit demo accounts whose fake
+  // name/domain matches no live 990 or website still show revenue + employees
+  // on the fit card. Real orgs keep whatever ProPublica/website returned above.
+  if (account.industry.toLowerCase().includes("nonprofit")) {
+    const fin = syntheticNonprofitFinancials(account.id);
+    if (revenue.amount === null) {
+      revenue = { amount: fin.revenue, taxYear: null, source: "website" };
+      if (dataSource === "none") dataSource = "website";
+    }
+    if (employeeCount.count === null) {
+      employeeCount = { count: fin.employees, source: "website" };
+    }
   }
 
   // Deterministic per-account seeds so demo accounts show a stable cast even
