@@ -7,6 +7,9 @@ import { scoreAccount } from "@/lib/scoring/scoring";
 import { buildHygieneSuggestions } from "@/lib/workit/hygiene";
 import { getCompanyIntel } from "@/lib/research/company-intel";
 import { SEQUENCES } from "@/lib/outreach";
+import { isZoomInfoConfigured, isOutreachConfigured } from "@/lib/integrations/config";
+import { enrichCompanyByDomain } from "@/lib/integrations/zoominfo";
+import { listSequenceNames } from "@/lib/integrations/outreach";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { formatCurrency } from "@/lib/workit/format";
 import type { PanelSignals } from "@/components/workit/work-it-panel";
@@ -40,7 +43,28 @@ export async function GET(
   const result = evaluateWorkability(bundle, team);
   const score = scoreAccount(bundle, result);
   const hygiene = buildHygieneSuggestions(account, research);
-  const intel = getCompanyIntel(account);
+  // ZoomInfo enrichment when configured; falls back to the fixture intel on
+  // no-match or error so the panel always has something to show.
+  let intel = getCompanyIntel(account);
+  if (isZoomInfoConfigured() && account.domain) {
+    try {
+      const live = await enrichCompanyByDomain(account.domain);
+      if (live) intel = live;
+    } catch (err) {
+      console.error("ZoomInfo enrich failed; using fixture intel:", err);
+    }
+  }
+
+  // Live Outreach sequence list when configured; falls back to the local list.
+  let sequences = SEQUENCES;
+  if (isOutreachConfigured()) {
+    try {
+      const live = await listSequenceNames();
+      if (live && live.length > 0) sequences = live;
+    } catch (err) {
+      console.error("Outreach sequence fetch failed; using local list:", err);
+    }
+  }
 
   const sourceLabel = intel
     ? "Web search · ZoomInfo · LinkedIn Sales Navigator"
@@ -90,7 +114,7 @@ export async function GET(
     revenueAmount,
     fteCount,
     hygiene,
-    sequences: SEQUENCES,
+    sequences,
     signals,
     foundContacts,
     existingRecords,

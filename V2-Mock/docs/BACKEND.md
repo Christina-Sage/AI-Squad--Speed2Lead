@@ -295,6 +295,24 @@ A closer look at the two integrations most often asked about. The API specifics 
 
 **Bottom line**: the architecture is ready — the seams exist and are listed in §10.4. The real work is the unglamorous parts: caching billed ZoomInfo calls, persisting and rotating the Outreach OAuth token, and carrying contact email through the push so Outreach can key prospects.
 
+### 10.6 Turning an integration on
+
+All five integrations are now wired behind a single credential surface: **`lib/integrations/config.ts`**. Each seam checks an `isXConfigured()` flag and uses the live client when its env vars are present, or falls back to today's mock when they aren't. **With zero env vars set, the app runs entirely on fixtures** — the demo needs no configuration.
+
+Set the vars in Vercel (Project → Settings → Environment Variables); `.env.example` lists every one. "Just an API key" is literally true only for 6sense — the OAuth/JWT providers each need a small credential set.
+
+| Integration | Env vars | Seam it activates | Extra step beyond credentials |
+|---|---|---|---|
+| **Salesforce** | `SALESFORCE_PROVIDER=global-sf`, `SALESFORCE_CLIENT_ID/SECRET/REFRESH_TOKEN`, `SALESFORCE_LOGIN_URL`, `SALESFORCE_API_VERSION` | `getSalesforceProvider()` → `GlobalSalesforceProvider` | Fill `FIELD_MAP` in `lib/salesforce/global-provider.ts` with your org's custom-field API names |
+| **ZoomInfo** | `ZOOMINFO_USERNAME`, `ZOOMINFO_CLIENT_ID`, `ZOOMINFO_PRIVATE_KEY` | `enrichCompanyByDomain()` in the work-it route (falls back to fixture) | — |
+| **Outreach** | `OUTREACH_CLIENT_ID/SECRET/REFRESH_TOKEN`, `OUTREACH_MAILBOX_EMAIL` | live sequence list + `pushProspectsToSequence()` in `/api/outreach` | Push payload must carry contact **email** (`contacts: [{name,email}]`) |
+| **Sales Navigator** | `SALESNAV_ACCESS_TOKEN` (+ client id/secret) | `getHeadcountByDomain()` | Partner-program approval to get the token |
+| **6sense** | `SIXSENSE_API_TOKEN` | `getIntentByDomain()` | — |
+
+Client modules live in `lib/integrations/` (`zoominfo.ts`, `outreach.ts`, `sales-navigator.ts`, `sixsense.ts`) plus `lib/salesforce/global-provider.ts`. Their auth flows and endpoints are written to each provider's public API spec and are **UNTESTED against live endpoints** — verify against the live docs before enabling in production. `integrationStatus()` returns a machine-readable view of what's live vs. mock, handy for confirming a deploy picked up the vars.
+
+Two seams keep their sync fixture even when a provider is configured, to avoid rippling async through server rendering: `getCompanyIntel()` (used by `scoring.ts`) and the ABM/intent fields on the account. The live ZoomInfo/6sense data flows through the async work-it route instead. Re-point these when you move scoring off the fixture.
+
 ### Known mock limitations
 - In-memory state (fixtures, work-it actions) resets whenever the server restarts, and on Vercel isn't shared between serverless instances. Owner/ABM changes are the exception — they persist in Postgres.
 - V1 and V2 share the same Neon database, so assignments made in one show up in the other.
