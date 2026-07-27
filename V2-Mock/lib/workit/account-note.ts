@@ -117,14 +117,14 @@ export function buildAccountNote(input: {
 
   const hasSourceSignals = outreachLines.length > 0 || zoomInfoLines.length > 0;
 
-  // Why prioritized — always the score line; the standalone Intent line is only
-  // needed when the richer source breakdown below isn't available.
-  const whyLines = [signals.whyPrioritized];
-  if (!hasSourceSignals) whyLines.push(`Intent: ${signals.intent}`);
-  sections.push({ title: "Why prioritized", lines: whyLines });
+  // When neither source resolved a breakdown (e.g. a lead with no 6Sense data),
+  // fall back to the single headline intent line so the note isn't just Company.
+  if (!hasSourceSignals) {
+    sections.push({ title: "Signals", lines: [`Intent: ${signals.intent}`] });
+  }
 
   if (outreachLines.length > 0) {
-    sections.push({ title: "Outreach", lines: outreachLines });
+    sections.push({ title: "Signals", lines: outreachLines });
   }
   if (zoomInfoLines.length > 0) {
     sections.push({ title: "ZoomInfo", lines: zoomInfoLines });
