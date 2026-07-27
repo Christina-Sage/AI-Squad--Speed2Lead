@@ -708,11 +708,6 @@ export function WorkItPanel({
                         </ul>
                       </div>
                     ))}
-                    {accountNote.hashtags.length > 0 && (
-                      <div className="mt-3 border-t border-border pt-2 text-[12px] font-semibold text-primary">
-                        {accountNote.hashtags.join(" ")}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
