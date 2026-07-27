@@ -404,6 +404,77 @@ function growthFor(hq: string, seed: string): string[] {
   return [`Headcount +${pct}% over the last 12 months (LinkedIn)`, second];
 }
 
+const HIRING_ROLES = [
+  "Corporate Controller",
+  "VP of Finance",
+  "Director of Financial Reporting",
+  "Senior Accountant — Consolidations",
+  "Accounting Manager",
+  "Assistant Controller",
+];
+const HIRING_SOURCES = ["LinkedIn Jobs", "Company careers page", "Indeed"];
+
+// Finance-role postings parsed for software clues — the same "why now" signal
+// the hand-authored fixtures use (ERP migration, spreadsheet close, multi-entity
+// consolidation), which all map to the product.
+const HIRING_TEMPLATES: { snippet: string; clues: string[] }[] = [
+  {
+    snippet:
+      "Own month-end close and multi-entity consolidation; lead the migration off QuickBooks to a modern cloud ERP.",
+    clues: ["QuickBooks (outgrowing)", "ERP migration planned", "Multi-entity consolidation"],
+  },
+  {
+    snippet:
+      "Heavy spreadsheet-based reporting today; stand up automated financial reporting and tighter close controls.",
+    clues: ["Heavy Excel (manual process)", "Close-cycle automation"],
+  },
+  {
+    snippet:
+      "Scale the finance function; currently on a NetSuite trial plus spreadsheets, evaluating a long-term ERP.",
+    clues: ["NetSuite trial (competitive)", "ERP evaluation window"],
+  },
+];
+
+/** An industry-specific clue appended to the posting, or null if none fits. */
+function industryHiringClue(industry: string): string | null {
+  const ind = industry.toLowerCase();
+  if (ind.includes("manufactur")) return "Inventory / standard costing";
+  if (ind.includes("wholesale") || ind.includes("distribution")) return "Inventory across multiple warehouses";
+  if (ind.includes("technology")) return "ASC 606 / SaaS revenue recognition";
+  if (ind.includes("health")) return "Multi-location / grant reporting";
+  if (ind.includes("financial")) return "Regulatory / audit reporting";
+  return null;
+}
+
+function hiringFor(industry: string, seed: string): HiringSignal[] {
+  // Only ~half of accounts have an active finance-role posting open.
+  if (hashString(`${seed}:hashiring`) % 2 !== 0) return [];
+  const count = hashString(`${seed}:hiringn`) % 3 === 0 ? 2 : 1; // ~1/3 of those show two
+  const extra = industryHiringClue(industry);
+
+  const signals: HiringSignal[] = [];
+  for (let i = 0; i < count; i++) {
+    const salt = `hire${i}`;
+    const tmpl = pick(HIRING_TEMPLATES, seed, `${salt}tmpl`);
+    signals.push({
+      role: pick(HIRING_ROLES, seed, `${salt}role`),
+      postedDaysAgo: 5 + (hashString(`${seed}:${salt}days`) % 30), // 5..34
+      source: pick(HIRING_SOURCES, seed, `${salt}src`),
+      descriptionSnippet: tmpl.snippet,
+      clues: extra ? [...tmpl.clues, extra] : tmpl.clues,
+    });
+  }
+  // Avoid two postings with the same role title.
+  if (signals.length === 2 && signals[0].role === signals[1].role) {
+    signals[1].role = pick(
+      HIRING_ROLES.filter((r) => r !== signals[0].role),
+      seed,
+      "hire1role_alt",
+    );
+  }
+  return signals;
+}
+
 function syntheticIntel(seed: string, industry: string, displayName: string): CompanyIntel {
   const size = pick(bandFor(industry), seed, "size");
   const hq = pick(HQ_CITIES, seed, "hq");
@@ -415,7 +486,7 @@ function syntheticIntel(seed: string, industry: string, displayName: string): Co
     parentAccount: parentFor(displayName, seed),
     funding: fundingFor(industry, seed),
     growthSignals: growthFor(hq, seed),
-    hiringSignals: [],
+    hiringSignals: hiringFor(industry, seed),
   };
 }
 
