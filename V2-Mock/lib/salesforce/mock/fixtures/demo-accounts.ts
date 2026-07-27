@@ -4,6 +4,7 @@ import type { PriorityGroup } from "@/lib/priority";
 import type { Product } from "@/lib/products";
 import { PRODUCTS } from "@/lib/products";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
+import { accountContactCast } from "@/lib/research/account-cast";
 
 /**
  * Generated BDR demo accounts, spread across every product line so switching the
@@ -240,6 +241,23 @@ function build(): Generated {
       const owner = OWNERS[g % OWNERS.length];
       const rating = (["P1", "P2", "P3"] as const)[g % 3];
       const buyingStage = (["Awareness", "Consideration", "Purchase", "Decision", "Target"] as const)[g % 5];
+
+      // Existing finance contacts on file for this account — the shared cast
+      // that also drives the account's research finds, so most accounts show the
+      // full In-Salesforce / Inactive / New mix (like Halcyon Robotics) rather
+      // than a single repeated find. No activity, so they never trip ROE; only
+      // the workability contact-count score is affected.
+      accountContactCast(id).onFile.forEach((person, k) => {
+        contacts.push({
+          id: `003-CAST-${prodChar}${slot.code}${pad3(si)}-${k}`,
+          name: person.name,
+          title: person.title,
+          ownerId: "house",
+          ownerName: "House Account",
+          accountId: id,
+          lastActivityDate: null,
+        });
+      });
 
       // Fields common to every generated account.
       const base: Account = {

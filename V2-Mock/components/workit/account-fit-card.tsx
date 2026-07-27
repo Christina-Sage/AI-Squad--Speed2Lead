@@ -157,6 +157,20 @@ export function AccountFitCard({
       workDetail.contactSources.zoomInfo +
       workDetail.contactSources.linkedIn
     : 0;
+  // Only surface the sources that actually contributed a contact, so the row
+  // never reads "ZoomInfo 0" and always ties out to the Existing Contacts card.
+  const contactSourceBreakdown = workDetail
+    ? (
+        [
+          ["SF", workDetail.contactSources.salesforce],
+          ["ZoomInfo", workDetail.contactSources.zoomInfo],
+          ["LinkedIn", workDetail.contactSources.linkedIn],
+        ] as const
+      )
+        .filter(([, n]) => n > 0)
+        .map(([label, n]) => `${label} ${n}`)
+        .join(" · ")
+    : "";
 
   const sectionLabel = "mb-1.5 text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase";
 
@@ -279,7 +293,7 @@ export function AccountFitCard({
                   label="Contacts to work"
                   value={
                     contactSourceTotal > 0
-                      ? `${contactSourceTotal} available · SF ${workDetail.contactSources.salesforce} · ZoomInfo ${workDetail.contactSources.zoomInfo} · LinkedIn ${workDetail.contactSources.linkedIn}`
+                      ? `${contactSourceTotal} available · ${contactSourceBreakdown}`
                       : "None found"
                   }
                 />
