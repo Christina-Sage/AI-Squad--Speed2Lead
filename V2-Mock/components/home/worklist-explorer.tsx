@@ -52,8 +52,6 @@ export interface LeadRow {
   score: number;
   /** Lead-level verdict — drives the Workable / Review badge on the row. */
   finalStatus: "WORKABLE" | "WORKABLE WITH REVIEW";
-  /** Freshly captured web-form lead — drives the "New" badge on the row. */
-  isNew: boolean;
 }
 
 type FocusKind = "account" | "lead";
@@ -486,11 +484,6 @@ export function WorklistExplorer({
                             }`}
                           >
                             {lead.finalStatus === "WORKABLE WITH REVIEW" ? "Review" : "Workable"}
-                          </span>
-                        )}
-                        {!leadOutcome(lead) && lead.isNew && (
-                          <span className="ml-1.5 rounded-full bg-primary-soft px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-primary uppercase">
-                            New
                           </span>
                         )}
                       </div>
