@@ -34,15 +34,14 @@ export interface SdrLead {
   /** Overall "Should I work it?" score, precomputed for the worklist. */
   score: number;
   /**
-   * Optional intake metadata, present on leads created through the web-form
-   * simulation (`/simulate`). Fixture leads leave these undefined. `company` is
-   * used as the worklist display name when the lead has no linked account yet.
+   * Optional metadata for leads with no linked account. `company` is used as the
+   * worklist display name when the lead has no linked account yet.
    */
   company?: string | null;
   email?: string | null;
-  /** How the lead entered the system, e.g. "Web form — Requested a demo". */
+  /** Marketing campaign / source the lead is attributed to. */
   source?: string | null;
-  /** ISO timestamp the lead was captured. */
+  /** ISO timestamp for the lead, when known. */
   createdAt?: string | null;
 }
 
@@ -60,13 +59,7 @@ export interface SdrLeadListItem {
   fit: number;
   intent: number;
   workability: number;
-  /**
-   * True for a freshly captured web-form lead that just arrived in the worklist
-   * (within the "new lead" window). Fixture leads are never flagged. Drives the
-   * "New" badge on the worklist row.
-   */
-  isNew: boolean;
-  /** Present on web-form-captured leads; used server-side for duplicate detection. */
+  /** Used server-side for lead-level duplicate detection. */
   email: string | null;
   createdAt: string | null;
 }

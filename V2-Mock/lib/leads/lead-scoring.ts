@@ -1,14 +1,22 @@
 import type { SdrLead } from "@/lib/leads/types";
-import type { Account } from "@/lib/salesforce/types";
-import { SCORE_WEIGHTS, tierFor, type AccountScore, type ScorePillar } from "@/lib/scoring/scoring";
+import type { AccountBundle } from "@/lib/salesforce/types";
+import { evaluateWorkability } from "@/lib/workability/engine";
+import { SCORE_WEIGHTS, scoreAccount, tierFor, type AccountScore, type ScorePillar } from "@/lib/scoring/scoring";
 
 /**
  * "Should I work it?" score for an SDR lead. Returns the same AccountScore shape
  * the ScoringCard renders, so the lead and account detail views stay consistent
  * (build-plan step 6). Fit/intent are fixture-driven; the priority is recomputed
  * from the weights so it always reconciles with the pillar values shown.
+ *
+ * When the lead is linked to a real account, the account's rich detail is
+ * borrowed so the SDR fit card shows the SAME Fit & Firmographics, Intent
+ * breakdown, and Disqualified Opportunity History as the BDR account view — the
+ * lead keeps its own headline pillar values, but the evidence sections match.
  */
-export function scoreLead(lead: SdrLead, account: Account | null): AccountScore {
+export function scoreLead(lead: SdrLead, accountBundle: AccountBundle | null): AccountScore {
+  const account = accountBundle?.account ?? null;
+
   const fit: ScorePillar = {
     value: lead.fit,
     signals: account
@@ -46,6 +54,20 @@ export function scoreLead(lead: SdrLead, account: Account | null): AccountScore 
       { label: "ROE", value: "Clear — no competing claim", good: true },
     ],
   };
+
+  // Borrow the linked account's evidence so the Intent breakdown and
+  // Disqualified Opportunity History render identically to the BDR account view.
+  // (Fit & Firmographics already comes from the account research in the lead
+  // work-it route.) scoreAccount returns null for de-dupe-blocked accounts —
+  // those show no fit card in the BDR view either, so there is nothing to match.
+  if (accountBundle) {
+    const accountResult = evaluateWorkability(accountBundle);
+    const accountScore = scoreAccount(accountBundle, accountResult);
+    if (accountScore) {
+      intent.detail = accountScore.intent.detail;
+      workability.workDetail = accountScore.workability.workDetail;
+    }
+  }
 
   const priority = Math.round(
     fit.value * SCORE_WEIGHTS.fit +

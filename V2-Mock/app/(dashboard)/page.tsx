@@ -125,7 +125,6 @@ export default async function Home({
           score: item.score,
           finalStatus:
             result.final_status === "WORKABLE WITH REVIEW" ? "WORKABLE WITH REVIEW" : "WORKABLE",
-          isNew: item.isNew,
         });
       }
     }
@@ -137,10 +136,11 @@ export default async function Home({
   return (
     <div>
       <div className="pt-2 pb-6 text-center">
-        <h1 className="font-heading text-[26px] font-black">Can I work it? Should I work it?</h1>
+        <h1 className="font-heading text-[26px] font-black">WorkIt</h1>
         <p className="mt-1 text-muted-foreground">
-          One verdict, with evidence, in under a minute — instead of 5 minutes across Salesforce,
-          Fusion and VAR checks.
+          WorkIt is an AI agent that answers two questions for an SDR or BDR in under a minute: &ldquo;Can
+          I work it?&rdquo; and &ldquo;Should I work it?&rdquo; Reps can then push qualified accounts and leads
+          into Outreach, and back into Salesforce for continued data hygiene.
         </p>
         <div className="mx-auto mt-5 flex max-w-[640px] items-start gap-2">
           <div className="flex-1">

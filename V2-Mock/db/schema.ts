@@ -35,10 +35,9 @@ export const accountOverrides = pgTable("account_overrides", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Leads created through the web-form simulation (`/simulate`). Persisted here
-// so a captured lead survives serverless-instance recycling and shows up in the
-// worklist across requests — the in-memory store alone is per-instance. Fixture
-// worklist leads stay in code; only form-created leads live here.
+// Retained (unused): the lead-capture web form and its intake/routing code have
+// been removed, so nothing reads or writes this table anymore. The table itself
+// is intentionally left in place — dropping it would require a schema migration.
 export const capturedLeads = pgTable("captured_leads", {
   id: text("id").primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

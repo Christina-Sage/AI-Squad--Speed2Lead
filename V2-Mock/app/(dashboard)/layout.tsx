@@ -5,10 +5,12 @@ import { PrioritySwitcher } from "@/components/layout/priority-switcher";
 import { ProductSwitcher } from "@/components/layout/product-switcher";
 import { TeamSwitcher } from "@/components/layout/team-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { VerticalSwitcher } from "@/components/layout/vertical-switcher";
 import { DEMO_USER_COOKIE, getDemoUser } from "@/lib/auth/demo-user";
 import { PRIORITY_COOKIE, getCurrentPriority } from "@/lib/priority";
 import { PRODUCT_COOKIE, getCurrentProduct } from "@/lib/products";
 import { TEAM_COOKIE, getCurrentTeam } from "@/lib/teams";
+import { VERTICAL_COOKIE, getCurrentVertical } from "@/lib/verticals";
 
 const BUSINESS_CASES: [string, string][] = [
   ["#1 De-dupe — “Can I work it?”", "Workability verdict incl. duplicate-account detection (compact checklist)."],
@@ -29,6 +31,7 @@ export default async function DashboardLayout({
   const currentProduct = getCurrentProduct(cookieStore.get(PRODUCT_COOKIE)?.value);
   const currentTeam = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
   const currentPriority = getCurrentPriority(cookieStore.get(PRIORITY_COOKIE)?.value);
+  const currentVertical = getCurrentVertical(cookieStore.get(VERTICAL_COOKIE)?.value);
 
   return (
     <>
@@ -43,6 +46,9 @@ export default async function DashboardLayout({
           </span>
           <span className="flex-1" />
           <div className="flex items-center gap-3">
+            {currentProduct === "Intacct" && (
+              <VerticalSwitcher currentVertical={currentVertical} />
+            )}
             <ProductSwitcher currentProduct={currentProduct} />
             <TeamSwitcher currentTeam={currentTeam} />
             {currentTeam === "SDR" && <PrioritySwitcher currentPriority={currentPriority} />}

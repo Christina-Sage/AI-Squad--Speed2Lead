@@ -4,6 +4,7 @@ import type { PriorityGroup } from "@/lib/priority";
 import type { Product } from "@/lib/products";
 import { PRODUCTS } from "@/lib/products";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
+import { accountContactCast } from "@/lib/research/account-cast";
 
 /**
  * Generated BDR demo accounts, spread across every product line so switching the
@@ -196,6 +197,44 @@ const LEAD_SPECS: LeadSpec[] = [
   { outcome: "Blocked by de-dupe — duplicate email", account: null, dup: "email", priority: "P4/5", title: "Staff Accountant", fit: 50, intent: 46, workability: 54 },
 ];
 
+// TAM-situation showcase leads (SDR). One lead per TAM ("Does the account fall
+// within your territory?") row state from the "Can I work it?" checklist, per
+// product line, so switching products always shows all four situations together:
+//   active   -> Review (linked account carries the product's active TAM)
+//   expired  -> Pass   (TAM lapsed; no active territory assignment)
+//   none     -> Pass   (linked prospect carries no TAM)
+//   no-account -> Pass (no linked account; nothing to reconcile)
+// The active/expired leads reuse the product's existing "workable"/"review" slot
+// accounts (linking an SDR worklist lead does not affect an account's own
+// evaluation, so the account worklist is unchanged). "none" needs a prospect
+// with no TAM — none of the slot accounts is one — so it links to a dedicated
+// worklistHidden account that backs the lead without joining the account
+// worklist. "no-account" has no linked account at all.
+type TamShowcaseKind = "active" | "expired" | "none" | "no-account";
+interface TamShowcaseSpec {
+  kind: TamShowcaseKind;
+  /** Resulting TAM row state, documented for reviewers. */
+  tamRow: "review" | "pass";
+  title: string;
+  fit: number;
+  intent: number;
+  workability: number;
+}
+const TAM_SHOWCASE: TamShowcaseSpec[] = [
+  { kind: "active", tamRow: "review", title: "VP of Finance", fit: 80, intent: 76, workability: 72 },
+  { kind: "expired", tamRow: "pass", title: "Controller", fit: 72, intent: 68, workability: 70 },
+  { kind: "none", tamRow: "pass", title: "Finance Director", fit: 70, intent: 64, workability: 66 },
+  { kind: "no-account", tamRow: "pass", title: "Head of Finance", fit: 62, intent: 58, workability: 60 },
+];
+
+// Company names for the one hidden no-TAM account per product line (6). The noun
+// "Industries" (not in NOUNS) keeps every name and its slug-derived domain
+// distinct from the slot accounts (ADJECTIVES × NOUNS) and the base fixtures.
+const TAM_NO_TAM_ACCOUNTS = [
+  "Brightwater Industries", "Oakmont Industries", "Silverpeak Industries",
+  "Clearview Industries", "Highpoint Industries", "Foxglove Industries",
+];
+
 const LEAD_OWNER = { name: "Pat Lee" };
 
 // Real campaign codes used as each lead's Marketing Campaign Source. Every lead
@@ -240,6 +279,23 @@ function build(): Generated {
       const owner = OWNERS[g % OWNERS.length];
       const rating = (["P1", "P2", "P3"] as const)[g % 3];
       const buyingStage = (["Awareness", "Consideration", "Purchase", "Decision", "Target"] as const)[g % 5];
+
+      // Existing finance contacts on file for this account — the shared cast
+      // that also drives the account's research finds, so most accounts show the
+      // full In-Salesforce / Inactive / New mix (like Halcyon Robotics) rather
+      // than a single repeated find. No activity, so they never trip ROE; only
+      // the workability contact-count score is affected.
+      accountContactCast(id).onFile.forEach((person, k) => {
+        contacts.push({
+          id: `003-CAST-${prodChar}${slot.code}${pad3(si)}-${k}`,
+          name: person.name,
+          title: person.title,
+          ownerId: "house",
+          ownerName: "House Account",
+          accountId: id,
+          lastActivityDate: null,
+        });
+      });
 
       // Fields common to every generated account.
       const base: Account = {
@@ -420,6 +476,78 @@ function build(): Generated {
         industry: accountId ? undefined : noAcctCompany.industry,
         // Every lead carries a marketing campaign source.
         source: LEAD_CAMPAIGNS[(pi * LEAD_SPECS.length + i) % LEAD_CAMPAIGNS.length],
+      });
+    });
+
+    // TAM-situation showcase — four leads exercising each TAM row state.
+    TAM_SHOWCASE.forEach((spec, k) => {
+      let accountId: string | null = null;
+      if (spec.kind === "active") {
+        // Reuse the product's existing workable slot account (active TAM).
+        const ref = LEAD_ACCOUNT_SLOT.workable;
+        accountId = `0015Y00000${prodChar}${ref.code}${pad3(ref.si)}`;
+      } else if (spec.kind === "expired") {
+        // Reuse the product's existing review slot account (expired TAM).
+        const ref = LEAD_ACCOUNT_SLOT.review;
+        accountId = `0015Y00000${prodChar}${ref.code}${pad3(ref.si)}`;
+      } else if (spec.kind === "none") {
+        // Dedicated no-TAM prospect. Hidden from the account worklist (it exists
+        // only to give the lead a "no TAM on the linked account" state); still
+        // resolvable by id so the lead's checklist can evaluate against it.
+        const acctName = TAM_NO_TAM_ACCOUNTS[pi % TAM_NO_TAM_ACCOUNTS.length];
+        accountId = `0015Y00000${prodChar}TAM000`;
+        accounts.push({
+          id: accountId,
+          name: acctName,
+          domain: `${slug(acctName)}.com`,
+          ownerId: "house",
+          ownerName: "House Account",
+          industry: "Business Services",
+          type: "Prospect",
+          product,
+          tam: null,
+          buyingStage: "Consideration",
+          rating: "P2",
+          abmNurtureStatus: null,
+          lastActivityDate: null,
+          intacct: { hasOpenOpps: false },
+          worklistHidden: true,
+        });
+      }
+
+      const name = freshName();
+      const emailLocal = name.trim().toLowerCase().split(/\s+/).join(".");
+      let company: string | null = null;
+      let email: string | null = null;
+      if (accountId) {
+        const accountDomain = accounts.find((a) => a.id === accountId)!.domain;
+        email = `${emailLocal}@${accountDomain}`;
+      } else {
+        // No-account lead carries a standalone company + work email so a domain
+        // can still be inferred (mirrors the account-less specs above).
+        company = noAcctCompany.name;
+        email = `${emailLocal}@${noAcctCompany.domain}`;
+      }
+
+      const score = Math.round(spec.fit * 0.4 + spec.intent * 0.35 + spec.workability * 0.25);
+
+      sdrLeads.push({
+        id: `00Q5Y0000${prodChar}TAM${pad3(k)}`,
+        name,
+        title: spec.title,
+        accountId,
+        ownerName: "House Account",
+        status: "Open - Not Contacted",
+        priorityGroup: "P1",
+        product,
+        fit: spec.fit,
+        intent: spec.intent,
+        workability: spec.workability,
+        score,
+        company,
+        email,
+        industry: accountId ? undefined : noAcctCompany.industry,
+        source: LEAD_CAMPAIGNS[(pi * TAM_SHOWCASE.length + k) % LEAD_CAMPAIGNS.length],
       });
     });
   });

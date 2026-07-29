@@ -1,5 +1,6 @@
+import { ChevronRightIcon } from "lucide-react";
 import type { AccountScore } from "@/lib/scoring/scoring";
-import type { CompanyIntel } from "@/lib/research/company-intel";
+import { getSubvertical, type CompanyIntel } from "@/lib/research/company-intel";
 import type { CompanyResearchResult } from "@/lib/research/types";
 import { formatCurrency } from "@/lib/workit/format";
 
@@ -68,13 +69,30 @@ function Pillar({ label, value, warn }: { label: string; value: number; warn?: b
   );
 }
 
-function SignalRow({ label, value, good }: { label: string; value: string; good: boolean }) {
+/**
+ * Growth-Signals-style detail row: a small icon chip + label, with an optional
+ * right-aligned reading. Deliberately has no good/warning colour — Intent, Work
+ * and Growth just state what is or isn't available; status colour is reserved
+ * for Fit & Firmographics. Kept tight (py-1.5) to minimise scroll.
+ */
+function Row({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: React.ReactNode;
+  value?: React.ReactNode;
+}) {
   return (
-    <div className="flex justify-between gap-3 border-b border-dashed border-border py-1.5 text-[12.5px] last:border-b-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`text-right font-medium ${good ? "text-success" : "text-destructive"}`}>
-        {value}
+    <div className="flex items-center gap-2.5 border-b border-dashed border-border py-1.5 text-[13px] last:border-b-0">
+      <span className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-primary-soft text-[13px]">
+        {icon}
       </span>
+      <span className="font-bold">{label}</span>
+      {value !== undefined && value !== "" && (
+        <span className="ml-auto pl-3 text-right text-muted-foreground">{value}</span>
+      )}
     </div>
   );
 }
@@ -115,14 +133,17 @@ export function AccountFitCard({
         ? "Company website"
         : "Not found";
 
+  // Sub-vertical inferred beneath the top-level industry (e.g. Manufacturing →
+  // Food & Beverage). Seeded off the account name so it stays stable per account.
+  const subvertical = getSubvertical(industry, accountName);
+
   const growthSignals = intel?.growthSignals ?? [];
   const hiringSignals = intel?.hiringSignals ?? [];
 
   const intentDetail = score.intent.detail;
-  // Signals already surfaced as their own box above (web intent → website visits,
-  // buying stage → its own box) are dropped, and "Outreach activity" now lives
-  // under Work — so the secondary row shows only the extras that are genuinely
-  // intent: ABM tier, recycled MQL, etc.
+  // The 6sense keyword/visit/stage rows below already cover "Web intent" and the
+  // buying stage, and "Outreach activity" now lives under Work — so the extra
+  // rows show only the genuinely-intent leftovers: ABM tier, recycled MQL, etc.
   const otherIntentSignals = score.intent.signals.filter(
     (s) =>
       s.label !== "Web intent" &&
@@ -131,16 +152,27 @@ export function AccountFitCard({
   );
 
   const workDetail = score.workability.workDetail;
-  // "Contact availability" is replaced by the richer Contacts-to-work box below;
-  // the rest (Last activity, ROE) still render as boxes.
-  const otherWorkSignals = score.workability.signals.filter((s) => s.label !== "Contact availability");
   const contactSourceTotal = workDetail
     ? workDetail.contactSources.salesforce +
       workDetail.contactSources.zoomInfo +
       workDetail.contactSources.linkedIn
     : 0;
+  // Only surface the sources that actually contributed a contact, so the row
+  // never reads "ZoomInfo 0" and always ties out to the Existing Contacts card.
+  const contactSourceBreakdown = workDetail
+    ? (
+        [
+          ["SF", workDetail.contactSources.salesforce],
+          ["ZoomInfo", workDetail.contactSources.zoomInfo],
+          ["LinkedIn", workDetail.contactSources.linkedIn],
+        ] as const
+      )
+        .filter(([, n]) => n > 0)
+        .map(([label, n]) => `${label} ${n}`)
+        .join(" · ")
+    : "";
 
-  const sectionLabel = "mb-2 text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase";
+  const sectionLabel = "mb-1.5 text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase";
 
   return (
     <div className="mb-5 overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">
@@ -165,12 +197,16 @@ export function AccountFitCard({
         </div>
       </div>
 
-      <div className="flex flex-col gap-6 p-5">
+      <div className="flex flex-col gap-4 p-5">
         {/* Firmographics — industry / revenue / employees + intel extras */}
         <div>
           <p className={sectionLabel}>Fit &amp; firmographics</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Cell label="Industry" value={industry} source={sourceLabel} />
+            <Cell
+              label="Industry"
+              value={subvertical ? `${industry} · ${subvertical}` : industry}
+              source={sourceLabel}
+            />
             <Cell
               label="Revenue"
               value={formatCurrency(revenueAmount)}
@@ -200,19 +236,18 @@ export function AccountFitCard({
           )}
         </div>
 
-        {/* Intent — surfaced as labelled boxes so buying signals are as scannable
-            as the firmographics above (previously a dashed list that was easy to miss). */}
+        {/* Intent — a scannable detail list (same row style as Growth signals). */}
         <div>
           <p className={sectionLabel}>Intent</p>
-          {intentDetail ? (
-            <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                <Cell
+          <div className="rounded-[11px] border border-border bg-background px-4">
+            {intentDetail ? (
+              <>
+                <Row
+                  icon="🔍"
                   label="6Sense Keywords"
-                  status={intentDetail.keywords.length ? "good" : "watch"}
                   value={
                     intentDetail.keywords.length ? (
-                      <div className="flex flex-wrap gap-1.5">
+                      <span className="flex flex-wrap justify-end gap-1.5">
                         {intentDetail.keywords.map((kw) => (
                           <span
                             key={kw}
@@ -221,57 +256,115 @@ export function AccountFitCard({
                             {kw}
                           </span>
                         ))}
-                      </div>
+                      </span>
                     ) : (
                       "No keyword surge detected"
                     )
                   }
-                  source="Trending research topics · 6sense"
                 />
-                <Cell
-                  label="6Sense Website Visits"
-                  status={intentDetail.websiteVisits.good ? "good" : "watch"}
-                  value={intentDetail.websiteVisits.value}
-                  source="De-anonymized visits · 6sense"
+                <Row icon="🌐" label="6Sense Website Visits" value={intentDetail.websiteVisits.value} />
+                <Row icon="📊" label="6Sense Buying Stage" value={intentDetail.buyingStage.value} />
+                <Row icon="✉️" label="Eloqua / Email Campaigns" value={intentDetail.emailCampaigns.value} />
+                <Row icon="🗂️" label="Folloze Data" value={intentDetail.folloze.value} />
+                {otherIntentSignals.map((s) => (
+                  <Row key={s.label} icon="📌" label={s.label} value={s.value} />
+                ))}
+              </>
+            ) : (
+              score.intent.signals.map((s) => (
+                <Row key={s.label} icon="📌" label={s.label} value={s.value} />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Work — is there anyone to work, and prior disqualified-opp context.
+            Same row style as Intent / Growth signals. */}
+        <div>
+          <p className={sectionLabel}>
+            Work{" "}
+            <span className="font-normal normal-case">— is there anyone to work, and prior disqualified opps</span>
+          </p>
+          {workDetail ? (
+            <>
+              <div className="rounded-[11px] border border-border bg-background px-4">
+                <Row
+                  icon="👥"
+                  label="Contacts to work"
+                  value={
+                    contactSourceTotal > 0
+                      ? `${contactSourceTotal} available · ${contactSourceBreakdown}`
+                      : "None found"
+                  }
                 />
-                <Cell
-                  label="6Sense Buying Stage"
-                  status={intentDetail.buyingStage.good ? "good" : "watch"}
-                  value={intentDetail.buyingStage.value}
-                  source="Predictive buying stage · 6sense"
-                />
-                <Cell
-                  label="Eloqua / Email Campaigns"
-                  status={intentDetail.emailCampaigns.good ? "good" : "watch"}
-                  value={intentDetail.emailCampaigns.value}
-                  source="Campaign engagement · Eloqua"
-                />
-                <Cell
-                  label="Folloze Data"
-                  status={intentDetail.folloze.good ? "good" : "watch"}
-                  value={intentDetail.folloze.value}
-                  source="Content-board engagement · Folloze"
+                <Row
+                  icon="🎯"
+                  label="ICP contact"
+                  value={
+                    workDetail.icpContact.found
+                      ? `${workDetail.icpContact.name} — ${workDetail.icpContact.title} · ${workDetail.icpContact.source}`
+                      : "No ICP persona identified"
+                  }
                 />
               </div>
-              {otherIntentSignals.length > 0 && (
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                  {otherIntentSignals.map((s) => (
-                    <Cell
-                      key={s.label}
-                      label={s.label}
-                      value={s.value}
-                      status={s.good ? "good" : "watch"}
-                    />
-                  ))}
+
+              {workDetail.dqHistory.length > 0 && (
+                <div className="mt-2.5">
+                  <p className="mb-1 text-[10.5px] font-bold tracking-[0.5px] text-muted-foreground uppercase">
+                    Disqualified opportunity history
+                  </p>
+                  <div className="rounded-[11px] border border-border bg-background px-4">
+                    {workDetail.dqHistory.map((dq) => (
+                      <details
+                        key={dq.name}
+                        className="group border-b border-dashed border-border last:border-b-0"
+                      >
+                        <summary className="flex cursor-pointer list-none flex-wrap items-baseline gap-x-2 gap-y-0.5 py-2 [&::-webkit-details-marker]:hidden">
+                          <ChevronRightIcon className="size-3.5 shrink-0 translate-y-px text-muted-foreground transition-transform group-open:rotate-90" />
+                          <span className="text-[12.5px] font-bold">{dq.name}</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Last stage: {dq.furthestStage}
+                            {dq.closedAgo ? ` · closed ${dq.closedAgo}` : ""}
+                          </span>
+                          <span className="basis-full pl-[22px] text-[11.5px] text-muted-foreground group-open:hidden">
+                            {dq.reason}
+                          </span>
+                        </summary>
+                        <ul className="mb-2 space-y-0.5 pl-[22px] text-[11.5px] leading-snug text-muted-foreground">
+                          <li>
+                            <b className="font-bold text-foreground">Reason DQ&rsquo;d:</b> {dq.reason}
+                          </li>
+                          {dq.qualificationNotes && (
+                            <li>
+                              <b className="font-bold text-foreground">Notes:</b> {dq.qualificationNotes}
+                            </li>
+                          )}
+                          {dq.problems && (
+                            <li>
+                              <b className="font-bold text-foreground">Problems:</b> {dq.problems}
+                            </li>
+                          )}
+                          {dq.nextSteps && (
+                            <li>
+                              <b className="font-bold text-foreground">Next steps:</b> {dq.nextSteps}
+                            </li>
+                          )}
+                        </ul>
+                      </details>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
           ) : (
-            <div className="rounded-[11px] border border-border bg-background px-4 py-2">
-              {score.intent.signals.map((s) => (
-                <SignalRow key={s.label} label={s.label} value={s.value} good={s.good} />
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              {score.workability.signals.map((s, i) => (
+                <span key={s.label}>
+                  {i > 0 && " · "}
+                  {s.label}: {s.value}
+                </span>
               ))}
-            </div>
+            </p>
           )}
         </div>
 
@@ -288,7 +381,7 @@ export function AccountFitCard({
               growthSignals.map((signal) => (
                 <div
                   key={signal}
-                  className="flex items-center gap-2.5 border-b border-dashed border-border py-2 text-[13px] last:border-b-0"
+                  className="flex items-center gap-2.5 border-b border-dashed border-border py-1.5 text-[13px] last:border-b-0"
                 >
                   <span className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-primary-soft text-[13px]">
                     📈
@@ -337,90 +430,6 @@ export function AccountFitCard({
             </div>
           </div>
         )}
-
-        {/* Work — is there anyone to work, an ICP persona to talk to, and what
-            happened on any previously disqualified opp. */}
-        <div>
-          <p className={sectionLabel}>
-            Work{" "}
-            <span className="font-normal normal-case">— contacts to work, ICP fit, prior disqualified opps</span>
-          </p>
-          {workDetail ? (
-            <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-                <Cell
-                  label="Contacts to work"
-                  status={contactSourceTotal > 0 ? "good" : "watch"}
-                  value={contactSourceTotal > 0 ? `${contactSourceTotal} available` : "None found"}
-                  source={`Salesforce ${workDetail.contactSources.salesforce} · ZoomInfo ${workDetail.contactSources.zoomInfo} · LinkedIn ${workDetail.contactSources.linkedIn}`}
-                />
-                <Cell
-                  label="ICP contact"
-                  status={workDetail.icpContact.found ? "good" : "watch"}
-                  value={
-                    workDetail.icpContact.found
-                      ? `${workDetail.icpContact.name} — ${workDetail.icpContact.title}`
-                      : "No ICP persona identified"
-                  }
-                  source={workDetail.icpContact.found ? `Source: ${workDetail.icpContact.source}` : undefined}
-                />
-                {otherWorkSignals.map((s) => (
-                  <Cell key={s.label} label={s.label} value={s.value} status={s.good ? "good" : "watch"} />
-                ))}
-              </div>
-
-              {workDetail.dqHistory.length > 0 && (
-                <div className="mt-3">
-                  <p className="mb-1.5 text-[10.5px] font-bold tracking-[0.5px] text-muted-foreground uppercase">
-                    Disqualified opportunity history
-                  </p>
-                  <div className="rounded-[11px] border border-border bg-background">
-                    {workDetail.dqHistory.map((dq) => (
-                      <div key={dq.name} className="border-b border-dashed border-border px-4 py-2.5 last:border-b-0">
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span className="text-[12.5px] font-bold">{dq.name}</span>
-                          <span className="text-[11px] text-muted-foreground">
-                            Last stage: {dq.furthestStage}
-                            {dq.closedAgo ? ` · closed ${dq.closedAgo}` : ""}
-                          </span>
-                        </div>
-                        <ul className="mt-1 space-y-0.5 text-[11.5px] leading-snug text-muted-foreground">
-                          <li>
-                            <b className="font-bold text-foreground">Reason DQ&rsquo;d:</b> {dq.reason}
-                          </li>
-                          {dq.qualificationNotes && (
-                            <li>
-                              <b className="font-bold text-foreground">Notes:</b> {dq.qualificationNotes}
-                            </li>
-                          )}
-                          {dq.problems && (
-                            <li>
-                              <b className="font-bold text-foreground">Problems:</b> {dq.problems}
-                            </li>
-                          )}
-                          {dq.nextSteps && (
-                            <li>
-                              <b className="font-bold text-foreground">Next steps:</b> {dq.nextSteps}
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-[13px] leading-relaxed">
-              {score.workability.signals.map((s, i) => (
-                <span key={s.label}>
-                  {i > 0 && " · "}
-                  {s.label}: <span className={s.good ? "text-success" : "text-warning"}>{s.value}</span>
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
 
         {/* Company history */}
         <p className="text-[13px] leading-relaxed">

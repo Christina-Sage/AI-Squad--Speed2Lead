@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
-import { CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, StarIcon } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
 import { buildAccountNote } from "@/lib/workit/account-note";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
@@ -47,12 +47,42 @@ export interface PanelExistingRecord {
   kind: "Contact" | "Lead";
 }
 
+/**
+ * 6Sense / growth signals the rep pastes into Outreach. Optional — only the
+ * account work-it path resolves the full 6Sense breakdown; leads pass what they
+ * have and the note degrades gracefully.
+ */
+export interface OutreachNoteSignals {
+  /** 6Sense trending research keywords. */
+  sixSenseKeywords: string[];
+  /** 6Sense de-anonymized website-visit summary. */
+  websiteVisits: string;
+  /** 6Sense buying-stage reading — the intent trigger. */
+  buyingStage: string;
+  /** Growth signals (new hires, locations, expansion). */
+  growthSignals: string[];
+}
+
+/** ZoomInfo enrichment the rep pastes into Outreach. */
+export interface ZoomInfoNoteSignals {
+  /** Related / installed technologies detected by ZoomInfo. */
+  technologies: string[];
+  /** Active ZoomInfo Intent topics. */
+  intentTopics: string[];
+  /** De-anonymized website sightings (WebSights) summary. */
+  webSightings: string | null;
+}
+
 export interface PanelSignals {
   revenue: string;
   fte: string;
   source: string;
   intent: string;
   whyPrioritized: string;
+  /** 6Sense + growth signals, grouped under "Outreach" in the copy note. */
+  outreach?: OutreachNoteSignals;
+  /** ZoomInfo technographics / intent / WebSights, grouped in the copy note. */
+  zoomInfo?: ZoomInfoNoteSignals;
 }
 
 function initials(name: string): string {
@@ -70,8 +100,15 @@ interface ContactRow {
   role: IcpRole | null;
   /** Already a Salesforce record on file (auto-confirmed) vs. a new research find. */
   matched: boolean;
+  /** Existing record whose title a newer contact now holds — excluded from the push. */
+  inactive: boolean;
   /** Secondary label for the Push chip: "Contact" / "Lead" / "Website" / "Form 990". */
   detail: string;
+}
+
+/** Case-insensitive title key for detecting an existing↔new title collision. */
+function normalizeTitle(title: string): string {
+  return title.trim().toLowerCase();
 }
 
 function RolePill({ role }: { role: IcpRole }) {
@@ -82,18 +119,26 @@ function RolePill({ role }: { role: IcpRole }) {
   );
 }
 
-function ConfirmedPill() {
+function InSalesforcePill() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold text-success">
-      ✓ Confirmed
+      ✓ In Salesforce
     </span>
   );
 }
 
-function ReviewPill() {
+function NewContactPill() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold text-warning">
-      ⚠ Needs your review
+      ⚠ New Contact
+    </span>
+  );
+}
+
+function InactivePill() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11.5px] font-bold text-muted-foreground">
+      ⊘ Inactive
     </span>
   );
 }
@@ -120,6 +165,23 @@ function Card({
 
 const btnSm =
   "rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold hover:border-muted-foreground disabled:opacity-45";
+
+// Favorite sequences are a per-browser rep preference (localStorage). The
+// starred sequences float to a pinned "★ Favorites" group at the top of the
+// picker so the rep's go-to sequence is one click away.
+const FAVORITES_KEY = "workit:favoriteSequences";
+const FAVORITES_LABEL = "★ Favorites";
+
+/** Reorder sequence groups so favorited sequences sit in a pinned group on top. */
+function buildSequenceGroups(favorites: string[]): SequenceGroup[] {
+  const known = new Set(SEQUENCE_GROUPS.flatMap((g) => g.items));
+  const favItems = favorites.filter((f) => known.has(f));
+  const rest = SEQUENCE_GROUPS.map((g) => ({
+    value: g.value,
+    items: g.items.filter((i) => !favItems.includes(i)),
+  })).filter((g) => g.items.length > 0);
+  return favItems.length ? [{ value: FAVORITES_LABEL, items: favItems }, ...rest] : rest;
+}
 
 export function WorkItPanel({
   accountId,
@@ -157,6 +219,13 @@ export function WorkItPanel({
 }) {
   const toast = useToast();
 
+  // Titles held by a new research find (not yet in Salesforce). When an existing
+  // Salesforce contact shares one of these titles, someone new appears to be in
+  // that seat, so the existing record is flagged Inactive (see below).
+  const newFindTitles = new Set(
+    foundContacts.filter((c) => !c.inSalesforce).map((c) => normalizeTitle(c.title)),
+  );
+
   // Unified list for the Existing Contacts card: Salesforce records already on
   // file (auto-confirmed) + new research finds that need review before pushing.
   // Empty in lead mode — the card is hidden and the lead is what gets pushed.
@@ -168,6 +237,8 @@ export function WorkItPanel({
           title: r.title,
           role: classifyIcpRole(r.title),
           matched: true,
+          // A newer contact with the same title was found — likely no longer in role.
+          inactive: newFindTitles.has(normalizeTitle(r.title)),
           detail: r.kind,
         })),
         ...foundContacts
@@ -177,14 +248,18 @@ export function WorkItPanel({
             title: c.title,
             role: classifyIcpRole(c.title),
             matched: false,
+            inactive: false,
             detail: c.source === "990" ? "Form 990" : "Website",
           })),
       ];
+  // Inactive existing records are not pre-selected and can't be pushed.
   const initialConfirmed = new Set<string>(
     lead
       ? [lead.name.toLowerCase()]
       : [
-          ...existingRecords.map((r) => r.name.toLowerCase()),
+          ...contactRows
+            .filter((row) => row.matched && !row.inactive)
+            .map((row) => row.name.toLowerCase()),
           ...initialAddedNames.map((n) => n.toLowerCase()),
         ],
   );
@@ -206,6 +281,32 @@ export function WorkItPanel({
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
   const [push, setPush] = useState<OutreachPush | null>(initialPush);
   const [sequence, setSequence] = useState(sequences[0]);
+  // Starred sequences, loaded from localStorage on mount (empty on the server so
+  // SSR and first client render match, then hydrated in the effect below).
+  const [favorites, setFavorites] = useState<string[]>([]);
+  useEffect(() => {
+    // Hydrate from localStorage after mount (not in a useState initializer) so
+    // the server and first client render agree, avoiding a hydration mismatch.
+    try {
+      const raw = localStorage.getItem(FAVORITES_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (raw) setFavorites(JSON.parse(raw) as string[]);
+    } catch {
+      /* ignore malformed / unavailable storage */
+    }
+  }, []);
+  function toggleFavorite(name: string) {
+    setFavorites((prev) => {
+      const next = prev.includes(name) ? prev.filter((n) => n !== name) : [name, ...prev];
+      try {
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore unavailable storage */
+      }
+      return next;
+    });
+  }
+  const sequenceGroups = buildSequenceGroups(favorites);
   const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -274,8 +375,10 @@ export function WorkItPanel({
     }
   }
 
-  const confirmedRows = contactRows.filter((row) => isConfirmed(row.name));
-  const reviewCount = contactRows.length - confirmedRows.length;
+  const inactiveRows = contactRows.filter((row) => row.inactive);
+  const inactiveCount = inactiveRows.length;
+  const confirmedRows = contactRows.filter((row) => !row.inactive && isConfirmed(row.name));
+  const reviewCount = contactRows.filter((row) => !row.inactive && !isConfirmed(row.name)).length;
   const selectedContactCount = contactRows.filter((row) => selected.has(row.name)).length;
   const allConfirmedSelected =
     confirmedRows.length > 0 && confirmedRows.every((row) => selected.has(row.name));
@@ -327,6 +430,7 @@ export function WorkItPanel({
           title: contact?.title ?? record?.title ?? (isLead ? (lead?.title ?? null) : null),
           company: accountName ?? null,
           email: (isLead ? lead?.email : null) ?? deriveEmail(name, domain),
+          kind: (isLead || record?.kind === "Lead" ? "Lead" : "Contact") as "Contact" | "Lead",
         };
       });
       setOutreachPanel({ prospects, sequence });
@@ -425,19 +529,27 @@ export function WorkItPanel({
                 ✓
               </span>
               <p className="text-[12.5px] leading-snug">
-                Checked Salesforce on <b>{accountName ?? "this account"}</b> — {confirmedRows.length}{" "}
-                ICP contact{confirmedRows.length === 1 ? "" : "s"} confirmed and pre-selected.
+                Checked Salesforce on <b>{accountName ?? "this account"}</b> —{" "}
+                <b>{confirmedRows.length}</b> in Salesforce and pre-selected.
+                {inactiveCount > 0 && (
+                  <>
+                    {" "}
+                    <span className="font-semibold text-muted-foreground">
+                      {inactiveCount} inactive
+                    </span>{" "}
+                    (a newer contact holds the same title).
+                  </>
+                )}
                 {reviewCount > 0 ? (
                   <>
                     {" "}
                     <span className="font-semibold text-warning">
-                      {reviewCount} {reviewCount === 1 ? "needs" : "need"} your review
+                      {reviewCount} new contact{reviewCount === 1 ? "" : "s"}
                     </span>{" "}
-                    ({reviewCount === 1 ? "a new contact that doesn’t" : "new contacts that don’t"}{" "}
-                    match an existing record).
+                    to review.
                   </>
                 ) : (
-                  " All checked against Salesforce — none need review."
+                  " No new contacts to review."
                 )}
               </p>
             </div>
@@ -464,10 +576,15 @@ export function WorkItPanel({
                 <tbody>
                   {contactRows.map((row) => {
                     const conf = isConfirmed(row.name);
+                    const rowBg = row.inactive
+                      ? "bg-muted/40"
+                      : conf
+                        ? ""
+                        : "bg-warning-bg/20";
                     return (
                       <tr
                         key={`${row.name}-${row.title}`}
-                        className={`border-b border-border last:border-b-0 ${conf ? "" : "bg-warning-bg/20"}`}
+                        className={`border-b border-border last:border-b-0 ${rowBg}`}
                       >
                         <td className="py-3 pr-2 align-top">
                           <input
@@ -475,11 +592,17 @@ export function WorkItPanel({
                             aria-label={`Select ${row.name}`}
                             className="size-4 accent-success align-middle disabled:opacity-40"
                             checked={selected.has(row.name)}
-                            disabled={!conf}
+                            disabled={!conf || row.inactive}
                             onChange={() => toggleSelected(row.name)}
                           />
                         </td>
-                        <td className="py-3 pr-3 align-top text-[13.5px] font-semibold">{row.name}</td>
+                        <td
+                          className={`py-3 pr-3 align-top text-[13.5px] font-semibold ${
+                            row.inactive ? "text-muted-foreground line-through" : ""
+                          }`}
+                        >
+                          {row.name}
+                        </td>
                         <td className="py-3 pr-3 align-top text-[13px] text-muted-foreground">
                           {row.title}
                         </td>
@@ -487,42 +610,30 @@ export function WorkItPanel({
                           {row.role && <RolePill role={row.role} />}
                         </td>
                         <td className="py-3 align-top">
-                          {conf ? (
-                            <div>
-                              <ConfirmedPill />
-                              <p className="mt-1 text-[11.5px] text-muted-foreground">
-                                {row.matched
-                                  ? `Matched Salesforce ${row.detail.toLowerCase()}`
-                                  : "Confirmed — added to Salesforce"}
-                              </p>
-                            </div>
+                          {row.inactive ? (
+                            <InactivePill />
+                          ) : conf ? (
+                            <InSalesforcePill />
                           ) : (
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <ReviewPill />
-                                <a
-                                  href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
-                                >
-                                  Add in Salesforce
-                                  <ExternalLinkIcon className="size-3.5" />
-                                </a>
-                                <button
-                                  type="button"
-                                  className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
-                                  disabled={busy === row.name}
-                                  onClick={() => confirmContact(row)}
-                                >
-                                  {busy === row.name ? "Syncing…" : "Confirm & add"}
-                                </button>
-                              </div>
-                              <p className="mt-1 max-w-[340px] text-[11.5px] text-muted-foreground">
-                                New contact from research — not in Salesforce yet. Open{" "}
-                                <b>Add in Salesforce</b> to create the record on this account, then{" "}
-                                <b>Confirm &amp; add</b> to sync it and confirm it landed.
-                              </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <NewContactPill />
+                              <a
+                                href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
+                              >
+                                Add in Salesforce
+                                <ExternalLinkIcon className="size-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
+                                disabled={busy === row.name}
+                                onClick={() => confirmContact(row)}
+                              >
+                                {busy === row.name ? "Syncing…" : "Confirm & add"}
+                              </button>
                             </div>
                           )}
                         </td>
@@ -540,6 +651,12 @@ export function WorkItPanel({
                 <>
                   {" "}
                   · <b className="text-warning">{reviewCount}</b> awaiting review
+                </>
+              )}
+              {inactiveCount > 0 && (
+                <>
+                  {" "}
+                  · <b className="text-foreground">{inactiveCount}</b> inactive (excluded)
                 </>
               )}
             </div>
@@ -678,11 +795,6 @@ export function WorkItPanel({
                         </ul>
                       </div>
                     ))}
-                    {accountNote.hashtags.length > 0 && (
-                      <div className="mt-3 border-t border-border pt-2 text-[12px] font-semibold text-primary">
-                        {accountNote.hashtags.join(" ")}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -691,7 +803,7 @@ export function WorkItPanel({
             <p className="mb-2 text-[13px] font-bold">2. Pick a sequence and push</p>
             <div className="flex flex-wrap items-center gap-3">
             <Combobox.Root
-              items={SEQUENCE_GROUPS}
+              items={sequenceGroups}
               value={sequence}
               onValueChange={(value: string | null) => {
                 if (value) setSequence(value);
@@ -714,22 +826,52 @@ export function WorkItPanel({
                     <Combobox.List className="min-h-0 flex-1 overflow-y-auto">
                       {(group: SequenceGroup) => (
                         <Combobox.Group key={group.value} items={group.items} className="mb-1 last:mb-0">
-                          <Combobox.GroupLabel className="px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.4px] text-muted-foreground uppercase">
+                          <Combobox.GroupLabel
+                            className={`px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.4px] uppercase ${
+                              group.value === FAVORITES_LABEL ? "text-amber-500" : "text-muted-foreground"
+                            }`}
+                          >
                             {group.value}
                           </Combobox.GroupLabel>
                           <Combobox.Collection>
-                            {(item: string) => (
-                              <Combobox.Item
-                                key={item}
-                                value={item}
-                                className="relative flex cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent"
-                              >
-                                {item}
-                                <Combobox.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-                                  <CheckIcon className="size-3.5" />
-                                </Combobox.ItemIndicator>
-                              </Combobox.Item>
-                            )}
+                            {(item: string) => {
+                              const isFav = favorites.includes(item);
+                              return (
+                                <Combobox.Item
+                                  key={item}
+                                  value={item}
+                                  className="relative flex cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-8 text-sm outline-hidden select-none data-highlighted:bg-accent"
+                                >
+                                  <button
+                                    type="button"
+                                    aria-label={isFav ? `Unfavorite ${item}` : `Favorite ${item}`}
+                                    aria-pressed={isFav}
+                                    onPointerDown={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      toggleFavorite(item);
+                                    }}
+                                    className="absolute left-1.5 flex size-5 items-center justify-center rounded hover:bg-accent"
+                                  >
+                                    <StarIcon
+                                      className={`size-3.5 ${
+                                        isFav
+                                          ? "fill-amber-400 text-amber-400"
+                                          : "text-muted-foreground/60"
+                                      }`}
+                                    />
+                                  </button>
+                                  {item}
+                                  <Combobox.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+                                    <CheckIcon className="size-3.5" />
+                                  </Combobox.ItemIndicator>
+                                </Combobox.Item>
+                              );
+                            }}
                           </Combobox.Collection>
                         </Combobox.Group>
                       )}

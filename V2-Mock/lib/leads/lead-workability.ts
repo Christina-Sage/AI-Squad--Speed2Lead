@@ -157,23 +157,24 @@ export function evaluateLeadWorkability(
     roe = chk("roe", "ROE", roeQuestion, "pf", "pass", "Lead unassigned (House); account-level ROE not applicable");
   }
 
-  // 3b. TAM — does the linked account fall within team territory? Mirrors the
-  // BDR TAM check; warns on an expired Intacct TAM, N/A without a linked account.
+  // 3b. TAM — SDR "Can I work this lead?" territory check. Keyed on whether the
+  // linked account carries an *active* TAM: an active TAM means the account is
+  // already assigned to a territory, so flag for review. An expired TAM is not an
+  // active assignment (and does not make the account a customer — that's the
+  // Customer Status row's job), so it passes here rather than double-flagging the
+  // same account for review on both rows. No TAM passes, and no linked account at
+  // all also passes — there is no territory to reconcile. This differs from the
+  // BDR account TAM check, which is unchanged.
   let tam: DedupeCheck;
   const tamQuestion = "Does the account fall within your territory?";
   if (!account || !acct) {
-    tam = chk("tam", "TAM", tamQuestion, "pf", "na", "No linked account — territory can't be validated");
-  } else if (isExpiredTam(account.tam) && acct.customer_status === "PASS") {
+    tam = chk("tam", "TAM", tamQuestion, "pf", "pass", "No linked account — nothing to reconcile");
+  } else if (account.tam !== null && !isExpiredTam(account.tam)) {
     tam = chk("tam", "TAM", tamQuestion, "pf", "warn", `TAM: ${account.tam} on ${account.name} — verify before working`);
+  } else if (isExpiredTam(account.tam)) {
+    tam = chk("tam", "TAM", tamQuestion, "pf", "pass", `TAM: ${account.tam} — expired, no active territory assignment`);
   } else {
-    tam = chk(
-      "tam",
-      "TAM",
-      tamQuestion,
-      "pf",
-      "pass",
-      account.tam === null ? "TAM: Blank — falls within team territory" : `TAM: ${account.tam}`,
-    );
+    tam = chk("tam", "TAM", tamQuestion, "pf", "pass", "No TAM on the linked account — nothing to reconcile");
   }
 
   // 4. Open opportunity on the linked account.

@@ -4,35 +4,28 @@ import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "theme";
 
-// The theme lives on <html class="dark"> — applied pre-hydration by the inline
-// script in layout.tsx. Read it through useSyncExternalStore so the value is
-// sourced from the DOM (the external system) without a setState-in-effect, and
-// stays in sync if the class changes from anywhere.
-function subscribe(onStoreChange: () => void) {
-  const observer = new MutationObserver(onStoreChange);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["class"],
-  });
-  return () => observer.disconnect();
+// The <html> class list is the source of truth (the inline script in layout.tsx
+// applies it pre-hydration). Read it through an external store rather than
+// mirroring it into effect-driven state: getServerSnapshot returns null so SSR
+// and hydration render the neutral "…" label, then the client snapshot resolves
+// the real theme. `toggle` flips the class and notifies subscribers to re-render.
+const themeListeners = new Set<() => void>();
+function subscribeTheme(listener: () => void) {
+  themeListeners.add(listener);
+  return () => themeListeners.delete(listener);
 }
-
-function getSnapshot(): boolean {
+function isDark() {
   return document.documentElement.classList.contains("dark");
 }
 
-// No DOM on the server; render the neutral placeholder until hydration.
-function getServerSnapshot(): boolean | null {
-  return null;
-}
-
 export function ThemeToggle() {
-  const dark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const dark = useSyncExternalStore(subscribeTheme, isDark, () => null);
 
   function toggle() {
-    const next = !document.documentElement.classList.contains("dark");
+    const next = !isDark();
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem(STORAGE_KEY, next ? "dark" : "light");
+    themeListeners.forEach((listener) => listener());
   }
 
   return (
