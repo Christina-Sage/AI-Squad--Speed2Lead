@@ -191,9 +191,7 @@
       '<div class="rank tnum">'+rank+'</div>'+
       '<div class="rmain"><div class="rname">'+a.name+' '+badge+'</div>'+
       '<div class="rsub">'+ratingChip(a)+chanChip(a)+'<span>'+a.sub+'</span></div></div>'+
-      bars(a)+'<div class="score"><b class="tnum">'+a.score+'</b></div>'+
-      '<div class="rowact"><button class="mini push" data-work="push" data-acct="'+a.id+'">Push</button>'+
-      '<button class="mini" data-work="fit" data-acct="'+a.id+'">Not a fit</button></div></div>';
+      bars(a)+'<div class="score"><b class="tnum">'+a.score+'</b></div></div>';
   }
   function listBody(rk){
     var rank=0, out="";
@@ -212,7 +210,7 @@
   function render(){
     var vis=visible(), rk=ranked(vis);
     var head='<div class="card-hd"><h1>Today’s Worklist</h1><span class="wf-chip">BDR · Intacct · Accounts</span>'+
-      '<span class="sub">Ranked by “Should I work it?” score</span><span class="worked-count">'+workedCount(vis)+'</span></div>';
+      '<span class="sub">Ranked by “Should I work it?” score</span></div>';
     var body="";
 
     if(VARIANT==="toggle"){
@@ -251,8 +249,6 @@
     app.querySelectorAll("[data-m]").forEach(function(b){b.addEventListener("click",function(){st.motion=b.getAttribute("data-m");render();});});
     var qf=app.querySelector("[data-qf]");
     if(qf){qf.addEventListener("click",function(){st.motion=(st.motion==="partner"?"all":"partner");render();});}
-    app.querySelectorAll("[data-work]").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();st.worked[b.getAttribute("data-acct")]=b.getAttribute("data-work");render();});});
-    app.querySelectorAll(".row.worked").forEach(function(r){r.addEventListener("click",function(){delete st.worked[r.getAttribute("data-acct")];render();});});
   }
   render();
 })();
