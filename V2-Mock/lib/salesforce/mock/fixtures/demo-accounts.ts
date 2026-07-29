@@ -96,6 +96,11 @@ const OWNERS = [
   { id: "u-alex", name: "Alex Rivera" },
 ];
 
+// Sourcing reps (BDR/SDR/ABX) who create opps that an AE/CE then owns. Used to
+// populate an opp's createdBy so it can differ from its owner; some deals are
+// self-sourced, where createdBy falls back to the owner instead.
+const OPP_CREATORS = ["Robin Shah", "Casey Nguyen", "Morgan Diaz"];
+
 const PARTNERS = [
   "Cloud9 Consulting",
   "LedgerLine Partners",
@@ -187,7 +192,7 @@ const LEAD_ACCOUNT_SLOT: Record<Exclude<LeadAccountRef, null>, { code: string; s
 const LEAD_SPECS: LeadSpec[] = [
   { outcome: "Workable w/ review — linked to a workable account", account: "workable", priority: "P1", title: "VP of Finance", fit: 82, intent: 78, workability: 74 },
   { outcome: "Workable w/ review — linked account itself needs review", account: "review", priority: "P2/3", title: "Controller", fit: 66, intent: 60, workability: 70 },
-  { outcome: "Not workable — open opportunity on the linked account", account: "openOpp", priority: "P1", title: "CFO", fit: 74, intent: 71, workability: 55 },
+  { outcome: "Workable w/ review — inbound: open opportunity on the linked account", account: "openOpp", priority: "P1", title: "CFO", fit: 74, intent: 71, workability: 55 },
   { outcome: "Not workable — linked account is an existing customer", account: "customer", priority: "P2/3", title: "Finance Director", fit: 58, intent: 52, workability: 50 },
   { outcome: "Not workable — linked account in DQ cooling-off", account: "dq", priority: "P4/5", title: "Accounting Manager", fit: 62, intent: 55, workability: 52 },
   { outcome: "Not workable — ROE conflict on the linked account", account: "roe", priority: "P4/5", title: "AP Manager", fit: 68, intent: 64, workability: 48 },
@@ -344,8 +349,14 @@ function build(): Generated {
           });
           break;
 
-        case "open-opp":
-          // An open Intacct opportunity already exists.
+        case "open-opp": {
+          // An open Intacct opportunity already exists. A sourcing rep created
+          // two of every three; the AE/CE self-sources the rest (createdBy
+          // omitted -> falls back to the owner). Roughly half are stale (older
+          // than 12 months) so the outbound (BDR) review path is exercised
+          // alongside the recent-opp hard block.
+          const oppCreator = g % 3 === 0 ? undefined : OPP_CREATORS[g % OPP_CREATORS.length];
+          const oppAgeDays = g % 2 === 1 ? 400 + (g % 260) : 10 + (g % 40);
           accounts.push({
             ...base,
             intacct: {
@@ -354,13 +365,15 @@ function build(): Generated {
                 {
                   name: `${name} - ${product} Opportunity`,
                   owner: owner.name,
+                  createdBy: oppCreator,
                   stage: OPP_STAGES[g % OPP_STAGES.length],
-                  createdDate: daysAgo(10 + (g % 40)),
+                  createdDate: daysAgo(oppAgeDays),
                 },
               ],
             },
           });
           break;
+        }
 
         case "roe": {
           // A linked contact has activity inside the 30-day ROE window.

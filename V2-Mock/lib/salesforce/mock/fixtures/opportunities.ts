@@ -9,6 +9,7 @@ export const OPPORTUNITIES: Opportunity[] = [
     accountId: "0015Y00000STRK01",
     ownerId: "u-pat",
     ownerName: "Pat Lee",
+    createdBy: "Robin Shah",
     stage: "Active",
     isClosed: false,
     createdDate: daysAgo(14),
