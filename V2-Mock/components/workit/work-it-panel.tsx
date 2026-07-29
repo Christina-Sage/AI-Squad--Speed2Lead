@@ -936,19 +936,25 @@ export function WorkItPanel({
       {lead ? (
         // SDR: archive the lead with a Status Reason (+ optional detail).
         <Card title="Not the right lead?" sub="Archive it with a reason — no outreach sent">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={archiveLead}
-              disabled={
-                busy === "archive" ||
-                archiveReason === "" ||
-                (archiveReason === OTHER_ARCHIVE_REASON && archiveOther.trim() === "")
-              }
-              className="rounded-[9px] border border-destructive bg-transparent px-4 py-2 text-[13.5px] font-semibold text-destructive hover:bg-destructive-bg disabled:opacity-45"
-            >
-              {busy === "archive" ? "Archiving…" : "Mark as Archived"}
-            </button>
-            <div className="min-w-[220px] flex-1">
+          <div className="flex flex-wrap items-start gap-3">
+            {/* invisible label spacer keeps the button top-aligned with the fields */}
+            <div className="shrink-0">
+              <span aria-hidden className="mb-1 block invisible text-[11px] font-bold uppercase">
+                .
+              </span>
+              <button
+                onClick={archiveLead}
+                disabled={
+                  busy === "archive" ||
+                  archiveReason === "" ||
+                  (archiveReason === OTHER_ARCHIVE_REASON && archiveOther.trim() === "")
+                }
+                className="rounded-[9px] border border-destructive bg-transparent px-4 py-2 text-[13.5px] font-semibold text-destructive hover:bg-destructive-bg disabled:opacity-45"
+              >
+                {busy === "archive" ? "Archiving…" : "Mark as Archived"}
+              </button>
+            </div>
+            <div className="w-full sm:w-[280px]">
               <label className="mb-1 block text-[11px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
                 Status Reason
               </label>
@@ -965,26 +971,27 @@ export function WorkItPanel({
                 ))}
               </select>
             </div>
-            <span className="basis-full text-[12.5px] text-muted-foreground">
-              Removes it from today’s worklist — no outreach sent.
-            </span>
+            {archiveReason !== "" && (
+              <div className="min-w-[220px] flex-1">
+                <label className="mb-1 block text-[11px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
+                  Other Archive Reason{" "}
+                  {archiveReason === OTHER_ARCHIVE_REASON && (
+                    <span className="text-destructive">*</span>
+                  )}
+                </label>
+                <textarea
+                  value={archiveOther}
+                  onChange={(e) => setArchiveOther(e.target.value)}
+                  rows={2}
+                  placeholder="Add detail for the archive reason…"
+                  className="min-h-[38px] w-full rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
+                />
+              </div>
+            )}
           </div>
-          {archiveReason !== "" && (
-            <div className="mt-3.5">
-              <label className="mb-1 block text-[11px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
-                Other Archive Reason{" "}
-                {archiveReason === OTHER_ARCHIVE_REASON && (
-                  <span className="text-destructive">*</span>
-                )}
-              </label>
-              <textarea
-                value={archiveOther}
-                onChange={(e) => setArchiveOther(e.target.value)}
-                placeholder="Add detail for the archive reason…"
-                className="min-h-[70px] w-full rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
-              />
-            </div>
-          )}
+          <span className="mt-2 block text-[12.5px] text-muted-foreground">
+            Removes it from today’s worklist — no outreach sent.
+          </span>
         </Card>
       ) : (
         <Card title="Not the right account?" sub="Mark it worked without pushing — logged with a reason">
