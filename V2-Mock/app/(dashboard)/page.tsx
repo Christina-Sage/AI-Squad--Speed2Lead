@@ -12,6 +12,7 @@ import { getSalesforceProvider } from "@/lib/salesforce/provider";
 import { computeDuplicateLeads } from "@/lib/leads/lead-dedupe";
 import { evaluateLeadWorkability } from "@/lib/leads/lead-workability";
 import { evaluateWorkability, blockedByLabel } from "@/lib/workability/engine";
+import { evaluatePartner } from "@/lib/workability/partner";
 
 // Short "why blocked" label for a NOT-WORKABLE lead, keyed by its failing check.
 const LEAD_BLOCK_LABEL: Record<string, string> = {
@@ -153,6 +154,11 @@ export default async function Home({
           badge: dupInfo ? "Duplicate" : "Don’t work",
         });
       } else {
+        // Partner (VAR) motion for a lead: the linked account's partner
+        // relationship (Intacct/Fusion), or a lead that came in through a VAR.
+        const partner = bundle.accountBundle ? evaluatePartner(bundle.accountBundle.account) : null;
+        const varLead = /\bVAR\b|reseller|value[- ]?added/i.test(bundle.lead.source ?? "");
+        const hasPartner = (partner?.hasRelationship ?? false) || varLead;
         leadRows.push({
           id: item.id,
           name: item.name,
@@ -166,13 +172,37 @@ export default async function Home({
           score: item.score,
           finalStatus:
             result.final_status === "WORKABLE WITH REVIEW" ? "WORKABLE WITH REVIEW" : "WORKABLE",
+          hasPartner,
+          partnerSource: partner?.hasRelationship ? partner.source : varLead ? "VAR" : null,
+          partnerName: partner?.hasRelationship
+            ? partner.partnerName
+            : varLead
+              ? bundle.lead.source ?? "VAR lead"
+              : null,
+          partnerRegistered: partner?.registered ?? false,
+          // Worked-state / saved-list member id: account id when linked, else the lead id.
+          workItId: item.accountId ?? item.id,
         });
       }
     }
-    leadRows.sort((a, b) => b.score - a.score);
+    // Order (same as accounts): Workable ranked by score, then In Review by score.
+    const leadReviewRank = (l: LeadRow) => (l.finalStatus === "WORKABLE WITH REVIEW" ? 1 : 0);
+    leadRows.sort((a, b) => leadReviewRank(a) - leadReviewRank(b) || b.score - a.score);
   }
 
+  // Saved-list membership for SDR is keyed by workItId (accountId ?? leadId),
+  // the same id worked-state is recorded under, so completion lines up.
+  const leadMemberIds = [
+    ...leadRows.map((l) => l.workItId),
+    ...blockedLeadRows.map((b) => b.id),
+  ];
+  const visibleLeadRows = leadRows.filter((l) => !selectedIds || selectedIds.has(l.workItId));
+  const visibleBlockedLeadRows = blockedLeadRows.filter(
+    (b) => !selectedIds || selectedIds.has(b.id),
+  );
+
   const mode = team === "SDR" ? "leads" : "accounts";
+  const worklistMemberIds = mode === "leads" ? leadMemberIds : worklistAccountIds;
 
   return (
     <div>
@@ -198,14 +228,14 @@ export default async function Home({
         demoUserName={demoUser.name}
         priorityLabel={team === "SDR" ? priority : undefined}
         accountRows={visibleAccountRows}
-        leadRows={leadRows}
+        leadRows={visibleLeadRows}
         blockedRows={mode === "accounts" ? visibleBlockedRows : []}
-        blockedLeadRows={mode === "leads" ? blockedLeadRows : []}
+        blockedLeadRows={mode === "leads" ? visibleBlockedLeadRows : []}
         workedMap={workedMap}
         justWorkedId={justWorkedId}
         savedLists={savedLists}
         selectedListId={selectedListId}
-        worklistAccountIds={worklistAccountIds}
+        worklistAccountIds={worklistMemberIds}
       />
     </div>
   );

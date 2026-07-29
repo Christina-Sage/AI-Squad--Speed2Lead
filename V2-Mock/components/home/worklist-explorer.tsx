@@ -63,6 +63,13 @@ export interface LeadRow {
   score: number;
   /** Lead-level verdict — drives the Workable / Review badge on the row. */
   finalStatus: "WORKABLE" | "WORKABLE WITH REVIEW";
+  /** Partner (VAR) motion: true when the lead's account is a partner or it came via a VAR. */
+  hasPartner: boolean;
+  partnerSource: string | null;
+  partnerName: string | null;
+  partnerRegistered: boolean;
+  /** Id worked-state is recorded under (accountId ?? id) — the saved-list member id. */
+  workItId: string;
 }
 
 type FocusKind = "account" | "lead";
@@ -103,14 +110,24 @@ function MiniBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-/** Channel chip naming the partner (Intacct/Fusion) on an In Review row. */
-function PartnerChip({ row }: { row: AccountRow }) {
-  if (!row.hasPartner) return null;
-  const label = [row.partnerSource, row.partnerName].filter(Boolean).join(" · ");
+/** Channel chip naming the partner (Intacct/Fusion/VAR) on an In Review row. */
+function PartnerChip({
+  hasPartner,
+  partnerSource,
+  partnerName,
+  partnerRegistered,
+}: {
+  hasPartner: boolean;
+  partnerSource: string | null;
+  partnerName: string | null;
+  partnerRegistered: boolean;
+}) {
+  if (!hasPartner) return null;
+  const label = [partnerSource, partnerName].filter(Boolean).join(" · ");
   return (
     <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10.5px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
       Partner{label ? ` · ${label}` : ""}
-      {row.partnerRegistered ? " · registered" : ""}
+      {partnerRegistered ? " · registered" : ""}
     </span>
   );
 }
@@ -390,16 +407,40 @@ export function WorklistExplorer({
   const acctInView = (a: AccountRow) => acctVisible(a.id) && motionMatch(a);
   const visibleAcctCount = motionPool.filter(motionMatch).length;
   const leadVisible = (id: string) => !importActive || importIds!.has(id);
-  const visibleLeadCount = leadRows.filter((l) => leadVisible(l.id)).length;
+  // Motion filter for the SDR lead worklist mirrors the account side: a lead is
+  // Partner when its account is a partner or it came in through a VAR.
+  const leadMotionMatch = (l: LeadRow) =>
+    motion === "all" || (motion === "partner" ? l.hasPartner : !l.hasPartner);
+  const leadInView = (l: LeadRow) => leadVisible(l.id) && leadMotionMatch(l);
+  const leadPool = leadRows.filter((l) => leadVisible(l.id));
+  const leadPartnerCount = leadPool.filter((l) => l.hasPartner).length;
+  const leadDirectCount = leadPool.length - leadPartnerCount;
+  const visibleLeadCount = leadPool.filter(leadMotionMatch).length;
 
   const unworkedAccts = accountRows.filter((a) => !workedMap[a.id] && acctInView(a));
   const rankById = new Map(unworkedAccts.map((a, i) => [a.id, i + 1]));
-  const unworkedLeads = leadRows.filter((l) => !leadOutcome(l) && leadVisible(l.id));
+  const unworkedLeads = leadRows.filter((l) => !leadOutcome(l) && leadInView(l));
   const leadRankById = new Map(unworkedLeads.map((l, i) => [l.id, i + 1]));
 
   const isLeads = mode === "leads";
   const activeTotal = isLeads ? visibleLeadCount : visibleAcctCount;
   const activeWorkedCount = activeTotal - (isLeads ? unworkedLeads.length : unworkedAccts.length);
+
+  // Motion toggle + saved-list controls are team-aware: accounts for BDR, leads
+  // for SDR. The unit word keeps the copy honest in either mode.
+  const ctlTotal = isLeads ? leadPool.length : motionPool.length;
+  const ctlDirect = isLeads ? leadDirectCount : directCount;
+  const ctlPartner = isLeads ? leadPartnerCount : partnerCount;
+  const unitWord = isLeads ? "leads" : "accounts";
+  // Saved-list membership uses the id worked-state is recorded under: account id
+  // for BDR, workItId (accountId ?? leadId) for SDR leads.
+  const saveAccountIds = isLeads
+    ? importActive
+      ? leadRows.filter((l) => importIds!.has(l.id)).map((l) => l.workItId)
+      : worklistAccountIds
+    : importActive
+      ? [...importIds!]
+      : worklistAccountIds;
 
   // "Next up" banner after working a record. justWorkedId is an account id (or a
   // lead id for freemail leads); match it to the active list to name it.
@@ -515,31 +556,29 @@ export function WorklistExplorer({
           )}
         </div>
 
-        {!isLeads && (
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
-            <MotionToggle
-              motion={motion}
-              setMotion={setMotion}
-              total={motionPool.length}
-              direct={directCount}
-              partner={partnerCount}
-            />
-            <SavedWorklistPicker
-              savedLists={savedLists}
-              selectedListId={selectedListId}
-              saveAccountIds={importActive ? [...importIds!] : worklistAccountIds}
-            />
-            <span className="text-[12px] text-muted-foreground">
-              {partnerCount > 0
-                ? `${partnerCount} In Review (~${Math.round(
-                    (partnerCount / (motionPool.length || 1)) * 100,
-                  )}%) — partner relationship`
-                : "No partner accounts in this view"}
-            </span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
+          <MotionToggle
+            motion={motion}
+            setMotion={setMotion}
+            total={ctlTotal}
+            direct={ctlDirect}
+            partner={ctlPartner}
+          />
+          <SavedWorklistPicker
+            savedLists={savedLists}
+            selectedListId={selectedListId}
+            saveAccountIds={saveAccountIds}
+          />
+          <span className="text-[12px] text-muted-foreground">
+            {ctlPartner > 0
+              ? `${ctlPartner} In Review (~${Math.round(
+                  (ctlPartner / (ctlTotal || 1)) * 100,
+                )}%) — partner relationship`
+              : `No partner ${unitWord} in this view`}
+          </span>
+        </div>
 
-        {!isLeads && selectedList && <SavedWorklistBar list={selectedList} />}
+        {selectedList && <SavedWorklistBar list={selectedList} />}
 
         {justWorkedName && (
           <div className="flex items-center gap-2.5 border-b border-border bg-primary-soft px-5 py-3 text-[13px]">
@@ -564,14 +603,22 @@ export function WorklistExplorer({
         )}
 
         {isLeads
-          ? importActive && visibleLeadCount === 0
-            ? <div className="px-5 py-4 text-[13px] text-muted-foreground">None of the imported leads are in the current worklist. Check the &ldquo;not found&rdquo; list above, or clear the import.</div>
-            : leadRows.length === 0
-            ? <div className="px-5 py-4 text-[13px] text-muted-foreground">No leads in this priority group.</div>
+          ? visibleLeadCount === 0
+            ? <div className="px-5 py-4 text-[13px] text-muted-foreground">
+                {importActive
+                  ? "None of the imported leads are in the current worklist. Check the “not found” list above, or clear the import."
+                  : motion === "partner"
+                    ? "No partner (VAR) leads in this worklist."
+                    : motion === "direct"
+                      ? "No direct leads in this worklist."
+                      : leadRows.length === 0
+                        ? "No leads in this priority group."
+                        : "No leads in this view."}
+              </div>
             : (
               <div className="flex flex-col">
                 {leadRows.map((lead) => {
-                  if (!leadVisible(lead.id)) return null;
+                  if (!leadInView(lead)) return null;
                   return (
                   <button
                     key={lead.id}
@@ -601,6 +648,14 @@ export function WorklistExplorer({
                           >
                             {lead.finalStatus === "WORKABLE WITH REVIEW" ? "In Review" : "Workable"}
                           </span>
+                        )}
+                        {!leadOutcome(lead) && (
+                          <PartnerChip
+                            hasPartner={lead.hasPartner}
+                            partnerSource={lead.partnerSource}
+                            partnerName={lead.partnerName}
+                            partnerRegistered={lead.partnerRegistered}
+                          />
                         )}
                       </div>
                       {lead.accountName && (
@@ -673,7 +728,12 @@ export function WorklistExplorer({
                           Workable
                         </span>
                       )}
-                      <PartnerChip row={acct} />
+                      <PartnerChip
+                        hasPartner={acct.hasPartner}
+                        partnerSource={acct.partnerSource}
+                        partnerName={acct.partnerName}
+                        partnerRegistered={acct.partnerRegistered}
+                      />
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {acct.domain} · {acct.industry} · {acct.type}
