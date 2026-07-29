@@ -272,9 +272,6 @@ export class GlobalSalesforceProvider implements SalesforceProvider {
   async listSdrLeads(): Promise<SdrLeadListItem[]> {
     notWired("listSdrLeads");
   }
-  async createLead(): Promise<SdrLead> {
-    notWired("createLead");
-  }
   async getSdrLead(): Promise<SdrLead | null> {
     notWired("getSdrLead");
   }

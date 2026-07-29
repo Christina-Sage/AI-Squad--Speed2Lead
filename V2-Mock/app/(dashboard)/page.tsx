@@ -125,7 +125,6 @@ export default async function Home({
           score: item.score,
           finalStatus:
             result.final_status === "WORKABLE WITH REVIEW" ? "WORKABLE WITH REVIEW" : "WORKABLE",
-          isNew: item.isNew,
         });
       }
     }

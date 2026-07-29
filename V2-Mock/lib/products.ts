@@ -23,21 +23,3 @@ export const PRODUCT_COOKIE = "product";
 export function getCurrentProduct(productId: string | undefined): Product {
   return PRODUCTS.find((p) => p.id === productId)?.id ?? "Intacct";
 }
-
-// Maps the web form's product-interest labels (lib/leads/lead-intake.ts) to the
-// dashboard's product codes, so a captured lead is filed under the right product
-// on the worklist. "Not sure yet" (and anything unmapped) defaults to Intacct.
-export function productFromInterest(interest: string): Product {
-  switch (interest) {
-    case "Sage Intacct":
-      return "Intacct";
-    case "Sage X3":
-      return "X3";
-    case "Sage CRE":
-      return "CRE";
-    case "Sage 50":
-      return "S50";
-    default:
-      return "Intacct";
-  }
-}
