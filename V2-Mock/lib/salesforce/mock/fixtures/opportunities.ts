@@ -35,6 +35,7 @@ export const OPPORTUNITIES: Opportunity[] = [
     isClosed: true,
     createdDate: daysAgo(150),
     furthestStage: "Discovery",
+    movedToDiscoveryDate: daysAgo(135),
     closedDate: daysAgo(60),
     disqualification: {
       reason: "No budget approved for the current fiscal year",
@@ -74,6 +75,7 @@ export const OPPORTUNITIES: Opportunity[] = [
     isClosed: true,
     createdDate: daysAgo(75),
     furthestStage: "Evaluation",
+    movedToDiscoveryDate: daysAgo(65),
     closedDate: daysAgo(15),
     disqualification: {
       reason: "Chose to extend their NetSuite trial instead",
@@ -94,6 +96,7 @@ export const OPPORTUNITIES: Opportunity[] = [
     isClosed: true,
     createdDate: daysAgo(120),
     furthestStage: "Discovery",
+    movedToDiscoveryDate: daysAgo(110),
     closedDate: daysAgo(60),
     disqualification: {
       reason: "Deprioritized after a leadership change",

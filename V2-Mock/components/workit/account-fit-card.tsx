@@ -326,11 +326,31 @@ export function AccountFitCard({
                             Last stage: {dq.furthestStage}
                             {dq.closedAgo ? ` · closed ${dq.closedAgo}` : ""}
                           </span>
+                          {dq.coolOff && (
+                            <span
+                              className={`ml-auto shrink-0 self-center rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                                dq.coolOff.cleared
+                                  ? "bg-success-bg text-success"
+                                  : "bg-warning-bg text-warning"
+                              }`}
+                            >
+                              {dq.coolOff.cleared
+                                ? "✓ Cleared"
+                                : `${dq.coolOff.daysRemaining} day${dq.coolOff.daysRemaining === 1 ? "" : "s"} left`}
+                            </span>
+                          )}
                           <span className="basis-full pl-[22px] text-[11.5px] text-muted-foreground group-open:hidden">
                             {dq.reason}
                           </span>
                         </summary>
-                        <ul className="mb-2 space-y-0.5 pl-[22px] text-[11.5px] leading-snug text-muted-foreground">
+                        <ul className="space-y-0.5 pl-[22px] text-[11.5px] leading-snug text-muted-foreground">
+                          {dq.movedToDiscovery && (
+                            <li>
+                              <b className="font-bold text-foreground">Moved to Discovery:</b>{" "}
+                              {dq.movedToDiscovery}
+                              <span className="text-muted-foreground"> — open, active cycle until DQ&rsquo;d</span>
+                            </li>
+                          )}
                           <li>
                             <b className="font-bold text-foreground">Reason DQ&rsquo;d:</b> {dq.reason}
                           </li>
@@ -350,6 +370,40 @@ export function AccountFitCard({
                             </li>
                           )}
                         </ul>
+                        {dq.coolOff && (
+                          <div className="mt-2 mb-2.5 pl-[22px]">
+                            <div className="mb-1 flex items-baseline justify-between">
+                              <span className="text-[10.5px] font-bold tracking-[0.4px] text-muted-foreground uppercase">
+                                30-day cool-off
+                              </span>
+                              <span
+                                className={`text-[11px] font-bold ${
+                                  dq.coolOff.cleared ? "text-success" : "text-warning"
+                                }`}
+                              >
+                                {dq.coolOff.cleared
+                                  ? `✓ Cleared · closed ${dq.coolOff.daysClosed} days ago`
+                                  : `${dq.coolOff.daysClosed} of 30 days · ${dq.coolOff.daysRemaining} left`}
+                              </span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-muted">
+                              <div
+                                className={`h-full rounded-full ${
+                                  dq.coolOff.cleared ? "bg-success" : "bg-warning"
+                                }`}
+                                style={{
+                                  width: `${Math.min(100, Math.round((dq.coolOff.daysClosed / 30) * 100))}%`,
+                                }}
+                              />
+                            </div>
+                            <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                              <span>Closed {dq.coolOff.closedLabel}</span>
+                              <span>
+                                {dq.coolOff.cleared ? "Cleared" : "Clear to re-work"} {dq.coolOff.clearLabel}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </details>
                     ))}
                   </div>

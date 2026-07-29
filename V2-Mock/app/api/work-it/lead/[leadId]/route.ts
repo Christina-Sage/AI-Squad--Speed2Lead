@@ -79,7 +79,9 @@ export async function GET(
       ]
     : [];
 
-  const score = scoreLead(lead, null);
+  // Pass the linked account bundle so the DQ history + cool-off (and intent
+  // detail) render on the SDR fit card exactly like BDR. Null for standalone leads.
+  const score = scoreLead(lead, accountBundle);
   const hygiene = buildHygieneSuggestions(account, research);
 
   // For-profit firmographics come from ZoomInfo (revenue) + LinkedIn Sales

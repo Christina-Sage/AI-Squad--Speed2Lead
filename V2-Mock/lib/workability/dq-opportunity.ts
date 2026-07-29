@@ -29,7 +29,7 @@ function isDisqualified(opp: Opportunity): boolean {
   return opp.isClosed && (stage.includes("disqualified") || stage.includes("closed lost"));
 }
 
-function reachedDiscovery(opp: Opportunity): boolean {
+export function reachedDiscovery(opp: Opportunity): boolean {
   const furthest = (opp.furthestStage ?? "").toLowerCase();
   return DISCOVERY_OR_LATER.some((s) => furthest.includes(s));
 }
