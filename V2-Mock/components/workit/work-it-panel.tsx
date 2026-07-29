@@ -8,6 +8,7 @@ import { buildAccountNote } from "@/lib/workit/account-note";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
 import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/outreach";
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
+import { ARCHIVE_STATUS_REASONS, OTHER_ARCHIVE_REASON } from "@/lib/workit/archive-lead";
 import { classifyIcpRole, type IcpRole } from "@/lib/research/icp";
 import { buildSalesforceNewContactUrl } from "@/lib/salesforce/urls";
 import { OutreachProspectPanel, type OutreachProspect } from "@/components/workit/outreach-prospect-panel";
@@ -308,6 +309,9 @@ export function WorkItPanel({
   }
   const sequenceGroups = buildSequenceGroups(favorites);
   const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
+  // SDR-only lead disposition (Mark as Archived).
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiveOther, setArchiveOther] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   // The simulated Outreach prospect panel, opened right after a successful push.
@@ -459,6 +463,32 @@ export function WorkItPanel({
       returnToWorklist(accountId);
     } catch {
       toast("Failed to mark Not a Fit");
+      setBusy(null);
+    }
+  }
+
+  async function archiveLead() {
+    setBusy("archive");
+    try {
+      const res = await fetch("/api/archive-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          reason: archiveReason,
+          otherReason: archiveOther,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast(data.error ?? "Failed to archive lead");
+        setBusy(null);
+        return;
+      }
+      toast(`Archived — ${archiveReason}`);
+      returnToWorklist(accountId);
+    } catch {
+      toast("Failed to archive lead");
       setBusy(null);
     }
   }
@@ -903,31 +933,86 @@ export function WorkItPanel({
         )}
       </Card>
 
-      <Card title="Not the right account?" sub="Mark it worked without pushing — logged with a reason">
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={notFitReason}
-            onChange={(e) => setNotFitReason(e.target.value)}
-            className="rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
-          >
-            {NOT_A_FIT_REASONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={markNotAFit}
-            disabled={busy === "notfit"}
-            className="rounded-[9px] border border-destructive bg-transparent px-4 py-2 text-[13.5px] font-semibold text-destructive hover:bg-destructive-bg disabled:opacity-45"
-          >
-            {busy === "notfit" ? "Marking…" : "Mark “Not a Fit”"}
-          </button>
-          <span className="text-[12.5px] text-muted-foreground">
-            Removes it from today’s worklist — no outreach sent.
-          </span>
-        </div>
-      </Card>
+      {lead ? (
+        // SDR: archive the lead with a Status Reason (+ optional detail).
+        <Card title="Not the right lead?" sub="Archive it with a reason — no outreach sent">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={archiveLead}
+              disabled={
+                busy === "archive" ||
+                archiveReason === "" ||
+                (archiveReason === OTHER_ARCHIVE_REASON && archiveOther.trim() === "")
+              }
+              className="rounded-[9px] border border-destructive bg-transparent px-4 py-2 text-[13.5px] font-semibold text-destructive hover:bg-destructive-bg disabled:opacity-45"
+            >
+              {busy === "archive" ? "Archiving…" : "Mark as Archived"}
+            </button>
+            <div className="min-w-[220px] flex-1">
+              <label className="mb-1 block text-[11px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
+                Status Reason
+              </label>
+              <select
+                value={archiveReason}
+                onChange={(e) => setArchiveReason(e.target.value)}
+                className="w-full rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
+              >
+                <option value="">--None--</option>
+                {ARCHIVE_STATUS_REASONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className="basis-full text-[12.5px] text-muted-foreground">
+              Removes it from today’s worklist — no outreach sent.
+            </span>
+          </div>
+          {archiveReason !== "" && (
+            <div className="mt-3.5">
+              <label className="mb-1 block text-[11px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
+                Other Archive Reason{" "}
+                {archiveReason === OTHER_ARCHIVE_REASON && (
+                  <span className="text-destructive">*</span>
+                )}
+              </label>
+              <textarea
+                value={archiveOther}
+                onChange={(e) => setArchiveOther(e.target.value)}
+                placeholder="Add detail for the archive reason…"
+                className="min-h-[70px] w-full rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
+              />
+            </div>
+          )}
+        </Card>
+      ) : (
+        <Card title="Not the right account?" sub="Mark it worked without pushing — logged with a reason">
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={notFitReason}
+              onChange={(e) => setNotFitReason(e.target.value)}
+              className="rounded-[9px] border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground"
+            >
+              {NOT_A_FIT_REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={markNotAFit}
+              disabled={busy === "notfit"}
+              className="rounded-[9px] border border-destructive bg-transparent px-4 py-2 text-[13.5px] font-semibold text-destructive hover:bg-destructive-bg disabled:opacity-45"
+            >
+              {busy === "notfit" ? "Marking…" : "Mark “Not a Fit”"}
+            </button>
+            <span className="text-[12.5px] text-muted-foreground">
+              Removes it from today’s worklist — no outreach sent.
+            </span>
+          </div>
+        </Card>
+      )}
 
       {outreachPanel && (
         <OutreachProspectPanel
