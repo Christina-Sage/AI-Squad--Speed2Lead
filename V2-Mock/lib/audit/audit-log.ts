@@ -22,7 +22,8 @@ export interface AuditLogEntry {
     | "ADD_CONTACT"
     | "APPLY_HYGIENE"
     | "PUSH_OUTREACH"
-    | "NOT_A_FIT";
+    | "NOT_A_FIT"
+    | "ARCHIVE_LEAD";
   assignmentDetails?: Record<string, unknown> | null;
 }
 

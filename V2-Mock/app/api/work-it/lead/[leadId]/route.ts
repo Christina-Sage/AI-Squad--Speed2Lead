@@ -25,10 +25,13 @@ export async function GET(
 ) {
   const { leadId } = await params;
   const provider = getSalesforceProvider();
-  const lead = await provider.getSdrLead(leadId);
-  if (!lead) {
+  // Bundle so we can surface the linked account's existing contacts (SDR
+  // managers want to see who else is on the account beside the incoming lead).
+  const bundle = await provider.getSdrLeadBundle(leadId);
+  if (!bundle) {
     return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
+  const { lead, accountBundle } = bundle;
 
   const domain = companyDomainFromEmail(lead.email) ?? "";
   const companyName = lead.company ?? lead.name;
@@ -55,12 +58,30 @@ export async function GET(
     intacct: { hasOpenOpps: false },
   };
 
+  // Research against the linked account's real leads/contacts (when present) so
+  // research finds are correctly flagged already-in-Salesforce.
+  const accountContacts = accountBundle?.contacts ?? [];
+  const accountLeads = accountBundle?.leads ?? [];
   const [research, workItState] = await Promise.all([
-    researchAccount(account, [], []),
+    researchAccount(account, accountLeads, accountContacts),
     provider.getWorkItState(lead.id),
   ]);
 
-  const score = scoreLead(lead, null);
+  // Existing Contacts (SDR): the linked account's contacts + other leads,
+  // excluding the incoming lead itself. Empty when the lead has no linked
+  // account — the card then stays hidden on the SDR side.
+  const existingRecords = accountBundle
+    ? [
+        ...accountContacts.map((c) => ({ name: c.name, title: c.title, kind: "Contact" as const })),
+        ...accountLeads
+          .filter((l) => l.id !== lead.id)
+          .map((l) => ({ name: l.name, title: l.title, kind: "Lead" as const })),
+      ]
+    : [];
+
+  // Pass the linked account bundle so the DQ history + cool-off (and intent
+  // detail) render on the SDR fit card exactly like BDR. Null for standalone leads.
+  const score = scoreLead(lead, accountBundle);
   const hygiene = buildHygieneSuggestions(account, research);
 
   // For-profit firmographics come from ZoomInfo (revenue) + LinkedIn Sales
@@ -113,7 +134,7 @@ export async function GET(
     sequences: SEQUENCES,
     signals,
     foundContacts,
-    existingRecords: [],
+    existingRecords,
     workItState,
   });
 }

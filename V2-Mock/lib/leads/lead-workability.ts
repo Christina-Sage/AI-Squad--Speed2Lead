@@ -9,6 +9,7 @@ import {
 } from "@/lib/workability/engine";
 import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
 import { isExpiredTam } from "@/lib/workability/customer-tam";
+import { opportunityAge } from "@/lib/workability/open-opportunity";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 
@@ -182,10 +183,25 @@ export function evaluateLeadWorkability(
   let openOpp: DedupeCheck;
   if (!acct) {
     openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "na", "No linked account — check not applicable");
-  } else if (acct.open_opportunity_status === "FAIL") {
-    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "fail", acct.open_opportunity_detail.openOpportunities[0]
-      ? `Open opp: "${acct.open_opportunity_detail.openOpportunities[0].name}" on ${account?.name}`
-      : `Open opportunity on ${account?.name}`);
+  } else if (acct.open_opportunity_status !== "PASS") {
+    // Inbound (SDR) leads treat an open opp as review, not a hard block; an
+    // outbound (BDR) view keeps a recent open opp as a fail (the account
+    // workability, computed with this team, already encodes that distinction).
+    const o = acct.open_opportunity_detail.openOpportunities[0];
+    const state: DedupeCheck["state"] = acct.open_opportunity_status === "FAIL" ? "fail" : "warn";
+    // Surface who created (sourced) the open opp, the AE/CE who owns it (the
+    // person to coordinate with), and its age as scannable chips.
+    const openOppFacts: DedupeCheck["facts"] = o
+      ? [
+          { label: "Created by", value: o.createdBy },
+          { label: "Opportunity Owner", value: o.owner },
+          { label: "Age", value: opportunityAge(o.createdDate) },
+        ]
+      : undefined;
+    const detail = state === "fail" ? "active deal; coordinate with the owner before working" : "review before working; coordinate with the owner";
+    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", state, o
+      ? `Open opp: "${o.name}" on ${account?.name} — ${detail}`
+      : `Open opportunity on ${account?.name} — ${detail}`, openOppFacts);
   } else {
     openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "pass", `No open opportunity on ${account?.name}`);
   }
@@ -246,6 +262,17 @@ export function evaluateLeadWorkability(
   // Ordered to mirror the BDR account checklist, with the SDR-only Account
   // Association slotted in after the duplicate check.
   const checks: DedupeCheck[] = [customer, tam, roe, dup, assoc, openOpp, dqOpp, partner];
+
+  // SDR P1 policy: a P1 lead is high-value enough that only a duplicate lead —
+  // a data-integrity block the rep can't work around — sends it to "Don't
+  // work". Every other hard-fail (e.g. ROE conflict, existing-customer account)
+  // is downgraded to review so the lead still surfaces in the In-Review queue
+  // rather than being dropped. Applies to inbound (SDR) leads only.
+  if (team === "SDR" && lead.priorityGroup === "P1") {
+    for (const c of checks) {
+      if (c.state === "fail" && c.key !== "dup") c.state = "warn";
+    }
+  }
 
   const hasFail = checks.some((c) => c.state === "fail");
   // Only real warnings drive review. "na" (an account-level check that can't run

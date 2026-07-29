@@ -12,6 +12,14 @@ vi.mock("@/lib/salesforce/mock/overrides", () => {
   };
 });
 
+// Lead capture persists to Postgres; stub it so tests run DB-free. No captured
+// leads means listSdrLeads returns just the in-code fixtures.
+vi.mock("@/lib/leads/lead-store", () => ({
+  listCapturedLeads: async () => [],
+  getCapturedLead: async () => null,
+  insertCapturedLead: async () => {},
+}));
+
 const { MockSalesforceProvider } = await import("@/lib/salesforce/mock/mock-provider");
 const provider = new MockSalesforceProvider();
 
@@ -67,5 +75,45 @@ describe("MockSalesforceProvider + engine integration", () => {
     const updated = await provider.assignToMe("0015Y00000ACME01", "demo-1", "Demo User");
     expect(updated.ownerName).toBe("Demo User");
     expect(updated.abmNurtureStatus).toBe("Working");
+  });
+});
+
+describe("MockSalesforceProvider.searchLeads (SDR)", () => {
+  it("finds a lead by its exact Lead ID", async () => {
+    const leads = await provider.listSdrLeads();
+    const target = leads[0];
+    const outcome = await provider.searchLeads(target.id);
+    expect(outcome.matchType).toBe("single");
+    if (outcome.matchType === "single") {
+      expect(outcome.lead.id).toBe(target.id);
+      expect(outcome.lead.name).toBe(target.name);
+    }
+  });
+
+  it("finds a lead by name (case-insensitive, partial)", async () => {
+    const leads = await provider.listSdrLeads();
+    const target = leads[0];
+    const outcome = await provider.searchLeads(target.name.toLowerCase());
+    expect(outcome.matchType === "single" || outcome.matchType === "multiple").toBe(true);
+    const ids =
+      outcome.matchType === "single"
+        ? [outcome.lead.id]
+        : outcome.matchType === "multiple"
+          ? outcome.matches.map((m) => m.id)
+          : [];
+    expect(ids).toContain(target.id);
+  });
+
+  it("finds a lead by work email when present", async () => {
+    const leads = await provider.listSdrLeads();
+    const withEmail = leads.find((l) => l.email);
+    if (!withEmail) return; // fixtures may not include an emailed lead
+    const outcome = await provider.searchLeads(withEmail.email!);
+    expect(outcome.matchType).not.toBe("none");
+  });
+
+  it("returns none for an account id (leads and accounts are separate)", async () => {
+    const outcome = await provider.searchLeads("0015Y00002ABC123");
+    expect(outcome.matchType).toBe("none");
   });
 });

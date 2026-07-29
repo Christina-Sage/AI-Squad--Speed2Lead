@@ -3,6 +3,7 @@ import type { WorkabilityResult } from "@/lib/workability/engine";
 import { getCompanyIntel } from "@/lib/research/company-intel";
 import { computeSegment } from "@/lib/scoring/segment";
 import { seededResearchContacts } from "@/lib/research/seeded-contacts";
+import { DQ_COOLING_OFF_DAYS, reachedDiscovery } from "@/lib/workability/dq-opportunity";
 
 export interface ScoreSignal {
   label: string;
@@ -55,16 +56,33 @@ export interface IcpContactReading {
   source?: string;
 }
 
+/** 30-day cooling-off state for a DQ'd opp, driving the history card's meter. */
+export interface DqCoolOff {
+  /** Whole days since the opp closed. */
+  daysClosed: number;
+  /** Days left in the 30-day window; 0 once cleared. */
+  daysRemaining: number;
+  cleared: boolean;
+  /** Formatted close date, e.g. "Jul 14". */
+  closedLabel: string;
+  /** Formatted date the cool-off clears (close + 30 days), e.g. "Aug 13". */
+  clearLabel: string;
+}
+
 /** A past disqualified opp, condensed to skimmable notes for a re-work decision. */
 export interface DqOppHistory {
   name: string;
   furthestStage: string;
   /** e.g. "60 days ago"; null when the close date is unknown. */
   closedAgo: string | null;
+  /** Formatted date the opp moved into Discovery (open cycle); null if it never did. */
+  movedToDiscovery: string | null;
   reason: string;
   qualificationNotes?: string;
   problems?: string;
   nextSteps?: string;
+  /** Cool-off meter; null when the opp never reached Discovery or has no close date. */
+  coolOff: DqCoolOff | null;
 }
 
 /**
@@ -366,6 +384,36 @@ function isDisqualifiedOpp(opp: Opportunity): boolean {
   return opp.isClosed && (stage.includes("disqualified") || stage.includes("closed lost"));
 }
 
+/** e.g. "Jul 14, 2026". */
+function fmtDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** e.g. "Jul 14" (no year — used on the compact cool-off ticks). */
+function fmtShort(dateMs: number): string {
+  return new Date(dateMs).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Cool-off meter state for a DQ'd opp that reached Discovery. */
+function computeCoolOff(opp: Opportunity): DqCoolOff | null {
+  const closed = opp.closedDate ?? null;
+  if (!reachedDiscovery(opp) || !closed) return null;
+  const daysClosed = daysSince(closed) ?? 0;
+  const daysRemaining = Math.max(0, DQ_COOLING_OFF_DAYS - daysClosed);
+  const closedMs = new Date(closed).getTime();
+  return {
+    daysClosed,
+    daysRemaining,
+    cleared: daysRemaining === 0,
+    closedLabel: fmtShort(closedMs),
+    clearLabel: fmtShort(closedMs + DQ_COOLING_OFF_DAYS * 24 * 60 * 60 * 1000),
+  };
+}
+
 /** Loose name key for detecting whether a research find is already on file. */
 function normalizeContactName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ");
@@ -415,10 +463,12 @@ function computeWorkabilityDetail(bundle: AccountBundle): WorkabilityDetail {
       name: opp.name,
       furthestStage: opp.furthestStage ?? opp.stage,
       closedAgo: closedDays === null ? null : `${closedDays} day${closedDays === 1 ? "" : "s"} ago`,
+      movedToDiscovery: opp.movedToDiscoveryDate ? fmtDate(opp.movedToDiscoveryDate) : null,
       reason: opp.disqualification?.reason ?? "Reason not recorded",
       qualificationNotes: opp.disqualification?.qualificationNotes,
       problems: opp.disqualification?.problems,
       nextSteps: opp.disqualification?.nextSteps,
+      coolOff: computeCoolOff(opp),
     };
   });
 

@@ -7,6 +7,41 @@ import { DEMO_SDR_LEADS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 // fixture-driven and roughly reconcile to the overall score.
 export const SDR_LEADS: SdrLead[] = [
   {
+    // DQ showcase — Halcyon's DQ'd opp reached Evaluation and closed 15 days
+    // ago, so it's inside the 30-day cool-off: DQ history shows the
+    // Moved-to-Discovery date + a live countdown (verdict: review).
+    id: "00Q5Y00000GRACE1",
+    name: "Grace Halvorsen",
+    title: "Controller",
+    accountId: "0015Y00000HLCN01", // Halcyon Robotics — DQ'd opp within cool-off
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P1",
+    product: "Intacct",
+    fit: 84,
+    intent: 78,
+    workability: 70,
+    score: 79,
+    email: "grace.halvorsen@halcyonrobotics.com",
+  },
+  {
+    // DQ showcase — Meadowlark's DQ'd opp closed 60 days ago, past the 30-day
+    // cool-off: DQ history shows the Moved-to-Discovery date + "✓ Cleared".
+    id: "00Q5Y00000DEVON1",
+    name: "Devon Pryce",
+    title: "Director of Finance",
+    accountId: "0015Y00000MDWL01", // Meadowlark Community Fund — DQ'd opp cleared
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P1",
+    product: "Intacct",
+    fit: 80,
+    intent: 72,
+    workability: 74,
+    score: 76,
+    email: "devon.pryce@meadowlarkfund.org",
+  },
+  {
     id: "00Q5Y00000SARAH1",
     name: "Sarah Chen",
     title: "VP Finance",

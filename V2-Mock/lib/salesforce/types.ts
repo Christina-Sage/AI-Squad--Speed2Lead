@@ -27,6 +27,8 @@ export interface IntacctFields {
   openOppDetails?: {
     name: string;
     owner: string;
+    /** Rep or AE/CE who created (sourced) the opp; omit when the owner sourced it. */
+    createdBy?: string;
     stage: string;
     createdDate: string;
   }[];
@@ -130,11 +132,23 @@ export interface Opportunity {
   accountId: string;
   ownerId: string;
   ownerName: string;
+  /**
+   * Rep or AE/CE who created (sourced) the opp. May differ from the owner — a
+   * BDR/SDR/ABX rep often sources a deal that an AE/CE then owns. Omit when the
+   * owner sourced their own deal (createdBy === ownerName).
+   */
+  createdBy?: string;
   stage: string;
   isClosed: boolean;
   createdDate: string;
   /** Furthest stage the opp reached before closing — drives the DQ cooling-off rule. */
   furthestStage?: string;
+  /**
+   * Date the opp moved into Discovery (an open, active stage) — stamped on the
+   * DQ'd opp in Salesforce Classic. Always earlier than `closedDate`. Present on
+   * any DQ'd opp that reached Discovery; absent on opps that closed before it.
+   */
+  movedToDiscoveryDate?: string | null;
   closedDate?: string | null;
   /** Present on disqualified opps — the skimmable history shown when re-working. */
   disqualification?: DisqualificationNotes;

@@ -45,9 +45,9 @@ export default async function Home({
   const product = getCurrentProduct(cookieStore.get(PRODUCT_COOKIE)?.value);
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
 
-  // Today's worked accounts (pushed / not-a-fit), derived from the audit log.
+  // Today's worked accounts (pushed / not-a-fit / archived), from the audit log.
   const worked = await getWorkedToday(demoUser.id);
-  const workedMap: Record<string, "pushed" | "not_fit"> = Object.fromEntries(
+  const workedMap: Record<string, "pushed" | "not_fit" | "archived"> = Object.fromEntries(
     Array.from(worked, ([id, entry]) => [id, entry.outcome]),
   );
   const justWorkedId = (await searchParams).worked ?? null;
@@ -185,9 +185,9 @@ export default async function Home({
         </p>
         <div className="mx-auto mt-5 flex max-w-[640px] items-start gap-2">
           <div className="flex-1">
-            <SearchForm />
+            <SearchForm team={team} />
           </div>
-          <AccountImport />
+          <AccountImport team={team} />
         </div>
       </div>
 

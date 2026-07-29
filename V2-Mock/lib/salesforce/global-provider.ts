@@ -28,6 +28,7 @@ import type {
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { DuplicateMatch } from "@/lib/workability/duplicate";
 import type {
+  LeadSearchOutcome,
   NewContactInput,
   SalesforceProvider,
   SearchOutcome,
@@ -268,6 +269,9 @@ export class GlobalSalesforceProvider implements SalesforceProvider {
   // --- App-local / phase-2 capabilities: wire against your org when you reach them. ---
   async findDuplicateAccounts(): Promise<DuplicateMatch[]> {
     notWired("findDuplicateAccounts");
+  }
+  async searchLeads(): Promise<LeadSearchOutcome> {
+    notWired("searchLeads");
   }
   async listSdrLeads(): Promise<SdrLeadListItem[]> {
     notWired("listSdrLeads");

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSalesforceProvider, detectSearchType } from "@/lib/salesforce/provider";
+import {
+  getSalesforceProvider,
+  detectSearchType,
+  detectLeadSearchType,
+} from "@/lib/salesforce/provider";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { writeAuditLog } from "@/lib/audit/audit-log";
@@ -14,27 +18,37 @@ export async function POST(request: Request) {
   }
 
   const provider = getSalesforceProvider();
-  const searchType = detectSearchType(query);
-  const outcome = await provider.search(query);
-
   const cookieStore = await cookies();
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
 
-  if (outcome.matchType === "single") {
-    return NextResponse.json({ matchType: "single", accountId: outcome.account.id });
-  }
-
-  if (outcome.matchType === "multiple") {
+  // SDR works Leads — resolve the query against the lead worklist and open the
+  // lead. BDR works Accounts — the account path below. A "single" hit skips the
+  // audit log (it opens straight into the record), matching the account path.
+  if (team === "SDR") {
+    const outcome = await provider.searchLeads(query);
+    if (outcome.matchType === "single") {
+      return NextResponse.json({ matchType: "single", kind: "lead", id: outcome.lead.id });
+    }
     await writeAuditLog({
       userId: demoUser.id,
       userName: demoUser.name,
       team,
       searchInput: query,
-      searchType,
+      searchType: detectLeadSearchType(query),
       action: "SEARCH",
     });
-    return NextResponse.json({ matchType: "multiple", matches: outcome.matches });
+    if (outcome.matchType === "multiple") {
+      return NextResponse.json({ matchType: "multiple", kind: "lead", matches: outcome.matches });
+    }
+    return NextResponse.json({ matchType: "none", kind: "lead" });
+  }
+
+  const searchType = detectSearchType(query);
+  const outcome = await provider.search(query);
+
+  if (outcome.matchType === "single") {
+    return NextResponse.json({ matchType: "single", kind: "account", id: outcome.account.id });
   }
 
   await writeAuditLog({
@@ -45,5 +59,10 @@ export async function POST(request: Request) {
     searchType,
     action: "SEARCH",
   });
-  return NextResponse.json({ matchType: "none" });
+
+  if (outcome.matchType === "multiple") {
+    return NextResponse.json({ matchType: "multiple", kind: "account", matches: outcome.matches });
+  }
+
+  return NextResponse.json({ matchType: "none", kind: "account" });
 }

@@ -5,12 +5,36 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DisambiguationList, type DisambiguationMatch } from "@/components/search/disambiguation-list";
+import type { Team } from "@/lib/teams";
 
-export function SearchForm() {
+// Role-specific search copy. BDR analyzes Accounts, SDR analyzes Leads — each
+// only works its own object, so the button, placeholder, and examples follow.
+function searchConfig(team: Team) {
+  if (team === "SDR") {
+    return {
+      kind: "lead" as const,
+      action: "Analyze Lead",
+      placeholder: "Enter Lead ID, work email, or lead name",
+      examples: "00Q5Y00001Ab2Cd · jordan@acme.com · Jordan Lee",
+      noun: "lead",
+    };
+  }
+  return {
+    kind: "account" as const,
+    action: "Analyze Account",
+    placeholder: "Enter Website/Domain, Global Account ID, or Account Name",
+    examples: "abc.org · 0015Y00002ABC123 · ABC Foundation",
+    noun: "account",
+  };
+}
+
+export function SearchForm({ team }: { team: Team }) {
+  const cfg = searchConfig(team);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [matches, setMatches] = useState<DisambiguationMatch[] | null>(null);
+  const [matchKind, setMatchKind] = useState<"account" | "lead">(cfg.kind);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,14 +51,15 @@ export function SearchForm() {
         body: JSON.stringify({ query }),
       });
       const data = await res.json();
+      const kind: "account" | "lead" = data.kind === "lead" ? "lead" : "account";
 
       if (data.matchType === "single") {
         // Open the result inline in the worklist feed (build-plan step 7). The
-        // WorklistExplorer listens for this event; the standalone /account route
-        // still resolves for pasted/bookmarked links (step 8).
+        // WorklistExplorer listens for this event; the standalone /account and
+        // /lead routes still resolve for pasted/bookmarked links (step 8).
         window.dispatchEvent(
           new CustomEvent("dedupe:open-detail", {
-            detail: { kind: "account", id: data.accountId, label: query },
+            detail: { kind, id: data.id, label: query },
           }),
         );
         setQuery("");
@@ -42,11 +67,12 @@ export function SearchForm() {
       }
 
       if (data.matchType === "multiple") {
+        setMatchKind(kind);
         setMatches(data.matches);
         return;
       }
 
-      setError(`No account found for "${query}".`);
+      setError(`No ${cfg.noun} found for "${query}".`);
     } catch {
       setError("Something went wrong while searching. Please try again.");
     } finally {
@@ -64,19 +90,17 @@ export function SearchForm() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter Website/Domain, Global Account ID, or Account Name"
+          placeholder={cfg.placeholder}
           className="h-9 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
         />
         <Button type="submit" disabled={loading} size="lg" className="rounded-[9px] px-5">
-          {loading ? "Analyzing..." : "Analyze Account"}
+          {loading ? "Analyzing..." : cfg.action}
         </Button>
       </form>
-      <p className="text-center text-xs text-muted-foreground">
-        Examples: abc.org &middot; 0015Y00002ABC123 &middot; ABC Foundation
-      </p>
+      <p className="text-center text-xs text-muted-foreground">Examples: {cfg.examples}</p>
 
       {error && <p className="text-center text-sm text-destructive">{error}</p>}
-      {matches && <DisambiguationList matches={matches} originalQuery={query} />}
+      {matches && <DisambiguationList matches={matches} originalQuery={query} kind={matchKind} />}
     </div>
   );
 }
