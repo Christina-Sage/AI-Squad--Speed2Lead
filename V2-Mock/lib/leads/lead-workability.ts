@@ -225,8 +225,13 @@ export function evaluateLeadWorkability(
   let dqOpp: DedupeCheck;
   if (acct && acct.dq_opportunity_status === "REVIEW") {
     dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "warn", acct.dq_opportunity_detail.reason);
+  } else if (acct) {
+    // Mirror the BDR reason so a cleared/past-cooling-off DQ opp is acknowledged
+    // (e.g. "…closed 60+ days, past the cooling-off — clear to re-work"), instead
+    // of implying there was never a DQ opp — which conflicted with the DQ history.
+    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", acct.dq_opportunity_detail.reason);
   } else {
-    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", "No disqualified opportunity within the cooling-off window");
+    dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", "No linked account — no disqualified opportunity to check");
   }
 
   // 7. Partner relationship — flags for review (coordinate with the channel)
