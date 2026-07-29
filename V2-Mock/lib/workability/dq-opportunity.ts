@@ -41,10 +41,12 @@ function daysSince(dateString: string, now: Date): number {
 
 /**
  * Disqualified-opportunity rule: a DQ'd opp does NOT make an account
- * unworkable. It only flags the account for review while the opp is still
- * within the 30-day cooling-off after close (and only if it reached Discovery
- * or later). Once the opp has been closed for 30+ days — or never reached
- * Discovery — the account is clear to re-work.
+ * unworkable, but ANY DQ'd opp on record flags it for review — there is a
+ * disqualified-opportunity history the rep should read before re-working, so
+ * the check and that history always agree. A still-within-cooling-off opp adds
+ * the 30-day countdown; a cleared one (or one that never reached Discovery)
+ * still reviews, just with a "clear to re-work — review the history" note.
+ * PASS only when there was never a DQ'd opp (and so no history to show).
  */
 export function evaluateDqOpportunities(
   opportunities: Opportunity[],
@@ -56,13 +58,12 @@ export function evaluateDqOpportunities(
     return { status: "PASS", reason: "No disqualified opportunity on record", reviewOpportunities: [] };
   }
 
+  // Opps still inside the 30-day cooling-off (reached Discovery) carry the
+  // countdown; collect them for the detail/facts.
   const review: DqOppDetail[] = [];
-  let clearNote: string | null = null;
-
   for (const opp of dqOpps) {
     const closed = opp.closedDate ?? opp.createdDate;
     const days = closed ? daysSince(closed, now) : Infinity;
-
     if (reachedDiscovery(opp) && days < DQ_COOLING_OFF_DAYS) {
       review.push({
         name: opp.name,
@@ -71,27 +72,23 @@ export function evaluateDqOpportunities(
         closedDate: opp.closedDate ?? null,
         daysRemaining: Math.max(0, Math.ceil(DQ_COOLING_OFF_DAYS - days)),
       });
-    } else {
-      const d = Number.isFinite(days) ? Math.floor(days) : null;
-      clearNote = reachedDiscovery(opp)
-        ? `DQ'd opp reached ${opp.furthestStage ?? "Discovery"} but has been closed ${d}+ days (past the ${DQ_COOLING_OFF_DAYS}-day cooling-off) — clear to re-work`
-        : `DQ'd ${d !== null ? `${d} days ago ` : ""}and never reached Discovery — clear to re-work`;
     }
   }
 
+  let reason: string;
   if (review.length > 0) {
     const r = review[0];
     const closedDaysAgo = DQ_COOLING_OFF_DAYS - r.daysRemaining;
-    return {
-      status: "REVIEW",
-      reason: `Opp reached ${r.furthestStage}, DQ'd and closed ${closedDaysAgo} day${closedDaysAgo === 1 ? "" : "s"} ago — verify it has been closed ${DQ_COOLING_OFF_DAYS} days before re-working (${r.daysRemaining} day${r.daysRemaining === 1 ? "" : "s"} left)`,
-      reviewOpportunities: review,
-    };
+    reason = `Opp reached ${r.furthestStage}, DQ'd and closed ${closedDaysAgo} day${closedDaysAgo === 1 ? "" : "s"} ago — verify it has been closed ${DQ_COOLING_OFF_DAYS} days before re-working (${r.daysRemaining} day${r.daysRemaining === 1 ? "" : "s"} left)`;
+  } else {
+    const opp = dqOpps[0];
+    const closed = opp.closedDate ?? null;
+    const d = closed ? Math.floor(daysSince(closed, now)) : null;
+    reason = reachedDiscovery(opp)
+      ? `DQ'd opp reached ${opp.furthestStage ?? "Discovery"}, closed ${d !== null ? `${d} days ago ` : ""}— past the ${DQ_COOLING_OFF_DAYS}-day cooling-off; review the DQ history before re-working`
+      : `DQ'd opp closed ${d !== null ? `${d} days ago ` : ""}— never reached Discovery; review the DQ history before re-working`;
   }
 
-  return {
-    status: "PASS",
-    reason: clearNote ?? "No disqualified opportunity within the cooling-off window",
-    reviewOpportunities: [],
-  };
+  // Any DQ'd opp on record -> review (it has history worth reading).
+  return { status: "REVIEW", reason, reviewOpportunities: review };
 }
