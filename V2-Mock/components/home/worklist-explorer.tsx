@@ -6,6 +6,8 @@ import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
 import { AccountFocusView } from "@/components/workit/account-focus-view";
 import { LeadFocusView } from "@/components/workit/lead-focus-view";
+import { SavedWorklistPicker, SavedWorklistBar } from "@/components/home/saved-worklists";
+import type { SavedWorklistView } from "@/lib/worklists/saved";
 
 export interface AccountRow {
   id: string;
@@ -167,6 +169,9 @@ export function WorklistExplorer({
   blockedLeadRows = [],
   workedMap = {},
   justWorkedId = null,
+  savedLists = [],
+  selectedListId = null,
+  worklistAccountIds = [],
 }: {
   mode: "accounts" | "leads";
   team: string;
@@ -179,6 +184,9 @@ export function WorklistExplorer({
   blockedLeadRows?: BlockedLeadRow[];
   workedMap?: Record<string, "pushed" | "not_fit">;
   justWorkedId?: string | null;
+  savedLists?: SavedWorklistView[];
+  selectedListId?: string | null;
+  worklistAccountIds?: string[];
 }) {
   const [focus, setFocus] = useState<Focus | null>(null);
   // Guards against out-of-order fetches when the focus changes mid-request.
@@ -375,6 +383,9 @@ export function WorklistExplorer({
   // An active import filters the account worklist to the matched ids (and forces
   // the account view even from SDR mode, since it's an account list).
   const importActive = importIds !== null;
+  const selectedList = selectedListId
+    ? savedLists.find((l) => l.id === selectedListId) ?? null
+    : null;
   const acctVisible = (id: string) => !importActive || importIds!.has(id);
   // Motion filter is layered on top of the import filter. Partner (VAR) counts
   // are taken before the motion filter so the toggle always shows the full split.
@@ -518,6 +529,11 @@ export function WorklistExplorer({
               direct={directCount}
               partner={partnerCount}
             />
+            <SavedWorklistPicker
+              savedLists={savedLists}
+              selectedListId={selectedListId}
+              saveAccountIds={importActive ? [...importIds!] : worklistAccountIds}
+            />
             <span className="text-[12px] text-muted-foreground">
               {partnerCount > 0
                 ? `${partnerCount} In Review (~${Math.round(
@@ -527,6 +543,8 @@ export function WorklistExplorer({
             </span>
           </div>
         )}
+
+        {!isLeads && selectedList && <SavedWorklistBar list={selectedList} />}
 
         {justWorkedName && (
           <div className="flex items-center gap-2.5 border-b border-border bg-primary-soft px-5 py-3 text-[13px]">

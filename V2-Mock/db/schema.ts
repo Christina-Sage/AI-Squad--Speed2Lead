@@ -23,6 +23,27 @@ export const auditLog = pgTable("audit_log", {
   assignmentDetails: jsonb("assignment_details"),
 });
 
+// Saved Worklists: a BDR saves an uploaded campaign list (Tradeshow, Former DQ,
+// …) with a name and an expiration date, then works it over time. A list is
+// per-user (private). It leaves the active picker when every account in it has
+// been worked (derived from the audit log) or when it is archived; expiry and
+// archival are purged after a grace period. accountIds is the saved membership.
+export const savedWorklists = pgTable("saved_worklists", {
+  id: text("id").primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  // Optional campaign/source label (e.g. "Tradeshow", "DQ recycle").
+  source: text("source"),
+  accountIds: jsonb("account_ids").notNull(),
+
+  // Null = no expiry. On this date the list is archived, then purged after a grace period.
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  // Set when the list is archived (manually, or auto once fully worked).
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+});
+
 // Persists "Assign to Me" mutations on top of the in-memory mock fixtures.
 // Needed because the in-memory store is per-serverless-instance: without this,
 // an assignment made by one Lambda invocation is invisible to the next request
