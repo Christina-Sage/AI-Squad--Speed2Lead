@@ -145,7 +145,11 @@ export class MockSalesforceProvider implements SalesforceProvider {
   async listAccounts(): Promise<AccountListItem[]> {
     const store = getMockStore();
     const overrides = await getAllOverrides();
-    return Array.from(store.accounts.values()).map((account) => {
+    return Array.from(store.accounts.values())
+      // Accounts flagged worklistHidden exist only to back a lead-level checklist
+      // state; they stay resolvable by id but never enter the account worklist.
+      .filter((account) => !account.worklistHidden)
+      .map((account) => {
       const resolved = applyOverride(account, overrides.get(account.id));
       return {
         ...toMatch(resolved),

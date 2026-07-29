@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useToast } from "@/components/ui/toaster";
 import type { DedupeCheck, FinalStatus } from "@/lib/workability/engine";
 
@@ -82,24 +82,31 @@ export function DedupeChecklist({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [revealed, setRevealed] = useState(0);
-  const [done, setDone] = useState(false);
+  const [revealedState, setRevealed] = useState(0);
+  const [doneState, setDone] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
   const ok = finalStatus !== "NOT WORKABLE";
 
+  // Whether this entity's checklist has already animated in a previous view
+  // (sessionStorage). Read through an external store so we can skip the
+  // animation during render instead of syncing it into state from an effect.
+  // getServerSnapshot returns false so SSR/hydration always start "not analyzed".
+  const alreadyAnalyzed = useSyncExternalStore(
+    () => () => {},
+    () => sessionStorage.getItem(analyzedKey(accountId)) === "1",
+    () => false,
+  );
+
   useEffect(() => {
-    const already = sessionStorage.getItem(analyzedKey(accountId)) === "1";
-    if (already) {
-      setRevealed(checks.length);
-      setDone(true);
-      return;
-    }
+    // Already animated once — nothing to schedule; the derived values below
+    // reveal every check immediately.
+    if (alreadyAnalyzed) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    checks.forEach((_, i) => {
+    for (let i = 0; i < checks.length; i++) {
       timers.push(setTimeout(() => setRevealed(i + 1), CHECK_BASE_DELAY_MS + i * CHECK_STEP_MS));
-    });
+    }
     timers.push(
       setTimeout(() => {
         setDone(true);
@@ -107,7 +114,11 @@ export function DedupeChecklist({
       }, CHECK_BASE_DELAY_MS + checks.length * CHECK_STEP_MS + VERDICT_EXTRA_MS),
     );
     return () => timers.forEach(clearTimeout);
-  }, [accountId, checks.length]);
+  }, [accountId, checks.length, alreadyAnalyzed]);
+
+  // A previously-analyzed entity shows fully revealed and done on first render.
+  const revealed = alreadyAnalyzed ? checks.length : revealedState;
+  const done = alreadyAnalyzed || doneState;
 
   async function assignToMe() {
     setAssigning(true);

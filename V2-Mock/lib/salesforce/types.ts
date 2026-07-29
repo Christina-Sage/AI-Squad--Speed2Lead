@@ -60,6 +60,13 @@ export interface Account {
   abmNurtureStatus: string | null;
   lastActivityDate: string | null;
   intacct: IntacctFields;
+  /**
+   * Demo-only: keep this account out of the account (BDR) worklist enumeration
+   * (`listAccounts`). It stays resolvable by id via `getAccountBundle`, so an SDR
+   * lead can still link to it — used for accounts that exist purely to exercise a
+   * lead-level checklist state without appearing in the account worklist.
+   */
+  worklistHidden?: boolean;
 }
 
 export interface Lead {
