@@ -8,7 +8,6 @@ import {
   type FinalStatus,
 } from "@/lib/workability/engine";
 import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
-import { isExpiredTam } from "@/lib/workability/customer-tam";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 
@@ -157,23 +156,19 @@ export function evaluateLeadWorkability(
     roe = chk("roe", "ROE", roeQuestion, "pf", "pass", "Lead unassigned (House); account-level ROE not applicable");
   }
 
-  // 3b. TAM — does the linked account fall within team territory? Mirrors the
-  // BDR TAM check; warns on an expired Intacct TAM, N/A without a linked account.
+  // 3b. TAM — SDR "Can I work this lead?" territory check. Keyed purely on
+  // whether the linked account carries a TAM: any TAM (active or expired) means
+  // the account is already assigned to a territory, so flag for review; no TAM
+  // means it's open, so pass; no linked account at all is N/A (nothing to
+  // validate). This differs from the BDR account TAM check, which is unchanged.
   let tam: DedupeCheck;
   const tamQuestion = "Does the account fall within your territory?";
   if (!account || !acct) {
     tam = chk("tam", "TAM", tamQuestion, "pf", "na", "No linked account — territory can't be validated");
-  } else if (isExpiredTam(account.tam) && acct.customer_status === "PASS") {
+  } else if (account.tam !== null) {
     tam = chk("tam", "TAM", tamQuestion, "pf", "warn", `TAM: ${account.tam} on ${account.name} — verify before working`);
   } else {
-    tam = chk(
-      "tam",
-      "TAM",
-      tamQuestion,
-      "pf",
-      "pass",
-      account.tam === null ? "TAM: Blank — falls within team territory" : `TAM: ${account.tam}`,
-    );
+    tam = chk("tam", "TAM", tamQuestion, "pf", "pass", "No TAM on the linked account — nothing to reconcile");
   }
 
   // 4. Open opportunity on the linked account.
