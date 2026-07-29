@@ -114,7 +114,7 @@ export function WorklistExplorer({
   leadRows?: LeadRow[];
   blockedRows?: BlockedRow[];
   blockedLeadRows?: BlockedLeadRow[];
-  workedMap?: Record<string, "pushed" | "not_fit">;
+  workedMap?: Record<string, "pushed" | "not_fit" | "archived">;
   justWorkedId?: string | null;
 }) {
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -302,8 +302,10 @@ export function WorklistExplorer({
   // click handler) but sink to the bottom visually via CSS `order`, and unworked
   // rows re-rank 1..N. A lead counts worked if it — or its linked account — was
   // worked today (working the account works the lead).
-  const leadOutcome = (l: LeadRow): "pushed" | "not_fit" | undefined =>
+  const leadOutcome = (l: LeadRow): "pushed" | "not_fit" | "archived" | undefined =>
     workedMap[l.id] ?? (l.accountId ? workedMap[l.accountId] : undefined);
+  const outcomeLabel = (o: "pushed" | "not_fit" | "archived") =>
+    o === "pushed" ? "Worked · Pushed" : o === "archived" ? "Worked · Archived" : "Worked · Not a fit";
 
   // An active import filters the account worklist to the matched ids (and forces
   // the account view even from SDR mode, since it's an account list).
@@ -439,7 +441,12 @@ export function WorklistExplorer({
             <span className="font-heading text-[15px] font-black text-primary">✓</span>
             <div>
               <b>{justWorkedName}</b> worked —{" "}
-              {justWorkedOutcome === "not_fit" ? "marked Not a Fit" : "pushed to Outreach"}.{" "}
+              {justWorkedOutcome === "not_fit"
+                ? "marked Not a Fit"
+                : justWorkedOutcome === "archived"
+                  ? "archived"
+                  : "pushed to Outreach"}
+              .{" "}
               {nextUpName ? (
                 <>
                   Next up: <b>{nextUpName}</b>.
@@ -496,7 +503,7 @@ export function WorklistExplorer({
                     </div>
                     {leadOutcome(lead) ? (
                       <span className="rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
-                        {leadOutcome(lead) === "pushed" ? "Worked · Pushed" : "Worked · Not a fit"}
+                        {outcomeLabel(leadOutcome(lead)!)}
                       </span>
                     ) : (
                       <>
@@ -555,7 +562,7 @@ export function WorklistExplorer({
                   </div>
                   {workedMap[acct.id] ? (
                     <span className="rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
-                      {workedMap[acct.id] === "pushed" ? "Worked · Pushed" : "Worked · Not a fit"}
+                      {outcomeLabel(workedMap[acct.id]!)}
                     </span>
                   ) : (
                     <>

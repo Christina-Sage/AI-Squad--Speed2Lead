@@ -2,7 +2,7 @@ import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditLog } from "@/db/schema";
 
-export type WorkedOutcome = "pushed" | "not_fit";
+export type WorkedOutcome = "pushed" | "not_fit" | "archived";
 
 export interface WorkedEntry {
   outcome: WorkedOutcome;
@@ -12,7 +12,7 @@ export interface WorkedEntry {
 // A record counts as "worked" once it's been pushed to Outreach or marked Not
 // a Fit. Both actions live in the audit log, so worked-state needs no schema
 // change and no extra table (locked decision).
-const WORKED_ACTIONS = ["PUSH_OUTREACH", "NOT_A_FIT"];
+const WORKED_ACTIONS = ["PUSH_OUTREACH", "NOT_A_FIT", "ARCHIVE_LEAD"];
 
 function startOfToday(): Date {
   const d = new Date();
@@ -48,7 +48,12 @@ export async function getWorkedToday(userId: string): Promise<Map<string, Worked
     // most recent — later (older) rows for the same account are skipped.
     if (!row.accountId || worked.has(row.accountId)) continue;
     worked.set(row.accountId, {
-      outcome: row.action === "NOT_A_FIT" ? "not_fit" : "pushed",
+      outcome:
+        row.action === "NOT_A_FIT"
+          ? "not_fit"
+          : row.action === "ARCHIVE_LEAD"
+            ? "archived"
+            : "pushed",
       reason: row.reason ?? null,
     });
   }
