@@ -1,5 +1,6 @@
 import type { Account } from "@/lib/salesforce/types";
 import { DEMO_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
+import { VAR_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/var-leads";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 
 export const ACCOUNTS: Account[] = [
@@ -328,4 +329,8 @@ export const ACCOUNTS: Account[] = [
   // Generated per-product demo accounts (20 per product line) so every Product
   // filter shows a populated worklist and blocked list. See demo-accounts.ts.
   ...DEMO_ACCOUNTS,
+
+  // VAR (partner) accounts backing the SDR showcase leads — worklistHidden, so
+  // they stay resolvable by id without appearing in the BDR account worklist.
+  ...VAR_ACCOUNTS,
 ];

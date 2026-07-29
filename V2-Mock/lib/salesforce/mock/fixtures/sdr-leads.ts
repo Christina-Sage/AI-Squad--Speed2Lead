@@ -1,5 +1,6 @@
 import type { SdrLead } from "@/lib/leads/types";
 import { DEMO_SDR_LEADS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
+import { VAR_SDR_LEADS } from "@/lib/salesforce/mock/fixtures/var-leads";
 
 // Mock SDR worklist leads (build-plan step 5). Mirrors the existing accounts and
 // includes one lead with no account (James O'Brien) to exercise the subline and
@@ -139,4 +140,8 @@ export const SDR_LEADS: SdrLead[] = [
   // Generated per-product demo leads (10 per product line) exercising a spread
   // of "Can I work this lead?" outcomes. See demo-accounts.ts.
   ...DEMO_SDR_LEADS,
+
+  // VAR (partner) showcase leads — 5 per product, each linked to a found
+  // partner account so they flag In Review with a partner chip. See var-leads.ts.
+  ...VAR_SDR_LEADS,
 ];
