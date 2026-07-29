@@ -18,6 +18,14 @@ export interface AccountRow {
   intent: number;
   workability: number;
   priority: number;
+  /** Partner (VAR) motion: true when a partner relationship is identified. */
+  hasPartner: boolean;
+  /** Where the partner relationship was found — drives the channel chip. */
+  partnerSource: "Intacct" | "Fusion" | null;
+  /** Partner / reseller name for the channel chip, when known. */
+  partnerName: string | null;
+  /** True for the hotter subset with an active deal registration. */
+  partnerRegistered: boolean;
 }
 
 export interface BlockedRow {
@@ -92,6 +100,61 @@ function MiniBar({ label, value }: { label: string; value: number }) {
   );
 }
 
+/** Channel chip naming the partner (Intacct/Fusion) on an In Review row. */
+function PartnerChip({ row }: { row: AccountRow }) {
+  if (!row.hasPartner) return null;
+  const label = [row.partnerSource, row.partnerName].filter(Boolean).join(" · ");
+  return (
+    <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10.5px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
+      Partner{label ? ` · ${label}` : ""}
+      {row.partnerRegistered ? " · registered" : ""}
+    </span>
+  );
+}
+
+/** All / Direct / Partner (VAR) segmented control for the BDR accounts worklist. */
+function MotionToggle({
+  motion,
+  setMotion,
+  total,
+  direct,
+  partner,
+}: {
+  motion: "all" | "direct" | "partner";
+  setMotion: (m: "all" | "direct" | "partner") => void;
+  total: number;
+  direct: number;
+  partner: number;
+}) {
+  const opts: { id: "all" | "direct" | "partner"; label: string; count: number }[] = [
+    { id: "all", label: "All", count: total },
+    { id: "direct", label: "Direct", count: direct },
+    { id: "partner", label: "Partner (VAR)", count: partner },
+  ];
+  return (
+    <div className="inline-flex rounded-[10px] border border-border bg-background p-[3px]">
+      {opts.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => setMotion(o.id)}
+          aria-pressed={motion === o.id}
+          className={`inline-flex items-center gap-1.5 rounded-[7px] px-3 py-1.5 text-[12.5px] font-semibold ${
+            motion === o.id
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+          <span className="rounded-full border border-border bg-background px-1.5 text-[10.5px] font-bold">
+            {o.count}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function WorklistExplorer({
   mode,
   team,
@@ -140,6 +203,10 @@ export function WorklistExplorer({
     setImportIds(null);
     setImportReport(null);
   }, []);
+
+  // Motion filter (BDR accounts): All / Direct / Partner (VAR). Partner accounts
+  // carry a partner relationship (Intacct or Fusion) and are flagged In Review.
+  const [motion, setMotion] = useState<"all" | "direct" | "partner">("all");
 
   const scrollToTop = useCallback(() => {
     requestAnimationFrame(() => {
@@ -309,9 +376,17 @@ export function WorklistExplorer({
   // the account view even from SDR mode, since it's an account list).
   const importActive = importIds !== null;
   const acctVisible = (id: string) => !importActive || importIds!.has(id);
-  const visibleAcctCount = accountRows.filter((a) => acctVisible(a.id)).length;
+  // Motion filter is layered on top of the import filter. Partner (VAR) counts
+  // are taken before the motion filter so the toggle always shows the full split.
+  const motionPool = accountRows.filter((a) => acctVisible(a.id));
+  const partnerCount = motionPool.filter((a) => a.hasPartner).length;
+  const directCount = motionPool.length - partnerCount;
+  const motionMatch = (a: AccountRow) =>
+    motion === "all" || (motion === "partner" ? a.hasPartner : !a.hasPartner);
+  const acctInView = (a: AccountRow) => acctVisible(a.id) && motionMatch(a);
+  const visibleAcctCount = motionPool.filter(motionMatch).length;
 
-  const unworkedAccts = accountRows.filter((a) => !workedMap[a.id] && acctVisible(a.id));
+  const unworkedAccts = accountRows.filter((a) => !workedMap[a.id] && acctInView(a));
   const rankById = new Map(unworkedAccts.map((a, i) => [a.id, i + 1]));
   const unworkedLeads = leadRows.filter((l) => !leadOutcome(l));
   const leadRankById = new Map(unworkedLeads.map((l, i) => [l.id, i + 1]));
@@ -434,6 +509,25 @@ export function WorklistExplorer({
           )}
         </div>
 
+        {!isLeads && (
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
+            <MotionToggle
+              motion={motion}
+              setMotion={setMotion}
+              total={motionPool.length}
+              direct={directCount}
+              partner={partnerCount}
+            />
+            <span className="text-[12px] text-muted-foreground">
+              {partnerCount > 0
+                ? `${partnerCount} In Review (~${Math.round(
+                    (partnerCount / (motionPool.length || 1)) * 100,
+                  )}%) — partner relationship`
+                : "No partner accounts in this view"}
+            </span>
+          </div>
+        )}
+
         {justWorkedName && (
           <div className="flex items-center gap-2.5 border-b border-border bg-primary-soft px-5 py-3 text-[13px]">
             <span className="font-heading text-[15px] font-black text-primary">✓</span>
@@ -483,7 +577,7 @@ export function WorklistExplorer({
                                 : "bg-success-bg text-success"
                             }`}
                           >
-                            {lead.finalStatus === "WORKABLE WITH REVIEW" ? "Review" : "Workable"}
+                            {lead.finalStatus === "WORKABLE WITH REVIEW" ? "In Review" : "Workable"}
                           </span>
                         )}
                       </div>
@@ -514,12 +608,20 @@ export function WorklistExplorer({
                 ))}
               </div>
             )
-          : importActive && visibleAcctCount === 0
-            ? <div className="px-5 py-4 text-[13px] text-muted-foreground">None of the imported accounts are in the current worklist. Check the &ldquo;not found&rdquo; list above, or clear the import.</div>
+          : visibleAcctCount === 0
+            ? <div className="px-5 py-4 text-[13px] text-muted-foreground">
+                {importActive
+                  ? "None of the imported accounts are in the current worklist. Check the “not found” list above, or clear the import."
+                  : motion === "partner"
+                    ? "No partner (VAR) accounts in this worklist."
+                    : motion === "direct"
+                      ? "No direct accounts in this worklist."
+                      : "No accounts in this worklist."}
+              </div>
             : (
             <div className="flex flex-col">
               {accountRows.map((acct) => {
-                if (!acctVisible(acct.id)) return null;
+                if (!acctInView(acct)) return null;
                 return (
                 <button
                   key={acct.id}
@@ -541,13 +643,14 @@ export function WorklistExplorer({
                       {acct.name}{" "}
                       {acct.finalStatus === "WORKABLE WITH REVIEW" ? (
                         <span className="ml-1.5 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-warning uppercase">
-                          Review
+                          In Review
                         </span>
                       ) : (
                         <span className="ml-1.5 rounded-full bg-success-bg px-2.5 py-0.5 text-[11.5px] font-bold tracking-[0.4px] text-success uppercase">
                           Workable
                         </span>
                       )}
+                      <PartnerChip row={acct} />
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {acct.domain} · {acct.industry} · {acct.type}

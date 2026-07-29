@@ -69,6 +69,10 @@ export const ACCOUNTS: Account[] = [
     abmNurtureStatus: "Nurture",
     lastActivityDate: daysAgo(21),
     intacct: { hasOpenOpps: false },
+    // Partner relationship surfaced by Sage Fusion (not an active deal
+    // registration) — flags the account In Review so the BDR coordinates with
+    // the channel. Exercises the Fusion source of the partner check.
+    fusion: { partnerStatus: "Identified - Meridian Consulting" },
   },
   {
     id: "0015Y00002ABC123",

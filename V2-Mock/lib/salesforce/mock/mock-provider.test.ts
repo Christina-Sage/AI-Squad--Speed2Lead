@@ -17,7 +17,8 @@ const provider = new MockSalesforceProvider();
 
 const expectedFinalStatusByDomain: Record<string, string> = {
   "acme.com": "WORKABLE",
-  "globex.org": "WORKABLE",
+  // A Fusion partner relationship (not a deal registration) flags for review.
+  "globex.org": "WORKABLE WITH REVIEW",
   "abc.org": "WORKABLE WITH REVIEW",
   "initech.com": "NOT WORKABLE",
   "hooli.com": "NOT WORKABLE",

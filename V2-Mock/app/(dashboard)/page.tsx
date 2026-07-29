@@ -81,10 +81,17 @@ export default async function Home({
         intent: score.intent.value,
         workability: score.workability.value,
         priority: score.priority,
+        hasPartner: result.partner_detail.hasRelationship,
+        partnerSource: result.partner_detail.source,
+        partnerName: result.partner_detail.partnerName,
+        partnerRegistered: result.partner_detail.registered,
       });
     }
   }
-  accountRows.sort((a, b) => b.priority - a.priority);
+  // Worklist order (feedback): Workable ranked by score, then In Review
+  // (WORKABLE WITH REVIEW — includes any partner relationship) ranked by score.
+  const reviewRank = (r: AccountRow) => (r.finalStatus === "WORKABLE WITH REVIEW" ? 1 : 0);
+  accountRows.sort((a, b) => reviewRank(a) - reviewRank(b) || b.priority - a.priority);
 
   // SDR lead worklist (SDR mode only): each visible lead gets its full
   // "Can I work this lead?" verdict. NOT WORKABLE leads drop into the blocked
