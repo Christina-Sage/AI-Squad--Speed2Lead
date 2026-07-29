@@ -111,6 +111,7 @@ export function AccountImport({ team }: { team: Team }) {
     const identifiers = parseIdentifiers(text);
     if (identifiers.length === 0) return;
     window.dispatchEvent(new CustomEvent("workit:import-accounts", { detail: { identifiers } }));
+    setText(""); // clear the pasted list on submit so the field doesn't hold stale values
     setOpen(false);
   }
 
@@ -249,7 +250,7 @@ export function AccountImport({ team }: { team: Team }) {
                 disabled={!text.trim()}
                 className="rounded-[9px] border border-primary bg-primary px-3.5 py-1.5 text-[12.5px] font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-45"
               >
-                Filter worklist
+                Submit worklist
               </button>
             </div>
           </div>
