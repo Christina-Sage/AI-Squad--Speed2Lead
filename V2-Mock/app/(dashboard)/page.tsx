@@ -147,7 +147,7 @@ export default async function Home({
           <div className="flex-1">
             <SearchForm />
           </div>
-          <AccountImport />
+          <AccountImport team={team} />
         </div>
       </div>
 
