@@ -387,6 +387,7 @@ export function WorkItPanel({
           title: contact?.title ?? record?.title ?? (isLead ? (lead?.title ?? null) : null),
           company: accountName ?? null,
           email: (isLead ? lead?.email : null) ?? deriveEmail(name, domain),
+          kind: (isLead || record?.kind === "Lead" ? "Lead" : "Contact") as "Contact" | "Lead",
         };
       });
       setOutreachPanel({ prospects, sequence });
