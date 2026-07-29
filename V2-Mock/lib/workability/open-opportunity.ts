@@ -15,9 +15,9 @@ export interface OpenOppResult {
 
 /**
  * Human-friendly age of an open opportunity from its created date — surfaced as
- * an "Age" fact on the Open Opportunity check. Days up to two months, then
- * rounded to whole months. Returns "Unknown" when the created date is missing
- * or unparseable (e.g. the Intacct fallback detail carries no date).
+ * an "Age" fact on the Open Opportunity check. Always expressed in days.
+ * Returns "Unknown" when the created date is missing or unparseable (e.g. the
+ * Intacct fallback detail carries no date).
  */
 export function opportunityAge(createdDate: string): string {
   if (!createdDate) return "Unknown";
@@ -25,10 +25,7 @@ export function opportunityAge(createdDate: string): string {
   if (Number.isNaN(then.getTime())) return "Unknown";
   const days = Math.floor((Date.now() - then.getTime()) / (1000 * 60 * 60 * 24));
   if (days <= 0) return "today";
-  if (days === 1) return "1 day";
-  if (days < 60) return `${days} days`;
-  const months = Math.floor(days / 30);
-  return months === 1 ? "1 month" : `${months} months`;
+  return days === 1 ? "1 day" : `${days} days`;
 }
 
 export function evaluateOpenOpportunities(
