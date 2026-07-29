@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Combobox } from "@base-ui/react/combobox";
-import { CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, StarIcon } from "lucide-react";
 import { useToast } from "@/components/ui/toaster";
 import { buildAccountNote } from "@/lib/workit/account-note";
 import type { HygieneSuggestion } from "@/lib/workit/hygiene";
@@ -166,6 +166,23 @@ function Card({
 const btnSm =
   "rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold hover:border-muted-foreground disabled:opacity-45";
 
+// Favorite sequences are a per-browser rep preference (localStorage). The
+// starred sequences float to a pinned "★ Favorites" group at the top of the
+// picker so the rep's go-to sequence is one click away.
+const FAVORITES_KEY = "workit:favoriteSequences";
+const FAVORITES_LABEL = "★ Favorites";
+
+/** Reorder sequence groups so favorited sequences sit in a pinned group on top. */
+function buildSequenceGroups(favorites: string[]): SequenceGroup[] {
+  const known = new Set(SEQUENCE_GROUPS.flatMap((g) => g.items));
+  const favItems = favorites.filter((f) => known.has(f));
+  const rest = SEQUENCE_GROUPS.map((g) => ({
+    value: g.value,
+    items: g.items.filter((i) => !favItems.includes(i)),
+  })).filter((g) => g.items.length > 0);
+  return favItems.length ? [{ value: FAVORITES_LABEL, items: favItems }, ...rest] : rest;
+}
+
 export function WorkItPanel({
   accountId,
   accountName,
@@ -264,6 +281,32 @@ export function WorkItPanel({
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
   const [push, setPush] = useState<OutreachPush | null>(initialPush);
   const [sequence, setSequence] = useState(sequences[0]);
+  // Starred sequences, loaded from localStorage on mount (empty on the server so
+  // SSR and first client render match, then hydrated in the effect below).
+  const [favorites, setFavorites] = useState<string[]>([]);
+  useEffect(() => {
+    // Hydrate from localStorage after mount (not in a useState initializer) so
+    // the server and first client render agree, avoiding a hydration mismatch.
+    try {
+      const raw = localStorage.getItem(FAVORITES_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (raw) setFavorites(JSON.parse(raw) as string[]);
+    } catch {
+      /* ignore malformed / unavailable storage */
+    }
+  }, []);
+  function toggleFavorite(name: string) {
+    setFavorites((prev) => {
+      const next = prev.includes(name) ? prev.filter((n) => n !== name) : [name, ...prev];
+      try {
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore unavailable storage */
+      }
+      return next;
+    });
+  }
+  const sequenceGroups = buildSequenceGroups(favorites);
   const [notFitReason, setNotFitReason] = useState(NOT_A_FIT_REASONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -760,7 +803,7 @@ export function WorkItPanel({
             <p className="mb-2 text-[13px] font-bold">2. Pick a sequence and push</p>
             <div className="flex flex-wrap items-center gap-3">
             <Combobox.Root
-              items={SEQUENCE_GROUPS}
+              items={sequenceGroups}
               value={sequence}
               onValueChange={(value: string | null) => {
                 if (value) setSequence(value);
@@ -783,22 +826,52 @@ export function WorkItPanel({
                     <Combobox.List className="min-h-0 flex-1 overflow-y-auto">
                       {(group: SequenceGroup) => (
                         <Combobox.Group key={group.value} items={group.items} className="mb-1 last:mb-0">
-                          <Combobox.GroupLabel className="px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.4px] text-muted-foreground uppercase">
+                          <Combobox.GroupLabel
+                            className={`px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.4px] uppercase ${
+                              group.value === FAVORITES_LABEL ? "text-amber-500" : "text-muted-foreground"
+                            }`}
+                          >
                             {group.value}
                           </Combobox.GroupLabel>
                           <Combobox.Collection>
-                            {(item: string) => (
-                              <Combobox.Item
-                                key={item}
-                                value={item}
-                                className="relative flex cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-highlighted:bg-accent"
-                              >
-                                {item}
-                                <Combobox.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-                                  <CheckIcon className="size-3.5" />
-                                </Combobox.ItemIndicator>
-                              </Combobox.Item>
-                            )}
+                            {(item: string) => {
+                              const isFav = favorites.includes(item);
+                              return (
+                                <Combobox.Item
+                                  key={item}
+                                  value={item}
+                                  className="relative flex cursor-default items-center gap-1.5 rounded-md py-1.5 pr-8 pl-8 text-sm outline-hidden select-none data-highlighted:bg-accent"
+                                >
+                                  <button
+                                    type="button"
+                                    aria-label={isFav ? `Unfavorite ${item}` : `Favorite ${item}`}
+                                    aria-pressed={isFav}
+                                    onPointerDown={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      toggleFavorite(item);
+                                    }}
+                                    className="absolute left-1.5 flex size-5 items-center justify-center rounded hover:bg-accent"
+                                  >
+                                    <StarIcon
+                                      className={`size-3.5 ${
+                                        isFav
+                                          ? "fill-amber-400 text-amber-400"
+                                          : "text-muted-foreground/60"
+                                      }`}
+                                    />
+                                  </button>
+                                  {item}
+                                  <Combobox.ItemIndicator className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+                                    <CheckIcon className="size-3.5" />
+                                  </Combobox.ItemIndicator>
+                                </Combobox.Item>
+                              );
+                            }}
                           </Combobox.Collection>
                         </Combobox.Group>
                       )}
