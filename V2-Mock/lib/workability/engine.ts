@@ -61,7 +61,7 @@ export interface WorkabilityResult {
   team: Team;
   roe_scope: RoeScope;
   roe_status: "PASS" | "FAIL";
-  open_opportunity_status: "PASS" | "FAIL";
+  open_opportunity_status: "PASS" | "REVIEW" | "FAIL";
   dq_opportunity_status: "PASS" | "REVIEW";
   partner_status: "PASS" | "REVIEW";
   customer_status: CustomerTamResult["customerStatus"];
@@ -105,6 +105,7 @@ function buildReasonAndRecommendation(
   dqOpp: DqOppResult,
   partner: PartnerResult,
   duplicates: DuplicateMatch[],
+  team: Team,
 ): { reason: string; recommendation: string } {
   if (finalStatus === "NOT WORKABLE") {
     if (roe.status === "FAIL") {
@@ -136,6 +137,19 @@ function buildReasonAndRecommendation(
   }
 
   if (finalStatus === "WORKABLE WITH REVIEW") {
+    if (openOpp.status === "REVIEW") {
+      const o = openOpp.openOpportunities[0];
+      if (team === "SDR") {
+        return {
+          reason: `An open opportunity ("${o.name}", stage ${o.stage}) owned by ${o.owner} exists on this account.`,
+          recommendation: "Review before working — coordinate with the opportunity owner.",
+        };
+      }
+      return {
+        reason: `The open opportunity ("${o.name}", stage ${o.stage}) owned by ${o.owner} is over 12 months old.`,
+        recommendation: "Review before working — ask the AE/CE to disqualify the stale opp so you can re-engage.",
+      };
+    }
     if (customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM)) {
       return {
         reason: `Account Type is Customer and its TAM is expired. Verify customer status before working.`,
@@ -183,6 +197,7 @@ function buildChecks(
   dqOpp: DqOppResult,
   partner: PartnerResult,
   duplicates: DuplicateMatch[],
+  team: Team,
 ): DedupeCheck[] {
   const { account } = bundle;
 
@@ -222,12 +237,19 @@ function buildChecks(
       ? "No open opportunity on this account"
       : (() => {
           const o = openOpp.openOpportunities[0];
-          return `Open opp: "${o.name}" (${o.stage})`;
+          const base = `Open opp: "${o.name}" (${o.stage})`;
+          if (openOpp.status === "FAIL") {
+            return `${base} — active deal; coordinate with the owner before working`;
+          }
+          // REVIEW: inbound reviews every open opp; outbound only downgrades stale ones.
+          return team === "SDR"
+            ? `${base} — inbound: review before working; coordinate with the owner`
+            : `${base} — over 12 months old; ask the AE/CE to DQ it so you can re-engage`;
         })();
   // Surface who created (sourced) the open opp, the AE/CE who owns it (the
   // person to coordinate with), and its age as scannable chips.
   const openOppFacts =
-    openOpp.status === "FAIL" && openOpp.openOpportunities[0]
+    openOpp.status !== "PASS" && openOpp.openOpportunities[0]
       ? (() => {
           const o = openOpp.openOpportunities[0];
           return [
@@ -276,7 +298,7 @@ function buildChecks(
       label: "Open Opportunity",
       question: "Does an open opp already exist?",
       badgeType: "pf",
-      state: openOpp.status === "PASS" ? "pass" : "fail",
+      state: openOpp.status === "PASS" ? "pass" : openOpp.status === "REVIEW" ? "warn" : "fail",
       reason: openOppReason,
       ...(openOppFacts ? { facts: openOppFacts } : {}),
     },
@@ -308,7 +330,7 @@ export function evaluateWorkability(
 
   const scoped = recordsForTeam(team, leads, contacts);
   const roe = evaluateRoe(scoped.leads, scoped.contacts);
-  const openOpp = evaluateOpenOpportunities(opportunities, account.intacct);
+  const openOpp = evaluateOpenOpportunities(opportunities, account.intacct, team);
   const customerTam = evaluateCustomerTam(account.type, account.tam);
   const dqOpp = evaluateDqOpportunities(opportunities);
   const partner = evaluatePartner(account.intacct);
@@ -321,7 +343,8 @@ export function evaluateWorkability(
 
   const needsReview =
     !hardFail &&
-    (customerTam.reasonCodes.includes(TAM_EXPIRED) ||
+    (openOpp.status === "REVIEW" ||
+      customerTam.reasonCodes.includes(TAM_EXPIRED) ||
       customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
       dqOpp.status === "REVIEW" ||
       partner.status === "REVIEW" ||
@@ -341,11 +364,13 @@ export function evaluateWorkability(
     dqOpp,
     partner,
     duplicates,
+    team,
   );
 
   const reason_codes: string[] = [
     ...(roe.status === "FAIL" ? ["ROE_VIOLATION"] : []),
     ...(openOpp.status === "FAIL" ? ["OPEN_OPPORTUNITY"] : []),
+    ...(openOpp.status === "REVIEW" ? ["OPEN_OPPORTUNITY_REVIEW"] : []),
     ...(dqOpp.status === "REVIEW" ? [DQ_OPP_COOLING_OFF] : []),
     ...(partner.status === "REVIEW" ? [PARTNER_REGISTERED] : []),
     ...(duplicates.length > 0 ? [DUPLICATE_ACCOUNT] : []),
@@ -378,7 +403,7 @@ export function evaluateWorkability(
     open_opportunity_detail: openOpp,
     dq_opportunity_detail: dqOpp,
     partner_detail: partner,
-    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner, duplicates),
+    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner, duplicates, team),
   };
 }
 

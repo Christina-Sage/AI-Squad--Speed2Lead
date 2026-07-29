@@ -183,8 +183,12 @@ export function evaluateLeadWorkability(
   let openOpp: DedupeCheck;
   if (!acct) {
     openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "na", "No linked account — check not applicable");
-  } else if (acct.open_opportunity_status === "FAIL") {
+  } else if (acct.open_opportunity_status !== "PASS") {
+    // Inbound (SDR) leads treat an open opp as review, not a hard block; an
+    // outbound (BDR) view keeps a recent open opp as a fail (the account
+    // workability, computed with this team, already encodes that distinction).
     const o = acct.open_opportunity_detail.openOpportunities[0];
+    const state: DedupeCheck["state"] = acct.open_opportunity_status === "FAIL" ? "fail" : "warn";
     // Surface who created (sourced) the open opp, the AE/CE who owns it (the
     // person to coordinate with), and its age as scannable chips.
     const openOppFacts: DedupeCheck["facts"] = o
@@ -194,9 +198,10 @@ export function evaluateLeadWorkability(
           { label: "Age", value: opportunityAge(o.createdDate) },
         ]
       : undefined;
-    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "fail", o
-      ? `Open opp: "${o.name}" on ${account?.name}`
-      : `Open opportunity on ${account?.name}`, openOppFacts);
+    const detail = state === "fail" ? "active deal; coordinate with the owner before working" : "review before working; coordinate with the owner";
+    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", state, o
+      ? `Open opp: "${o.name}" on ${account?.name} — ${detail}`
+      : `Open opportunity on ${account?.name} — ${detail}`, openOppFacts);
   } else {
     openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "pass", `No open opportunity on ${account?.name}`);
   }

@@ -227,6 +227,59 @@ describe("evaluateWorkability", () => {
     expect(result.open_opportunity_detail.openOpportunities[0].source).toBe("Intacct");
   });
 
+  const openOpp = (createdDate: string, over: Partial<Opportunity> = {}): Opportunity => ({
+    id: "006-age",
+    name: "Big Deal",
+    accountId: "0015Y00002ABC123",
+    ownerId: "u3",
+    ownerName: "Pat Lee",
+    stage: "Negotiation",
+    isClosed: false,
+    createdDate,
+    ...over,
+  });
+
+  it("outbound (BDR): an open opp older than 12 months is WORKABLE WITH REVIEW, not blocked", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({}), { contacts: [cleanContact], opportunities: [openOpp(daysAgoIso(400))] }),
+      "BDR",
+    );
+    expect(result.open_opportunity_status).toBe("REVIEW");
+    expect(result.final_status).toBe("WORKABLE WITH REVIEW");
+    expect(result.checks.find((c) => c.key === "openOpp")?.state).toBe("warn");
+  });
+
+  it("outbound (BDR): an open opp inside the 12-month window still hard-blocks", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({}), { contacts: [cleanContact], opportunities: [openOpp(daysAgoIso(364))] }),
+      "BDR",
+    );
+    expect(result.open_opportunity_status).toBe("FAIL");
+    expect(result.final_status).toBe("NOT WORKABLE");
+  });
+
+  it("outbound (BDR): a recent open opp blocks even when a stale one is also present", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({}), {
+        contacts: [cleanContact],
+        opportunities: [openOpp(daysAgoIso(500), { id: "a" }), openOpp(daysAgoIso(20), { id: "b" })],
+      }),
+      "BDR",
+    );
+    expect(result.open_opportunity_status).toBe("FAIL");
+    expect(result.final_status).toBe("NOT WORKABLE");
+  });
+
+  it("inbound (SDR): even a recent open opp is WORKABLE WITH REVIEW, never a hard block", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({}), { contacts: [cleanContact], opportunities: [openOpp(daysAgoIso(5))] }),
+      "SDR",
+    );
+    expect(result.open_opportunity_status).toBe("REVIEW");
+    expect(result.final_status).toBe("WORKABLE WITH REVIEW");
+    expect(result.checks.find((c) => c.key === "openOpp")?.state).toBe("warn");
+  });
+
   it("ROE violation takes precedence in reason even when other review conditions exist", () => {
     const violatingContact: Contact = { ...cleanContact, lastActivityDate: daysAgoIso(2) };
     const account = baseAccount({ type: "Customer", tam: "Expired Intacct TAM" });
