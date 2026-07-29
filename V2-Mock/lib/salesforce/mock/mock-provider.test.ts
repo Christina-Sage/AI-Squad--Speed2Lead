@@ -31,11 +31,12 @@ const expectedFinalStatusByDomain: Record<string, string> = {
   "initech.com": "NOT WORKABLE",
   "hooli.com": "NOT WORKABLE",
   "stark.io": "NOT WORKABLE",
-  // v2: Wayne's DQ'd opp never reached Discovery, so it no longer blocks.
-  "wayne.com": "WORKABLE",
-  // DQ opp reached Discovery but closed 60 days ago — past the 30-day
-  // cooling-off, so it no longer blocks.
-  "umbrella-pharma.com": "WORKABLE",
+  // Any DQ'd opp flags for review (there's a DQ history to read) — never a
+  // hard block. Wayne's DQ'd opp never reached Discovery; still review.
+  "wayne.com": "WORKABLE WITH REVIEW",
+  // DQ opp reached Discovery, closed 60 days ago (past the 30-day cooling-off)
+  // — still review so the check matches the DQ history.
+  "umbrella-pharma.com": "WORKABLE WITH REVIEW",
   // Active partner deal registration flags for review, it does not block.
   "umbrella-security.com": "WORKABLE WITH REVIEW",
 };
