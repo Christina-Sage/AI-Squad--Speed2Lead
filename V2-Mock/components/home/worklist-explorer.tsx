@@ -131,9 +131,13 @@ export function WorklistExplorer({
   const [importReport, setImportReport] = useState<
     { total: number; matched: number; notFound: string[] } | null
   >(null);
-  // Latest rows for the import matcher (the listener is registered once).
+  // Latest rows for the import matcher (the listener is registered once). Kept
+  // current via an effect rather than written during render; the listener only
+  // fires on user-triggered import events, well after the effect has committed.
   const rowsRef = useRef({ accountRows, blockedRows });
-  rowsRef.current = { accountRows, blockedRows };
+  useEffect(() => {
+    rowsRef.current = { accountRows, blockedRows };
+  }, [accountRows, blockedRows]);
   const clearImport = useCallback(() => {
     setImportIds(null);
     setImportReport(null);

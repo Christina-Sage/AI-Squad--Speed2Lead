@@ -1,23 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "theme";
 
-export function ThemeToggle() {
-  const [dark, setDark] = useState<boolean | null>(null);
+// The <html> class list is the source of truth (the inline script in layout.tsx
+// applies it pre-hydration). Read it through an external store rather than
+// mirroring it into effect-driven state: getServerSnapshot returns null so SSR
+// and hydration render the neutral "…" label, then the client snapshot resolves
+// the real theme. `toggle` flips the class and notifies subscribers to re-render.
+const themeListeners = new Set<() => void>();
+function subscribeTheme(listener: () => void) {
+  themeListeners.add(listener);
+  return () => themeListeners.delete(listener);
+}
+function isDark() {
+  return document.documentElement.classList.contains("dark");
+}
 
-  useEffect(() => {
-    // The inline script in layout.tsx already applied the class pre-hydration;
-    // read the resolved state from the DOM.
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
+export function ThemeToggle() {
+  const dark = useSyncExternalStore(subscribeTheme, isDark, () => null);
 
   function toggle() {
-    const next = !document.documentElement.classList.contains("dark");
+    const next = !isDark();
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem(STORAGE_KEY, next ? "dark" : "light");
-    setDark(next);
+    themeListeners.forEach((listener) => listener());
   }
 
   return (

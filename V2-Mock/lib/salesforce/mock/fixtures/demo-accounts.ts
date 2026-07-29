@@ -1,4 +1,4 @@
-import type { Account, Contact, Opportunity, TamStatus } from "@/lib/salesforce/types";
+import type { Account, Contact, Opportunity } from "@/lib/salesforce/types";
 import type { SdrLead } from "@/lib/leads/types";
 import type { PriorityGroup } from "@/lib/priority";
 import type { Product } from "@/lib/products";
@@ -199,10 +199,17 @@ const LEAD_SPECS: LeadSpec[] = [
 
 // TAM-situation showcase leads (SDR). One lead per TAM ("Does the account fall
 // within your territory?") row state from the "Can I work it?" checklist, per
-// product line, so switching products always shows all four situations together.
-// The first three link to a dedicated prospect account shaped to produce exactly
-// that TAM state and otherwise clean (so the TAM row is the only thing that
-// varies); the fourth has no linked account at all.
+// product line, so switching products always shows all four situations together:
+//   active   -> Review (linked account carries the product's active TAM)
+//   expired  -> Pass   (TAM lapsed; no active territory assignment)
+//   none     -> Pass   (linked prospect carries no TAM)
+//   no-account -> Pass (no linked account; nothing to reconcile)
+// The active/expired leads reuse the product's existing "workable"/"review" slot
+// accounts (linking an SDR worklist lead does not affect an account's own
+// evaluation, so the account worklist is unchanged). "none" needs a prospect
+// with no TAM — none of the slot accounts is one — so it links to a dedicated
+// worklistHidden account that backs the lead without joining the account
+// worklist. "no-account" has no linked account at all.
 type TamShowcaseKind = "active" | "expired" | "none" | "no-account";
 interface TamShowcaseSpec {
   kind: TamShowcaseKind;
@@ -220,14 +227,12 @@ const TAM_SHOWCASE: TamShowcaseSpec[] = [
   { kind: "no-account", tamRow: "pass", title: "Head of Finance", fit: 62, intent: 58, workability: 60 },
 ];
 
-// Company names for the three linked TAM-showcase accounts per product line
-// (3 × 6 = 18). A dedicated adjective pool + noun keeps every generated name and
-// its slug-derived domain distinct from the slot accounts (ADJECTIVES × NOUNS)
-// and the base fixtures.
-const TAM_SHOWCASE_ADJ = [
-  "Brightwater", "Oakmont", "Silverpeak", "Clearview", "Highpoint", "Foxglove",
-  "Marlowe", "Ashford", "Braemar", "Dunmore", "Everton", "Galewood",
-  "Hartwell", "Kingsley", "Lockhart", "Norwood", "Presley", "Quarrydale",
+// Company names for the one hidden no-TAM account per product line (6). The noun
+// "Industries" (not in NOUNS) keeps every name and its slug-derived domain
+// distinct from the slot accounts (ADJECTIVES × NOUNS) and the base fixtures.
+const TAM_NO_TAM_ACCOUNTS = [
+  "Brightwater Industries", "Oakmont Industries", "Silverpeak Industries",
+  "Clearview Industries", "Highpoint Industries", "Foxglove Industries",
 ];
 
 const LEAD_OWNER = { name: "Pat Lee" };
@@ -477,12 +482,20 @@ function build(): Generated {
     // TAM-situation showcase — four leads exercising each TAM row state.
     TAM_SHOWCASE.forEach((spec, k) => {
       let accountId: string | null = null;
-      if (spec.kind !== "no-account") {
-        const acctName = `${TAM_SHOWCASE_ADJ[pi * 3 + k]} Industries`;
-        accountId = `0015Y00000${prodChar}TAM${pad3(k)}`;
-        const tam: TamStatus =
-          spec.kind === "active" ? product : spec.kind === "expired" ? `Expired ${product} TAM` : null;
-        // A clean prospect whose only distinguishing trait is its TAM state.
+      if (spec.kind === "active") {
+        // Reuse the product's existing workable slot account (active TAM).
+        const ref = LEAD_ACCOUNT_SLOT.workable;
+        accountId = `0015Y00000${prodChar}${ref.code}${pad3(ref.si)}`;
+      } else if (spec.kind === "expired") {
+        // Reuse the product's existing review slot account (expired TAM).
+        const ref = LEAD_ACCOUNT_SLOT.review;
+        accountId = `0015Y00000${prodChar}${ref.code}${pad3(ref.si)}`;
+      } else if (spec.kind === "none") {
+        // Dedicated no-TAM prospect. Hidden from the account worklist (it exists
+        // only to give the lead a "no TAM on the linked account" state); still
+        // resolvable by id so the lead's checklist can evaluate against it.
+        const acctName = TAM_NO_TAM_ACCOUNTS[pi % TAM_NO_TAM_ACCOUNTS.length];
+        accountId = `0015Y00000${prodChar}TAM000`;
         accounts.push({
           id: accountId,
           name: acctName,
@@ -492,12 +505,13 @@ function build(): Generated {
           industry: "Business Services",
           type: "Prospect",
           product,
-          tam,
+          tam: null,
           buyingStage: "Consideration",
           rating: "P2",
           abmNurtureStatus: null,
           lastActivityDate: null,
           intacct: { hasOpenOpps: false },
+          worklistHidden: true,
         });
       }
 
