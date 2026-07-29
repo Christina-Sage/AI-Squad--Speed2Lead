@@ -405,6 +405,8 @@ function build(): Generated {
             isClosed: true,
             createdDate: daysAgo(closed + 120),
             furthestStage: DQ_STAGES[g % DQ_STAGES.length],
+            // Moved to Discovery well before it closed (open, active cycle).
+            movedToDiscoveryDate: daysAgo(closed + 90),
             closedDate: daysAgo(closed),
           });
           break;
