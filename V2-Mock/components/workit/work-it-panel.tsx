@@ -229,30 +229,34 @@ export function WorkItPanel({
 
   // Unified list for the Existing Contacts card: Salesforce records already on
   // file (auto-confirmed) + new research finds that need review before pushing.
-  // Empty in lead mode — the card is hidden and the lead is what gets pushed.
-  const contactRows: ContactRow[] = lead
-    ? []
-    : [
-        ...existingRecords.map((r) => ({
-          name: r.name,
-          title: r.title,
-          role: classifyIcpRole(r.title),
-          matched: true,
-          // A newer contact with the same title was found — likely no longer in role.
-          inactive: newFindTitles.has(normalizeTitle(r.title)),
-          detail: r.kind,
-        })),
-        ...foundContacts
-          .filter((c) => !c.inSalesforce)
-          .map((c) => ({
-            name: c.name,
-            title: c.title,
-            role: classifyIcpRole(c.title),
-            matched: false,
-            inactive: false,
-            detail: c.source === "990" ? "Form 990" : "Website",
-          })),
-      ];
+  // In BDR the contacts feed the push; in SDR (lead mode) the card is read-only
+  // — the account's existing contacts are shown for awareness beside the lead,
+  // and only the lead is pushed. It renders only when the lead has a linked
+  // account (existingRecords is empty otherwise).
+  const contactRows: ContactRow[] = [
+    ...existingRecords.map((r) => ({
+      name: r.name,
+      title: r.title,
+      role: classifyIcpRole(r.title),
+      matched: true,
+      // A newer contact with the same title was found — likely no longer in role.
+      inactive: newFindTitles.has(normalizeTitle(r.title)),
+      detail: r.kind,
+    })),
+    ...foundContacts
+      .filter((c) => !c.inSalesforce)
+      .map((c) => ({
+        name: c.name,
+        title: c.title,
+        role: classifyIcpRole(c.title),
+        matched: false,
+        inactive: false,
+        detail: c.source === "990" ? "Form 990" : "Website",
+      })),
+  ];
+  // SDR view is read-only: contacts are for reference, not push selection.
+  const contactsReadOnly = !!lead;
+  const showExistingContacts = !lead || existingRecords.length > 0;
   // Inactive existing records are not pre-selected and can't be pushed.
   const initialConfirmed = new Set<string>(
     lead
@@ -384,6 +388,13 @@ export function WorkItPanel({
   const confirmedRows = contactRows.filter((row) => !row.inactive && isConfirmed(row.name));
   const reviewCount = contactRows.filter((row) => !row.inactive && !isConfirmed(row.name)).length;
   const selectedContactCount = contactRows.filter((row) => selected.has(row.name)).length;
+  // Read-only (SDR) counts key off matched-in-Salesforce, not push selection.
+  const inSalesforceCount = contactsReadOnly
+    ? contactRows.filter((row) => row.matched && !row.inactive).length
+    : confirmedRows.length;
+  const newContactCount = contactsReadOnly
+    ? contactRows.filter((row) => !row.inactive && !row.matched).length
+    : reviewCount;
   const allConfirmedSelected =
     confirmedRows.length > 0 && confirmedRows.every((row) => selected.has(row.name));
 
@@ -546,8 +557,15 @@ export function WorkItPanel({
         )}
       </Card>
 
-      {!lead && (
-      <Card title="Existing Contacts" sub="ICP contacts, checked against Salesforce">
+      {showExistingContacts && (
+      <Card
+        title="Existing Contacts"
+        sub={
+          contactsReadOnly
+            ? "Other ICP contacts on this account — for reference"
+            : "ICP contacts, checked against Salesforce"
+        }
+      >
         {contactRows.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
             No Salesforce contacts on file and no ICP matches found in research.
@@ -560,7 +578,8 @@ export function WorkItPanel({
               </span>
               <p className="text-[12.5px] leading-snug">
                 Checked Salesforce on <b>{accountName ?? "this account"}</b> —{" "}
-                <b>{confirmedRows.length}</b> in Salesforce and pre-selected.
+                <b>{inSalesforceCount}</b> in Salesforce
+                {contactsReadOnly ? "" : " and pre-selected"}.
                 {inactiveCount > 0 && (
                   <>
                     {" "}
@@ -570,16 +589,16 @@ export function WorkItPanel({
                     (a newer contact holds the same title).
                   </>
                 )}
-                {reviewCount > 0 ? (
+                {newContactCount > 0 ? (
                   <>
                     {" "}
                     <span className="font-semibold text-warning">
-                      {reviewCount} new contact{reviewCount === 1 ? "" : "s"}
+                      {newContactCount} new contact{newContactCount === 1 ? "" : "s"}
                     </span>{" "}
-                    to review.
+                    {contactsReadOnly ? "found." : "to review."}
                   </>
                 ) : (
-                  " No new contacts to review."
+                  " No new contacts found."
                 )}
               </p>
             </div>
@@ -588,15 +607,17 @@ export function WorkItPanel({
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase">
-                    <th className="w-9 py-2 pr-2 font-bold">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all confirmed contacts"
-                        className="size-4 accent-success align-middle"
-                        checked={allConfirmedSelected}
-                        onChange={toggleAllContacts}
-                      />
-                    </th>
+                    {!contactsReadOnly && (
+                      <th className="w-9 py-2 pr-2 font-bold">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all confirmed contacts"
+                          className="size-4 accent-success align-middle"
+                          checked={allConfirmedSelected}
+                          onChange={toggleAllContacts}
+                        />
+                      </th>
+                    )}
                     <th className="py-2 pr-3 font-bold">Contact</th>
                     <th className="py-2 pr-3 font-bold">Title</th>
                     <th className="py-2 pr-3 font-bold">ICP Role</th>
@@ -605,7 +626,9 @@ export function WorkItPanel({
                 </thead>
                 <tbody>
                   {contactRows.map((row) => {
-                    const conf = isConfirmed(row.name);
+                    // In read-only (SDR) mode, status keys off matched-in-SFDC,
+                    // not push confirmation.
+                    const conf = contactsReadOnly ? row.matched : isConfirmed(row.name);
                     const rowBg = row.inactive
                       ? "bg-muted/40"
                       : conf
@@ -616,16 +639,18 @@ export function WorkItPanel({
                         key={`${row.name}-${row.title}`}
                         className={`border-b border-border last:border-b-0 ${rowBg}`}
                       >
-                        <td className="py-3 pr-2 align-top">
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${row.name}`}
-                            className="size-4 accent-success align-middle disabled:opacity-40"
-                            checked={selected.has(row.name)}
-                            disabled={!conf || row.inactive}
-                            onChange={() => toggleSelected(row.name)}
-                          />
-                        </td>
+                        {!contactsReadOnly && (
+                          <td className="py-3 pr-2 align-top">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${row.name}`}
+                              className="size-4 accent-success align-middle disabled:opacity-40"
+                              checked={selected.has(row.name)}
+                              disabled={!conf || row.inactive}
+                              onChange={() => toggleSelected(row.name)}
+                            />
+                          </td>
+                        )}
                         <td
                           className={`py-3 pr-3 align-top text-[13.5px] font-semibold ${
                             row.inactive ? "text-muted-foreground line-through" : ""
@@ -647,23 +672,27 @@ export function WorkItPanel({
                           ) : (
                             <div className="flex flex-wrap items-center gap-2">
                               <NewContactPill />
-                              <a
-                                href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
-                              >
-                                Add in Salesforce
-                                <ExternalLinkIcon className="size-3.5" />
-                              </a>
-                              <button
-                                type="button"
-                                className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
-                                disabled={busy === row.name}
-                                onClick={() => confirmContact(row)}
-                              >
-                                {busy === row.name ? "Syncing…" : "Confirm & add"}
-                              </button>
+                              {!contactsReadOnly && (
+                                <>
+                                  <a
+                                    href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
+                                  >
+                                    Add in Salesforce
+                                    <ExternalLinkIcon className="size-3.5" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
+                                    disabled={busy === row.name}
+                                    onClick={() => confirmContact(row)}
+                                  >
+                                    {busy === row.name ? "Syncing…" : "Confirm & add"}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </td>
@@ -675,18 +704,32 @@ export function WorkItPanel({
             </div>
 
             <div className="mt-3 border-t border-border pt-3 text-[12.5px] text-muted-foreground">
-              <b className="text-foreground">{selectedContactCount}</b> selected · added to the Push
-              to Outreach list below
-              {reviewCount > 0 && (
+              {contactsReadOnly ? (
                 <>
-                  {" "}
-                  · <b className="text-warning">{reviewCount}</b> awaiting review
+                  Shown for reference — only the lead is pushed to Outreach.
+                  {inactiveCount > 0 && (
+                    <>
+                      {" "}
+                      · <b className="text-foreground">{inactiveCount}</b> inactive
+                    </>
+                  )}
                 </>
-              )}
-              {inactiveCount > 0 && (
+              ) : (
                 <>
-                  {" "}
-                  · <b className="text-foreground">{inactiveCount}</b> inactive (excluded)
+                  <b className="text-foreground">{selectedContactCount}</b> selected · added to the
+                  Push to Outreach list below
+                  {reviewCount > 0 && (
+                    <>
+                      {" "}
+                      · <b className="text-warning">{reviewCount}</b> awaiting review
+                    </>
+                  )}
+                  {inactiveCount > 0 && (
+                    <>
+                      {" "}
+                      · <b className="text-foreground">{inactiveCount}</b> inactive (excluded)
+                    </>
+                  )}
                 </>
               )}
             </div>
