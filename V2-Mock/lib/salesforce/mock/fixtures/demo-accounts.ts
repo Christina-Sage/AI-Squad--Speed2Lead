@@ -1,4 +1,4 @@
-import type { Account, Contact, Opportunity } from "@/lib/salesforce/types";
+import type { Account, Contact, Opportunity, TamStatus } from "@/lib/salesforce/types";
 import type { SdrLead } from "@/lib/leads/types";
 import type { PriorityGroup } from "@/lib/priority";
 import type { Product } from "@/lib/products";
@@ -195,6 +195,39 @@ const LEAD_SPECS: LeadSpec[] = [
   { outcome: "Not workable — lead owned by another rep (ROE)", account: "review", ownedByOther: true, priority: "P2/3", title: "VP Operations", fit: 70, intent: 66, workability: 45 },
   { outcome: "Blocked by de-dupe — duplicate name", account: "workable", dup: "name", priority: "P1", title: "VP of Finance", fit: 76, intent: 72, workability: 70 },
   { outcome: "Blocked by de-dupe — duplicate email", account: null, dup: "email", priority: "P4/5", title: "Staff Accountant", fit: 50, intent: 46, workability: 54 },
+];
+
+// TAM-situation showcase leads (SDR). One lead per TAM ("Does the account fall
+// within your territory?") row state from the "Can I work it?" checklist, per
+// product line, so switching products always shows all four situations together.
+// The first three link to a dedicated prospect account shaped to produce exactly
+// that TAM state and otherwise clean (so the TAM row is the only thing that
+// varies); the fourth has no linked account at all.
+type TamShowcaseKind = "active" | "expired" | "none" | "no-account";
+interface TamShowcaseSpec {
+  kind: TamShowcaseKind;
+  /** Resulting TAM row state, documented for reviewers. */
+  tamRow: "review" | "pass";
+  title: string;
+  fit: number;
+  intent: number;
+  workability: number;
+}
+const TAM_SHOWCASE: TamShowcaseSpec[] = [
+  { kind: "active", tamRow: "review", title: "VP of Finance", fit: 80, intent: 76, workability: 72 },
+  { kind: "expired", tamRow: "pass", title: "Controller", fit: 72, intent: 68, workability: 70 },
+  { kind: "none", tamRow: "pass", title: "Finance Director", fit: 70, intent: 64, workability: 66 },
+  { kind: "no-account", tamRow: "pass", title: "Head of Finance", fit: 62, intent: 58, workability: 60 },
+];
+
+// Company names for the three linked TAM-showcase accounts per product line
+// (3 × 6 = 18). A dedicated adjective pool + noun keeps every generated name and
+// its slug-derived domain distinct from the slot accounts (ADJECTIVES × NOUNS)
+// and the base fixtures.
+const TAM_SHOWCASE_ADJ = [
+  "Brightwater", "Oakmont", "Silverpeak", "Clearview", "Highpoint", "Foxglove",
+  "Marlowe", "Ashford", "Braemar", "Dunmore", "Everton", "Galewood",
+  "Hartwell", "Kingsley", "Lockhart", "Norwood", "Presley", "Quarrydale",
 ];
 
 const LEAD_OWNER = { name: "Pat Lee" };
@@ -438,6 +471,69 @@ function build(): Generated {
         industry: accountId ? undefined : noAcctCompany.industry,
         // Every lead carries a marketing campaign source.
         source: LEAD_CAMPAIGNS[(pi * LEAD_SPECS.length + i) % LEAD_CAMPAIGNS.length],
+      });
+    });
+
+    // TAM-situation showcase — four leads exercising each TAM row state.
+    TAM_SHOWCASE.forEach((spec, k) => {
+      let accountId: string | null = null;
+      if (spec.kind !== "no-account") {
+        const acctName = `${TAM_SHOWCASE_ADJ[pi * 3 + k]} Industries`;
+        accountId = `0015Y00000${prodChar}TAM${pad3(k)}`;
+        const tam: TamStatus =
+          spec.kind === "active" ? product : spec.kind === "expired" ? `Expired ${product} TAM` : null;
+        // A clean prospect whose only distinguishing trait is its TAM state.
+        accounts.push({
+          id: accountId,
+          name: acctName,
+          domain: `${slug(acctName)}.com`,
+          ownerId: "house",
+          ownerName: "House Account",
+          industry: "Business Services",
+          type: "Prospect",
+          product,
+          tam,
+          buyingStage: "Consideration",
+          rating: "P2",
+          abmNurtureStatus: null,
+          lastActivityDate: null,
+          intacct: { hasOpenOpps: false },
+        });
+      }
+
+      const name = freshName();
+      const emailLocal = name.trim().toLowerCase().split(/\s+/).join(".");
+      let company: string | null = null;
+      let email: string | null = null;
+      if (accountId) {
+        const accountDomain = accounts.find((a) => a.id === accountId)!.domain;
+        email = `${emailLocal}@${accountDomain}`;
+      } else {
+        // No-account lead carries a standalone company + work email so a domain
+        // can still be inferred (mirrors the account-less specs above).
+        company = noAcctCompany.name;
+        email = `${emailLocal}@${noAcctCompany.domain}`;
+      }
+
+      const score = Math.round(spec.fit * 0.4 + spec.intent * 0.35 + spec.workability * 0.25);
+
+      sdrLeads.push({
+        id: `00Q5Y0000${prodChar}TAM${pad3(k)}`,
+        name,
+        title: spec.title,
+        accountId,
+        ownerName: "House Account",
+        status: "Open - Not Contacted",
+        priorityGroup: "P1",
+        product,
+        fit: spec.fit,
+        intent: spec.intent,
+        workability: spec.workability,
+        score,
+        company,
+        email,
+        industry: accountId ? undefined : noAcctCompany.industry,
+        source: LEAD_CAMPAIGNS[(pi * TAM_SHOWCASE.length + k) % LEAD_CAMPAIGNS.length],
       });
     });
   });

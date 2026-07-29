@@ -163,11 +163,12 @@ export function evaluateLeadWorkability(
   // active assignment (and does not make the account a customer — that's the
   // Customer Status row's job), so it passes here rather than double-flagging the
   // same account for review on both rows. No TAM passes, and no linked account at
-  // all is N/A. This differs from the BDR account TAM check, which is unchanged.
+  // all also passes — there is no territory to reconcile. This differs from the
+  // BDR account TAM check, which is unchanged.
   let tam: DedupeCheck;
   const tamQuestion = "Does the account fall within your territory?";
   if (!account || !acct) {
-    tam = chk("tam", "TAM", tamQuestion, "pf", "na", "No linked account — territory can't be validated");
+    tam = chk("tam", "TAM", tamQuestion, "pf", "pass", "No linked account — nothing to reconcile");
   } else if (account.tam !== null && !isExpiredTam(account.tam)) {
     tam = chk("tam", "TAM", tamQuestion, "pf", "warn", `TAM: ${account.tam} on ${account.name} — verify before working`);
   } else if (isExpiredTam(account.tam)) {
