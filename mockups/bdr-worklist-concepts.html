@@ -209,6 +209,21 @@
   .tab .prog{font-size:10.5px;color:var(--muted)}
   .tab.add{background:transparent;border-style:dashed;color:var(--primary)}
 
+  /* persistent saved-list strip (Recommended) */
+  .savedbar{display:flex;align-items:center;gap:13px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--primary-soft)}
+  .savedbar.plain{background:var(--stage)}
+  .savedbar.done{background:var(--success-bg)}
+  .savedbar .sb-ic{width:30px;height:30px;border-radius:9px;background:var(--card);border:1px solid var(--border);
+    display:grid;place-items:center;color:var(--primary);font-family:"Sage Headline";font-weight:900;font-size:14px;flex:none}
+  .savedbar.done .sb-ic{color:var(--success)}
+  .savedbar .sb-main{min-width:0}
+  .savedbar .sb-main b{font-size:14px;display:block;line-height:1.2}
+  .savedbar .sb-main span{font-size:12px;color:var(--muted)}
+  .savedbar .sb-prog{margin-left:auto;display:flex;align-items:center;gap:9px}
+  .savedbar .sb-count{font-size:12.5px;font-weight:700;color:var(--fg)}
+  .savedbar .savedsel{flex:none}
+  .savedbar .savedsel>button{background:var(--card)}
+
   /* progress strip */
   .progress{display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid var(--border);
     background:var(--stage);font-size:12.5px;color:var(--muted)}
@@ -265,7 +280,8 @@
   <div class="topbar-in">
     <div class="brand"><span class="dot">W</span>WorkIt · BDR Worklist</div>
     <nav class="subnav" aria-label="Concepts">
-      <a href="#a" class="on" data-nav="a">A · Evolve</a>
+      <a href="#r" class="on" data-nav="r">★ Recommended</a>
+      <a href="#a" data-nav="a">A · Evolve</a>
       <a href="#b" data-nav="b">B · Split lanes</a>
       <a href="#c" data-nav="c">C · Campaign tabs</a>
     </nav>
@@ -278,11 +294,29 @@
   <section class="hero">
     <div class="eyebrow">BDR Motion · Interactive prototype</div>
     <h1>Three ways to fold Partner motion, ranking &amp; saved lists into the worklist</h1>
-    <p>Same three asks, three layouts — all in the live Sage design language. Click the Motion toggle, switch a saved list, and mark rows worked to see each behave. Pick the direction; the details get refined from there.</p>
+    <p>Same three asks, four layouts — all in the live Sage design language. Click the Motion toggle, switch a saved list, and mark rows worked to see each behave. The <b>Recommended</b> view up top blends the strongest parts of A and C against your locked decisions; A / B / C below are the options it's drawn from.</p>
     <div class="asks">
       <div class="ask"><span class="n">01</span><b>Partner (VAR) vs Direct</b><span>Any Intacct/Fusion partner relationship surfaces as <b>In Review</b>. ~30% of a BDR's accounts.</span></div>
       <div class="ask"><span class="n">02</span><b>Two-tier ranking</b><span>Workable by account-rating score, then In Review by account-rating score.</span></div>
       <div class="ask"><span class="n">03</span><b>Saved Worklists</b><span>Name + expiry on an uploaded list; auto-clears once every account is Pushed or Not a Fit.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ RECOMMENDED BLEND ============ -->
+  <section class="concept" id="r">
+    <div class="chead"><span class="clabel" style="background:var(--primary);color:var(--card)">★ Recommended</span><h2>The blend</h2></div>
+    <p class="thesis">Concept A's single ranked list — grouped <b>Workable → In Review</b>, sorted by the composite "Should I work it?" score — with C's saved-list visibility pulled up into a <span class="best">persistent strip</span> (name · expiry countdown · progress · auto-clear). One list, two knobs, and the saved-list state always in view. This is the version I'd build.</p>
+    <div class="app" data-concept="r"></div>
+    <div class="tradeoffs">
+      <div class="to pro"><div class="h">Why this one</div><ul>
+        <li>Matches your calls: any-partner → In Review (~30%), ranked by composite score.</li>
+        <li>Saved list, expiry &amp; progress are always visible — no dropdown to check them.</li>
+        <li>Single ranked sequence keeps one honest "what's next" number.</li>
+        <li>Control row stays quiet: just Motion + an in-review count.</li></ul></div>
+      <div class="to con"><div class="h">Still to decide</div><ul>
+        <li>Should <i>registered</i> deal-reg partners get extra emphasis inside In Review?</li>
+        <li>On expiry: hard-delete the saved list, or archive it?</li>
+        <li>Where the list lives — per-BDR, or shareable across the team?</li></ul></div>
     </div>
   </section>
 
@@ -337,20 +371,24 @@
 
   <!-- ============ CLOSE ============ -->
   <section class="close">
-    <h2>Open questions before I build the real thing</h2>
+    <h2>Locked, and what's left</h2>
     <div class="qgrid">
-      <div class="q"><div class="qh">1 · What counts as a partner "In Review"?</div>
-        <p>Today the engine only flags an <i>active deal registration</i> ("Registered — …"). Your ask sounds broader: <i>any</i> identified partner relationship, ~30%.</p>
-        <p class="rec rec"><b>Rec:</b> broaden it — any Intacct/Fusion partner link → In Review, with the registered ones ranked/labelled as the hotter subset.</p></div>
-      <div class="q"><div class="qh">2 · "In Review" vs the existing "Review" badge</div>
-        <p>The worklist already shows an amber "Review" for DQ cooling-off and other reasons. Partner is a new, different reason to review.</p>
-        <p class="rec"><b>Rec:</b> keep one amber "In Review" state, but show the reason inline (a teal channel chip for partner) so they don't collide.</p></div>
-      <div class="q"><div class="qh">3 · Is "account rating score" the P1/P2/P3 rating?</div>
-        <p>The list ranks by a composite (Fit 40 / Intent 35 / Work 25). "Account rating score" may mean the SF Rating field instead, or alongside it.</p>
-        <p class="rec"><b>Rec:</b> rank by the Rating tier first, composite score as the tiebreaker — confirm which you mean.</p></div>
-      <div class="q"><div class="qh">4 · Is Fusion partner data actually available?</div>
-        <p>The mock only has Intacct's <code>varStatus</code>. Fusion is named but not wired in.</p>
-        <p class="rec"><b>Rec:</b> design the flag source-agnostic now; confirm the Fusion field so it lights up when the data lands.</p></div>
+      <div class="q"><div class="qh">✓ Partner scope — decided</div>
+        <p><b>Any</b> Intacct/Fusion partner relationship flags <i>In Review</i> (~30% of a BDR's list), not just active deal registrations.</p>
+        <p class="rec"><b>Build note:</b> widen <code>evaluatePartner</code> so any VAR link → REVIEW; keep "registered" as a hotter sub-label.</p></div>
+      <div class="q"><div class="qh">✓ Ranking — decided</div>
+        <p>Rank by the composite <b>"Should I work it?" score</b> (Fit 40 / Intent 35 / Work 25) — grouped Workable first, then In Review.</p>
+        <p class="rec"><b>Build note:</b> today's sort, split into two groups. No change to the score itself.</p></div>
+      <div class="q"><div class="qh">✓ Fusion data — decided</div>
+        <p>No live Fusion field yet — the prototype <b>mocks a Fusion source</b> (see Blue Harbor Academy). Flag is source-agnostic.</p>
+        <p class="rec"><b>Build note:</b> read Intacct <code>varStatus</code> now; add a Fusion adapter behind the same interface later.</p></div>
+      <div class="q"><div class="qh">→ Naming — proposed</div>
+        <p>The app already shows an amber "Review". Partner is a new reason for it, so one amber <b>In Review</b> state + a teal channel chip naming the partner.</p>
+        <p class="rec"><b>Confirm:</b> OK to fold partner into the existing amber state rather than a fourth color?</p></div>
+      <div class="q"><div class="qh">→ Saved-list lifecycle</div>
+        <p>Auto-clear on Pushed <b>and</b> Not a Fit is in. Open: does expiry hard-delete or archive, and is a list per-BDR or shareable?</p></div>
+      <div class="q"><div class="qh">→ Registered emphasis</div>
+        <p>Within In Review, should an active deal registration rank or badge hotter than a plain partner link? Easy either way.</p></div>
     </div>
     <div class="legend">
       <span><i style="background:var(--success-bg)"></i> Workable</span>
@@ -394,7 +432,7 @@
   function chanSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.2 7.2 15.8 16.8M15.8 6H10a2 2 0 0 0-2 2v0"/></svg>';}
 
   // per-concept state
-  var state={a:{motion:"all",list:"all",worked:{}}, b:{motion:"all",list:"all",worked:{}}, c:{motion:"all",list:"dq",worked:{}}};
+  var state={r:{motion:"all",list:"trade",worked:{}}, a:{motion:"all",list:"all",worked:{}}, b:{motion:"all",list:"all",worked:{}}, c:{motion:"all",list:"dq",worked:{}}};
 
   function visible(c){
     var st=state[c], L=LISTS[st.list];
@@ -565,7 +603,43 @@
       '<button data-m="partner" class="'+(m==="partner"?"on ch":"")+'">Partner</button></div>';
   }
 
-  var RENDER={a:renderA,b:renderB,c:renderC};
+  // persistent saved-list strip for the Recommended view
+  function savedStrip(c){
+    var st=state[c], L=LISTS[st.list];
+    if(!L.ids){
+      return '<div class="savedbar plain"><span class="sb-ic">≡</span>'+
+        '<div class="sb-main"><b>All accounts</b><span>Your full BDR worklist · no saved list active</span></div>'+
+        '<div class="sb-prog"></div>'+savedSelector(c)+'</div>';
+    }
+    var total=L.ids.length, done=L.ids.filter(function(id){return st.worked[id];}).length;
+    var pct=Math.round(done/total*100), complete=done>=total;
+    return '<div class="savedbar'+(complete?' done':'')+'"><span class="sb-ic">'+(complete?'✓':'▤')+'</span>'+
+      '<div class="sb-main"><b>'+L.name+'</b>'+
+        (complete?'<span>Complete — this list drops out of Saved Worklists.</span>'
+                 :'<span>Saved list · expires '+L.exp+' ('+L.days+' days) · auto-clears when all worked</span>')+'</div>'+
+      '<div class="sb-prog"><span class="sb-count tnum">'+done+' / '+total+'</span><div class="pbar" style="width:150px"><div class="pf" style="width:'+pct+'%"></div></div></div>'+
+      savedSelector(c)+'</div>';
+  }
+  function renderR(c){
+    var st=state[c], vis=visible(c), rk=ranked(vis), rank=0, rows="";
+    rk.work.forEach(function(a){ if(!st.worked[a.id]) rows+=rowHTML(a,++rank,null,{actions:true}); });
+    var revHead = rk.rev.length
+      ? '<div class="grp"><span class="pill-r">● In Review</span><span class="k">partner relationship</span><span class="cnt"><b>'+rk.rev.length+'</b> · coordinate with channel before working</span></div>' : "";
+    var revRows=""; rk.rev.forEach(function(a){ if(!st.worked[a.id]) revRows+=rowHTML(a,++rank,null,{actions:true}); });
+    var workedRows=""; vis.forEach(function(a){ if(st.worked[a.id]) workedRows+=rowHTML(a,0,st.worked[a.id]); });
+    var revPct = vis.length ? Math.round(rk.rev.length/vis.length*100) : 0;
+    return '<div class="card" style="overflow:visible">'+
+      '<div class="card-hd"><h3>Today’s Worklist</h3><span class="wf-chip">BDR · Intacct · Accounts</span>'+
+        '<span class="sub">Workable → In Review · by “Should I work it?” score</span><span class="worked-count">'+workedCount(c)+'</span></div>'+
+      savedStrip(c)+
+      '<div class="controls">'+motionSeg(c)+'<span class="filt-note">'+(rk.rev.length?(rk.rev.length+' in review · ~'+revPct+'% of list'):'no partner accounts in view')+'</span></div>'+
+      '<div class="grp"><span class="pill-w">● Workable</span><span class="k">direct</span><span class="cnt"><b>'+rk.work.length+'</b> ranked by score</span></div>'+
+      (rows||'<div class="empty">No direct accounts in this view.</div>')+
+      revHead+revRows+workedRows+
+    '</div>';
+  }
+
+  var RENDER={r:renderR,a:renderA,b:renderB,c:renderC};
   function paint(c){
     var host=document.querySelector('.app[data-concept="'+c+'"]');
     host.innerHTML=RENDER[c](c);
@@ -586,11 +660,11 @@
   }
   document.addEventListener("click",function(){document.querySelectorAll(".menu.open").forEach(function(m){m.classList.remove("open");});});
 
-  ["a","b","c"].forEach(paint);
+  ["r","a","b","c"].forEach(paint);
 
   // subnav active state on scroll
-  var secs=["a","b","c"].map(function(id){return document.getElementById(id);});
-  var navs={};["a","b","c"].forEach(function(id){navs[id]=document.querySelector('[data-nav="'+id+'"]');});
+  var secs=["r","a","b","c"].map(function(id){return document.getElementById(id);});
+  var navs={};["r","a","b","c"].forEach(function(id){navs[id]=document.querySelector('[data-nav="'+id+'"]');});
   var obs=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){
     Object.keys(navs).forEach(function(k){navs[k].classList.remove("on");});
     var id=en.target.id; if(navs[id])navs[id].classList.add("on");
