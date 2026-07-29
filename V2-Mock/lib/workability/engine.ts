@@ -1,7 +1,7 @@
 import type { AccountBundle, Contact, Lead } from "@/lib/salesforce/types";
 import type { Team } from "@/lib/teams";
 import { evaluateRoe, type RoeResult } from "@/lib/workability/roe";
-import { evaluateOpenOpportunities, type OpenOppResult } from "@/lib/workability/open-opportunity";
+import { evaluateOpenOpportunities, opportunityAge, type OpenOppResult } from "@/lib/workability/open-opportunity";
 import { evaluateDqOpportunities, type DqOppResult } from "@/lib/workability/dq-opportunity";
 import { evaluatePartner, type PartnerResult } from "@/lib/workability/partner";
 import {
@@ -224,6 +224,17 @@ function buildChecks(
           const o = openOpp.openOpportunities[0];
           return `Open opp: "${o.name}" (${o.stage}, owner ${o.owner})`;
         })();
+  // Surface the owner and age of the blocking open opp as scannable chips.
+  const openOppFacts =
+    openOpp.status === "FAIL" && openOpp.openOpportunities[0]
+      ? (() => {
+          const o = openOpp.openOpportunities[0];
+          return [
+            { label: "Opportunity Owner", value: o.owner },
+            { label: "Age", value: opportunityAge(o.createdDate) },
+          ];
+        })()
+      : undefined;
 
   return [
     {
@@ -265,6 +276,7 @@ function buildChecks(
       badgeType: "pf",
       state: openOpp.status === "PASS" ? "pass" : "fail",
       reason: openOppReason,
+      ...(openOppFacts ? { facts: openOppFacts } : {}),
     },
     {
       key: "dqOpp",

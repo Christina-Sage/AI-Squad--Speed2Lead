@@ -9,6 +9,7 @@ import {
 } from "@/lib/workability/engine";
 import { mostRecentCampaign } from "@/lib/salesforce/campaigns";
 import { isExpiredTam } from "@/lib/workability/customer-tam";
+import { opportunityAge } from "@/lib/workability/open-opportunity";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
 import { companyDomainFromEmail } from "@/lib/leads/email-domains";
 
@@ -183,9 +184,17 @@ export function evaluateLeadWorkability(
   if (!acct) {
     openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "na", "No linked account — check not applicable");
   } else if (acct.open_opportunity_status === "FAIL") {
-    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "fail", acct.open_opportunity_detail.openOpportunities[0]
-      ? `Open opp: "${acct.open_opportunity_detail.openOpportunities[0].name}" on ${account?.name}`
-      : `Open opportunity on ${account?.name}`);
+    const o = acct.open_opportunity_detail.openOpportunities[0];
+    // Surface the owner and age of the blocking open opp as scannable chips.
+    const openOppFacts: DedupeCheck["facts"] = o
+      ? [
+          { label: "Opportunity Owner", value: o.owner },
+          { label: "Age", value: opportunityAge(o.createdDate) },
+        ]
+      : undefined;
+    openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "fail", o
+      ? `Open opp: "${o.name}" on ${account?.name}`
+      : `Open opportunity on ${account?.name}`, openOppFacts);
   } else {
     openOpp = chk("openOpp", "Open Opportunity", openOppQuestion, "pf", "pass", `No open opportunity on ${account?.name}`);
   }
