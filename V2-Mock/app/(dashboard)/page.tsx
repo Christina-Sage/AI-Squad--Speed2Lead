@@ -26,7 +26,12 @@ import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { getCurrentPriority, PRIORITY_COOKIE } from "@/lib/priority";
 import { getCurrentProduct, PRODUCT_COOKIE } from "@/lib/products";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
-import { getWorkedToday } from "@/lib/audit/worked";
+import { getWorkedToday, getWorkedAccountIds } from "@/lib/audit/worked";
+import {
+  listSavedWorklists,
+  getSelectedWorklistId,
+  SAVED_WORKLIST_COOKIE,
+} from "@/lib/worklists/saved";
 
 export default async function Home({
   searchParams,
@@ -46,6 +51,23 @@ export default async function Home({
     Array.from(worked, ([id, entry]) => [id, entry.outcome]),
   );
   const justWorkedId = (await searchParams).worked ?? null;
+
+  // Saved Worklists (per-user). Completion is lifetime, so it uses every account
+  // the user has ever worked, not just today's. Loading is defensive: if the
+  // saved_worklists table hasn't been migrated yet, the worklist still renders
+  // (just without saved lists) rather than 500-ing the whole page.
+  let savedLists: Awaited<ReturnType<typeof listSavedWorklists>> = [];
+  try {
+    const workedEver = await getWorkedAccountIds(demoUser.id);
+    savedLists = await listSavedWorklists(demoUser.id, workedEver);
+  } catch (err) {
+    console.error("[worklist] saved worklists unavailable:", err);
+  }
+  const selectedListId = getSelectedWorklistId(cookieStore.get(SAVED_WORKLIST_COOKIE)?.value);
+  const selectedList = selectedListId
+    ? savedLists.find((l) => l.id === selectedListId) ?? null
+    : null;
+  const selectedIds = selectedList ? new Set(selectedList.accountIds) : null;
 
   // Account worklist (all teams): workable ranked by score, plus the blocked
   // list. Filtered to the selected product so the dashboard shows one product
@@ -81,10 +103,29 @@ export default async function Home({
         intent: score.intent.value,
         workability: score.workability.value,
         priority: score.priority,
+        hasPartner: result.partner_detail.hasRelationship,
+        partnerSource: result.partner_detail.source,
+        partnerName: result.partner_detail.partnerName,
+        partnerRegistered: result.partner_detail.registered,
       });
     }
   }
-  accountRows.sort((a, b) => b.priority - a.priority);
+  // Worklist order (feedback): Workable ranked by score, then In Review
+  // (WORKABLE WITH REVIEW — includes any partner relationship) ranked by score.
+  const reviewRank = (r: AccountRow) => (r.finalStatus === "WORKABLE WITH REVIEW" ? 1 : 0);
+  accountRows.sort((a, b) => reviewRank(a) - reviewRank(b) || b.priority - a.priority);
+
+  // Membership of every account currently on the worklist (workable + blocked),
+  // used as the default "save this list" set when nothing has been imported.
+  const worklistAccountIds = [
+    ...accountRows.map((r) => r.id),
+    ...blockedRows.map((r) => r.id),
+  ];
+
+  // When a saved list is selected, narrow the worklist to its members.
+  const inSelected = (id: string) => !selectedIds || selectedIds.has(id);
+  const visibleAccountRows = accountRows.filter((r) => inSelected(r.id));
+  const visibleBlockedRows = blockedRows.filter((r) => inSelected(r.id));
 
   // SDR lead worklist (SDR mode only): each visible lead gets its full
   // "Can I work this lead?" verdict. NOT WORKABLE leads drop into the blocked
@@ -156,12 +197,15 @@ export default async function Home({
         product={product}
         demoUserName={demoUser.name}
         priorityLabel={team === "SDR" ? priority : undefined}
-        accountRows={accountRows}
+        accountRows={visibleAccountRows}
         leadRows={leadRows}
-        blockedRows={mode === "accounts" ? blockedRows : []}
+        blockedRows={mode === "accounts" ? visibleBlockedRows : []}
         blockedLeadRows={mode === "leads" ? blockedLeadRows : []}
         workedMap={workedMap}
         justWorkedId={justWorkedId}
+        savedLists={savedLists}
+        selectedListId={selectedListId}
+        worklistAccountIds={worklistAccountIds}
       />
     </div>
   );

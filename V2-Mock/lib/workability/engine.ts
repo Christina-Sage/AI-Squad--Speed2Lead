@@ -80,6 +80,7 @@ export interface WorkabilityResult {
 
 export const DQ_OPP_COOLING_OFF = "DQ_OPP_COOLING_OFF";
 export const PARTNER_REGISTERED = "PARTNER_REGISTERED";
+export const PARTNER_RELATIONSHIP = "PARTNER_RELATIONSHIP";
 export const DUPLICATE_ACCOUNT = "DUPLICATE_ACCOUNT";
 
 function recordsForTeam(
@@ -170,7 +171,7 @@ function buildReasonAndRecommendation(
     }
     if (partner.status === "REVIEW") {
       return {
-        reason: `${partner.varStatus} — a partner holds an active deal registration on this account.`,
+        reason: partner.reason,
         recommendation: "Review with the partner/channel team before working.",
       };
     }
@@ -333,7 +334,7 @@ export function evaluateWorkability(
   const openOpp = evaluateOpenOpportunities(opportunities, account.intacct, team);
   const customerTam = evaluateCustomerTam(account.type, account.tam);
   const dqOpp = evaluateDqOpportunities(opportunities);
-  const partner = evaluatePartner(account.intacct);
+  const partner = evaluatePartner(account);
 
   const hardFail =
     roe.status === "FAIL" ||
@@ -372,7 +373,8 @@ export function evaluateWorkability(
     ...(openOpp.status === "FAIL" ? ["OPEN_OPPORTUNITY"] : []),
     ...(openOpp.status === "REVIEW" ? ["OPEN_OPPORTUNITY_REVIEW"] : []),
     ...(dqOpp.status === "REVIEW" ? [DQ_OPP_COOLING_OFF] : []),
-    ...(partner.status === "REVIEW" ? [PARTNER_REGISTERED] : []),
+    ...(partner.registered ? [PARTNER_REGISTERED] : []),
+    ...(partner.hasRelationship && !partner.registered ? [PARTNER_RELATIONSHIP] : []),
     ...(duplicates.length > 0 ? [DUPLICATE_ACCOUNT] : []),
     ...customerTam.reasonCodes,
   ];

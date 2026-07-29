@@ -38,6 +38,17 @@ export interface IntacctFields {
   varStatus?: string;
 }
 
+/**
+ * Partner/VAR relationship read from Sage Fusion. Fusion is not yet wired into
+ * the mock, so this is fixture-driven and source-agnostic: the partner check
+ * treats an Intacct varStatus and a Fusion partnerStatus the same way. When the
+ * real Fusion integration lands, only the provider mapping needs to change.
+ */
+export interface FusionFields {
+  /** e.g. "Registered - CloudServe" or "Identified - CloudServe". */
+  partnerStatus?: string;
+}
+
 export interface Account {
   id: string;
   name: string;
@@ -62,6 +73,8 @@ export interface Account {
   abmNurtureStatus: string | null;
   lastActivityDate: string | null;
   intacct: IntacctFields;
+  /** Partner/VAR relationship from Sage Fusion (optional; source-agnostic). */
+  fusion?: FusionFields;
   /**
    * Demo-only: keep this account out of the account (BDR) worklist enumeration
    * (`listAccounts`). It stays resolvable by id via `getAccountBundle`, so an SDR

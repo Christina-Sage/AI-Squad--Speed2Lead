@@ -247,7 +247,7 @@ export function evaluateLeadWorkability(
       partnerQuestion,
       "yn",
       "warn",
-      `${acct.partner_detail.varStatus ?? "Partner deal registration"} — a partner holds an active deal registration on ${account?.name}. Coordinate with the partner/channel team.`,
+      acct.partner_detail.reason,
     );
   } else if (varLead) {
     partner = chk(

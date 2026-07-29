@@ -59,3 +59,22 @@ export async function getWorkedToday(userId: string): Promise<Map<string, Worked
   }
   return worked;
 }
+
+/**
+ * Every account this user has ever worked (pushed or marked Not a Fit), across
+ * all days. Saved-worklist completion is lifetime — a campaign list is finished
+ * once every account in it has been worked — so it uses this, not the daily
+ * worked-today set.
+ */
+export async function getWorkedAccountIds(userId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ accountId: auditLog.accountId })
+    .from(auditLog)
+    .where(and(eq(auditLog.userId, userId), inArray(auditLog.action, WORKED_ACTIONS)));
+
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (row.accountId) ids.add(row.accountId);
+  }
+  return ids;
+}
