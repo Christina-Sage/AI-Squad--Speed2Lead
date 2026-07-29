@@ -144,7 +144,7 @@ export default async function Home({
         </p>
         <div className="mx-auto mt-5 flex max-w-[640px] items-start gap-2">
           <div className="flex-1">
-            <SearchForm />
+            <SearchForm team={team} />
           </div>
           <AccountImport team={team} />
         </div>

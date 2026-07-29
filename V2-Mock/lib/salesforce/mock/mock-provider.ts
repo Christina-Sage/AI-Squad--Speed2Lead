@@ -1,9 +1,16 @@
 import type { Account, AccountBundle, AccountListItem, AccountSearchMatch, Contact } from "@/lib/salesforce/types";
 import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
-import type { NewContactInput, SalesforceProvider, SearchOutcome, WorkItState } from "@/lib/salesforce/provider";
+import type {
+  LeadSearchMatch,
+  LeadSearchOutcome,
+  NewContactInput,
+  SalesforceProvider,
+  SearchOutcome,
+  WorkItState,
+} from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
-import { detectSearchType } from "@/lib/salesforce/provider";
+import { detectSearchType, detectLeadSearchType } from "@/lib/salesforce/provider";
 import { getMockStore } from "@/lib/salesforce/mock/store";
 import {
   getAllOverrides,
@@ -65,6 +72,45 @@ export class MockSalesforceProvider implements SalesforceProvider {
 
     if (resolved.length === 1) return { matchType: "single", account: toMatch(resolved[0]) };
     return { matchType: "multiple", matches: resolved.map(toMatch) };
+  }
+
+  async searchLeads(query: string): Promise<LeadSearchOutcome> {
+    const trimmed = query.trim();
+    if (!trimmed) return { matchType: "none" };
+
+    // Search across every worklist lead (fixture + form-captured), regardless of
+    // the dashboard's current product filter — the same way account search spans
+    // all accounts.
+    const all = await this.listSdrLeads();
+    const type = detectLeadSearchType(trimmed);
+    const needle = trimmed.toLowerCase();
+
+    let matches: SdrLeadListItem[];
+    if (type === "lead_id") {
+      matches = all.filter((l) => l.id.toLowerCase() === needle);
+    } else if (type === "email") {
+      matches = all.filter((l) => (l.email ?? "").toLowerCase() === needle);
+    } else {
+      matches = all.filter(
+        (l) =>
+          l.name.toLowerCase().includes(needle) ||
+          (l.accountName ?? "").toLowerCase().includes(needle),
+      );
+    }
+
+    if (matches.length === 0) return { matchType: "none" };
+
+    const toLeadMatch = (l: SdrLeadListItem): LeadSearchMatch => ({
+      id: l.id,
+      name: l.name,
+      title: l.title,
+      accountName: l.accountName,
+      domain: l.domain,
+      email: l.email,
+    });
+
+    if (matches.length === 1) return { matchType: "single", lead: toLeadMatch(matches[0]) };
+    return { matchType: "multiple", matches: matches.map(toLeadMatch) };
   }
 
   async getAccountBundle(accountId: string): Promise<AccountBundle | null> {
