@@ -27,6 +27,8 @@ export interface IntacctFields {
   openOppDetails?: {
     name: string;
     owner: string;
+    /** Rep or AE/CE who created (sourced) the opp; omit when the owner sourced it. */
+    createdBy?: string;
     stage: string;
     createdDate: string;
   }[];
@@ -117,6 +119,12 @@ export interface Opportunity {
   accountId: string;
   ownerId: string;
   ownerName: string;
+  /**
+   * Rep or AE/CE who created (sourced) the opp. May differ from the owner — a
+   * BDR/SDR/ABX rep often sources a deal that an AE/CE then owns. Omit when the
+   * owner sourced their own deal (createdBy === ownerName).
+   */
+  createdBy?: string;
   stage: string;
   isClosed: boolean;
   createdDate: string;

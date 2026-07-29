@@ -224,13 +224,14 @@ function buildChecks(
           const o = openOpp.openOpportunities[0];
           return `Open opp: "${o.name}" (${o.stage})`;
         })();
-  // Surface the AE/CE who owns the open opp (the person to coordinate with) and
-  // its age as scannable chips.
+  // Surface who created (sourced) the open opp, the AE/CE who owns it (the
+  // person to coordinate with), and its age as scannable chips.
   const openOppFacts =
     openOpp.status === "FAIL" && openOpp.openOpportunities[0]
       ? (() => {
           const o = openOpp.openOpportunities[0];
           return [
+            { label: "Created by", value: o.createdBy },
             { label: "Opportunity Owner", value: o.owner },
             { label: "Age", value: opportunityAge(o.createdDate) },
           ];

@@ -3,7 +3,10 @@ import type { IntacctFields, Opportunity } from "@/lib/salesforce/types";
 export interface OpenOpportunityDetail {
   source: "Salesforce" | "Intacct";
   name: string;
+  /** AE/CE who owns the opp. */
   owner: string;
+  /** Rep or AE/CE who created (sourced) the opp — falls back to the owner. */
+  createdBy: string;
   stage: string;
   createdDate: string;
 }
@@ -40,6 +43,7 @@ export function evaluateOpenOpportunities(
         source: "Salesforce",
         name: opp.name,
         owner: opp.ownerName,
+        createdBy: opp.createdBy ?? opp.ownerName,
         stage: opp.stage,
         createdDate: opp.createdDate,
       });
@@ -52,6 +56,7 @@ export function evaluateOpenOpportunities(
         source: "Intacct",
         name: detail.name,
         owner: detail.owner,
+        createdBy: detail.createdBy ?? detail.owner,
         stage: detail.stage,
         createdDate: detail.createdDate,
       });
@@ -61,6 +66,7 @@ export function evaluateOpenOpportunities(
         source: "Intacct",
         name: "Open Opportunity (Intacct)",
         owner: "Unknown",
+        createdBy: "Unknown",
         stage: "Open",
         createdDate: "",
       });

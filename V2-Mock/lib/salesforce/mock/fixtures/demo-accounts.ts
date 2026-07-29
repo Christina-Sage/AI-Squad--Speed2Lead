@@ -96,6 +96,11 @@ const OWNERS = [
   { id: "u-alex", name: "Alex Rivera" },
 ];
 
+// Sourcing reps (BDR/SDR/ABX) who create opps that an AE/CE then owns. Used to
+// populate an opp's createdBy so it can differ from its owner; some deals are
+// self-sourced, where createdBy falls back to the owner instead.
+const OPP_CREATORS = ["Robin Shah", "Casey Nguyen", "Morgan Diaz"];
+
 const PARTNERS = [
   "Cloud9 Consulting",
   "LedgerLine Partners",
@@ -344,8 +349,11 @@ function build(): Generated {
           });
           break;
 
-        case "open-opp":
-          // An open Intacct opportunity already exists.
+        case "open-opp": {
+          // An open Intacct opportunity already exists. A sourcing rep created
+          // two of every three; the AE/CE self-sources the rest (createdBy
+          // omitted -> falls back to the owner).
+          const oppCreator = g % 3 === 0 ? undefined : OPP_CREATORS[g % OPP_CREATORS.length];
           accounts.push({
             ...base,
             intacct: {
@@ -354,6 +362,7 @@ function build(): Generated {
                 {
                   name: `${name} - ${product} Opportunity`,
                   owner: owner.name,
+                  createdBy: oppCreator,
                   stage: OPP_STAGES[g % OPP_STAGES.length],
                   createdDate: daysAgo(10 + (g % 40)),
                 },
@@ -361,6 +370,7 @@ function build(): Generated {
             },
           });
           break;
+        }
 
         case "roe": {
           // A linked contact has activity inside the 30-day ROE window.
