@@ -222,15 +222,16 @@ function buildChecks(
       ? "No open opportunity on this account"
       : (() => {
           const o = openOpp.openOpportunities[0];
-          return `Open opp: "${o.name}" (${o.stage}, owner ${o.owner})`;
+          return `Open opp: "${o.name}" (${o.stage})`;
         })();
-  // Surface the owner and age of the blocking open opp as scannable chips.
+  // Surface the account's AE/CE owner (the person to coordinate with) and the
+  // age of the blocking open opp as scannable chips.
   const openOppFacts =
     openOpp.status === "FAIL" && openOpp.openOpportunities[0]
       ? (() => {
           const o = openOpp.openOpportunities[0];
           return [
-            { label: "Opportunity Owner", value: o.owner },
+            { label: "Account Owner", value: account.ownerName },
             { label: "Age", value: opportunityAge(o.createdDate) },
           ];
         })()
