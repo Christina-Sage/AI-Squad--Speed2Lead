@@ -263,6 +263,17 @@ export function evaluateLeadWorkability(
   // Association slotted in after the duplicate check.
   const checks: DedupeCheck[] = [customer, tam, roe, dup, assoc, openOpp, dqOpp, partner];
 
+  // SDR P1 policy: a P1 lead is high-value enough that only a duplicate lead —
+  // a data-integrity block the rep can't work around — sends it to "Don't
+  // work". Every other hard-fail (e.g. ROE conflict, existing-customer account)
+  // is downgraded to review so the lead still surfaces in the In-Review queue
+  // rather than being dropped. Applies to inbound (SDR) leads only.
+  if (team === "SDR" && lead.priorityGroup === "P1") {
+    for (const c of checks) {
+      if (c.state === "fail" && c.key !== "dup") c.state = "warn";
+    }
+  }
+
   const hasFail = checks.some((c) => c.state === "fail");
   // Only real warnings drive review. "na" (an account-level check that can't run
   // because the lead has no linked account) does not — a lead with no account
