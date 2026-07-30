@@ -1,5 +1,6 @@
 import type { PriorityGroup } from "@/lib/priority";
 import type { Product } from "@/lib/products";
+import type { AccountType } from "@/lib/salesforce/types";
 import type { DedupeCheck, FinalStatus } from "@/lib/workability/engine";
 import type { MarketingCampaign } from "@/lib/salesforce/campaigns";
 import type { Team } from "@/lib/teams";
@@ -71,6 +72,12 @@ export interface LeadWorkabilityResult {
   title: string;
   account_id: string | null;
   account_name: string | null;
+  /**
+   * Linked account's Type (e.g. "Customer", "Prospect"); null when the lead has
+   * no linked account. Drives whether the Intacct/Fusion (customer-record) ID is
+   * shown on the lead summary.
+   */
+  account_type: AccountType | null;
   /** Company name for the lead — the linked account's name, or the lead's own company when unlinked. */
   company: string | null;
   /** Lead's email address, when known. */

@@ -18,11 +18,13 @@ describe("record display IDs", () => {
     }
   });
 
-  it("Fusion ID starts with 400 and is 10 chars", () => {
+  it("Fusion ID starts with 400, is 10 chars, and is numeric only", () => {
     for (const seed of ["0015Y00000ACME01", "z"]) {
       const id = fusionId(seed);
       expect(id).toMatch(/^400/);
       expect(id).toHaveLength(10);
+      // Numeric only — no letters (distinguishes Fusion ids from Intacct ids).
+      expect(id).toMatch(/^\d{10}$/);
     }
   });
 
