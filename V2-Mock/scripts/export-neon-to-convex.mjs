@@ -38,11 +38,25 @@ const sql = postgres(url, { max: 1 });
 const ms = (d) => (d == null ? null : new Date(d).getTime());
 const jsonl = (rows) => rows.map((r) => JSON.stringify(r)).join("\n") + (rows.length ? "\n" : "");
 
+// Read a table if it exists, mapping each row; skip (return []) if the table is
+// absent. Production only ever had the migrations that were actually applied —
+// the later tables (saved_worklists, captured_leads) may never have been
+// created — so a missing table is expected and must not abort the migration.
+async function readTable(pgName, mapFn) {
+  const [{ reg }] = await sql`SELECT to_regclass(${"public." + pgName}) AS reg`;
+  if (reg === null) {
+    console.warn(`  ${pgName}: table not found in this database — skipping`);
+    return [];
+  }
+  const rows = await sql`SELECT * FROM ${sql(pgName)}`;
+  return rows.map(mapFn);
+}
+
 async function main() {
   await mkdir("convex-import", { recursive: true });
 
   // audit_log — drop the serial `id`; nothing referenced it.
-  const auditLog = (await sql`SELECT * FROM audit_log`).map((r) => ({
+  const auditLog = await readTable("audit_log", (r) => ({
     createdAt: ms(r.created_at),
     userId: r.user_id,
     userName: r.user_name,
@@ -59,7 +73,7 @@ async function main() {
     assignmentDetails: r.assignment_details ?? null,
   }));
 
-  const savedWorklists = (await sql`SELECT * FROM saved_worklists`).map((r) => ({
+  const savedWorklists = await readTable("saved_worklists", (r) => ({
     id: r.id,
     createdAt: ms(r.created_at),
     userId: r.user_id,
@@ -70,7 +84,7 @@ async function main() {
     archivedAt: ms(r.archived_at),
   }));
 
-  const accountOverrides = (await sql`SELECT * FROM account_overrides`).map((r) => ({
+  const accountOverrides = await readTable("account_overrides", (r) => ({
     accountId: r.account_id,
     ownerId: r.owner_id,
     ownerName: r.owner_name,
@@ -79,7 +93,7 @@ async function main() {
   }));
 
   // captured_leads is unused by the app but migrated so no data is lost.
-  const capturedLeads = (await sql`SELECT * FROM captured_leads`).map((r) => ({
+  const capturedLeads = await readTable("captured_leads", (r) => ({
     id: r.id,
     createdAt: ms(r.created_at),
     name: r.name,
