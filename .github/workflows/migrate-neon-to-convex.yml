@@ -55,6 +55,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Ensure the production Convex deployment has the current schema +
+      # functions before importing — `convex import` validates rows against the
+      # schema, so it must exist first. Idempotent and independent of whether
+      # Vercel has built yet.
+      - name: Push Convex schema + functions (production)
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy -y
+
       - name: Export from Neon and import into Convex (production)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
