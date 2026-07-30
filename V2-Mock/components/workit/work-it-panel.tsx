@@ -573,7 +573,7 @@ export function WorkItPanel({
 
       {showExistingContacts && (
       <Card
-        title="Existing Contacts"
+        title={contactsReadOnly ? "Existing and Found Leads" : "Existing and Found Contacts"}
         sub={
           contactsReadOnly
             ? "Other ICP contacts on this account — add new finds as leads"
