@@ -1,30 +1,24 @@
 import { execSync } from "node:child_process";
 
 // Vercel runs this in place of the default build (Next.js picks up a
-// `vercel-build` script automatically). Drizzle migrations are not applied by
-// Vercel on their own, so a schema change (e.g. the captured_leads table) would
-// be missing at runtime.
+// `vercel-build` script automatically).
 //
-// Migration is best-effort and NON-FATAL: if it fails (or there's no
-// DATABASE_URL), we log and still build, so this can never turn a working
-// deployment into a failing one. If migrations can't be applied here, apply
-// them once against the deploy database with `pnpm db:migrate`.
+// The datastore is Convex (migrated off Neon/Postgres). When CONVEX_DEPLOY_KEY
+// is set in the Vercel project env, `convex deploy` pushes the Convex schema +
+// functions and runs the Next build with NEXT_PUBLIC_CONVEX_URL injected — the
+// canonical Convex↔Vercel integration. Without the key we still build, so the
+// static/mock parts of the app deploy; Convex-backed features (overrides, audit
+// log, saved worklists) need the key/URL to work at runtime.
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
 
-if (process.env.DATABASE_URL) {
-  try {
-    console.log("[vercel-build] DATABASE_URL present — applying migrations");
-    run("pnpm db:migrate");
-  } catch (err) {
-    console.warn(
-      "[vercel-build] migrations did not apply — continuing with build. " +
-        "Run `pnpm db:migrate` against the deploy database to enable the lead " +
-        "worklist and form. Reason:",
-      err?.message ?? err,
-    );
-  }
+if (process.env.CONVEX_DEPLOY_KEY) {
+  console.log("[vercel-build] CONVEX_DEPLOY_KEY present — deploying Convex, then building");
+  run("npx convex deploy --cmd 'next build'");
 } else {
-  console.log("[vercel-build] no DATABASE_URL — skipping migrations");
+  console.log(
+    "[vercel-build] no CONVEX_DEPLOY_KEY — building without a Convex deploy. " +
+      "Set CONVEX_DEPLOY_KEY in the Vercel project env to enable overrides, the " +
+      "audit log, and saved worklists.",
+  );
+  run("next build");
 }
-
-run("pnpm build");

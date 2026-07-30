@@ -1,6 +1,5 @@
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
-import { db } from "@/db/client";
-import { auditLog } from "@/db/schema";
+import { getConvex } from "@/lib/convex/server-client";
+import { api } from "@/convex/_generated/api";
 
 export type WorkedOutcome = "pushed" | "not_fit" | "archived";
 
@@ -9,11 +8,8 @@ export interface WorkedEntry {
   reason: string | null;
 }
 
-// A record counts as "worked" once it's been pushed to Outreach or marked Not
-// a Fit. Both actions live in the audit log, so worked-state needs no schema
-// change and no extra table (locked decision).
-const WORKED_ACTIONS = ["PUSH_OUTREACH", "NOT_A_FIT", "ARCHIVE_LEAD"];
-
+// The worked-action set lives in the Convex query (convex/audit.ts); the daily
+// cut-off is computed here and passed in so it uses the server's local clock.
 function startOfToday(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -26,38 +22,12 @@ function startOfToday(): Date {
  * each day. Keyed by accountId; the most recent action for an account wins.
  */
 export async function getWorkedToday(userId: string): Promise<Map<string, WorkedEntry>> {
-  const rows = await db
-    .select({
-      accountId: auditLog.accountId,
-      action: auditLog.action,
-      reason: auditLog.reason,
-    })
-    .from(auditLog)
-    .where(
-      and(
-        eq(auditLog.userId, userId),
-        inArray(auditLog.action, WORKED_ACTIONS),
-        gte(auditLog.createdAt, startOfToday()),
-      ),
-    )
-    .orderBy(desc(auditLog.createdAt));
-
-  const worked = new Map<string, WorkedEntry>();
-  for (const row of rows) {
-    // Rows are newest-first, so the first entry seen for an account is the
-    // most recent — later (older) rows for the same account are skipped.
-    if (!row.accountId || worked.has(row.accountId)) continue;
-    worked.set(row.accountId, {
-      outcome:
-        row.action === "NOT_A_FIT"
-          ? "not_fit"
-          : row.action === "ARCHIVE_LEAD"
-            ? "archived"
-            : "pushed",
-      reason: row.reason ?? null,
-    });
-  }
-  return worked;
+  const rows = await getConvex().query(api.audit.workedToday, {
+    userId,
+    sinceMs: startOfToday().getTime(),
+  });
+  // Convex returns newest-first with one entry per account already resolved.
+  return new Map(rows.map((r) => [r.accountId, { outcome: r.outcome, reason: r.reason }]));
 }
 
 /**
@@ -67,14 +37,6 @@ export async function getWorkedToday(userId: string): Promise<Map<string, Worked
  * worked-today set.
  */
 export async function getWorkedAccountIds(userId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ accountId: auditLog.accountId })
-    .from(auditLog)
-    .where(and(eq(auditLog.userId, userId), inArray(auditLog.action, WORKED_ACTIONS)));
-
-  const ids = new Set<string>();
-  for (const row of rows) {
-    if (row.accountId) ids.add(row.accountId);
-  }
-  return ids;
+  const ids = await getConvex().query(api.audit.workedAccountIds, { userId });
+  return new Set(ids);
 }

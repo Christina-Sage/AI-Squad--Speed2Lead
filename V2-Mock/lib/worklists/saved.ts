@@ -1,6 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
-import { savedWorklists } from "@/db/schema";
+import { getConvex } from "@/lib/convex/server-client";
+import { api } from "@/convex/_generated/api";
 
 /**
  * active    — still being worked; shown in the picker's Active group.
@@ -39,35 +38,27 @@ export async function createSavedWorklist(
   input: { name: string; accountIds: string[]; expiresAt: string | null; source?: string | null },
 ): Promise<string> {
   const id = `swl_${crypto.randomUUID()}`;
-  await db.insert(savedWorklists).values({
-    id,
+  await getConvex().mutation(api.worklists.create, {
+    extId: id,
     userId,
     name: input.name,
     source: input.source ?? null,
     accountIds: input.accountIds,
-    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    expiresAt: input.expiresAt ? new Date(input.expiresAt).getTime() : null,
   });
   return id;
 }
 
 export async function archiveSavedWorklist(userId: string, id: string): Promise<void> {
-  await db
-    .update(savedWorklists)
-    .set({ archivedAt: new Date() })
-    .where(and(eq(savedWorklists.id, id), eq(savedWorklists.userId, userId)));
+  await getConvex().mutation(api.worklists.archive, { userId, extId: id });
 }
 
 export async function reopenSavedWorklist(userId: string, id: string): Promise<void> {
-  await db
-    .update(savedWorklists)
-    .set({ archivedAt: null })
-    .where(and(eq(savedWorklists.id, id), eq(savedWorklists.userId, userId)));
+  await getConvex().mutation(api.worklists.reopen, { userId, extId: id });
 }
 
 export async function deleteSavedWorklist(userId: string, id: string): Promise<void> {
-  await db
-    .delete(savedWorklists)
-    .where(and(eq(savedWorklists.id, id), eq(savedWorklists.userId, userId)));
+  await getConvex().mutation(api.worklists.del, { userId, extId: id });
 }
 
 /**
@@ -79,11 +70,10 @@ export async function listSavedWorklists(
   userId: string,
   workedEver: Set<string>,
 ): Promise<SavedWorklistView[]> {
-  const rows = await db
-    .select()
-    .from(savedWorklists)
-    .where(eq(savedWorklists.userId, userId))
-    .orderBy(desc(savedWorklists.createdAt));
+  // Convex returns rows newest-first with ms-epoch timestamps (createdAt from
+  // _creationTime; expiresAt/archivedAt are numbers or null). new Date(ms) below
+  // handles them the same way the former Date columns were handled.
+  const rows = await getConvex().query(api.worklists.listForUser, { userId });
 
   const now = Date.now();
   const views: SavedWorklistView[] = [];
