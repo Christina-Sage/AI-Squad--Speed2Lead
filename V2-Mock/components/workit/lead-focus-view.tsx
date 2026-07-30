@@ -28,6 +28,7 @@ interface WorkItData {
   signals: PanelSignals;
   foundContacts: PanelContact[];
   existingRecords: PanelExistingRecord[];
+  leadHasAccount: boolean;
   workItState: {
     addedContactNames: string[];
     appliedHygieneFields: string[];
@@ -137,6 +138,7 @@ export function LeadFocusView({
                 initialAddedNames={data.workItState.addedContactNames}
                 initialPush={data.workItState.outreachPush}
                 lead={{ name: result.name, title: result.title, email: result.email }}
+                leadHasAccount={data.leadHasAccount}
               />
             </>
           )}
