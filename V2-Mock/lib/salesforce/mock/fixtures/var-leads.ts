@@ -1,7 +1,8 @@
-import type { Account, AccountRating } from "@/lib/salesforce/types";
+import type { Account, AccountRating, Contact } from "@/lib/salesforce/types";
 import type { SdrLead } from "@/lib/leads/types";
 import type { Product } from "@/lib/products";
 import type { PriorityGroup } from "@/lib/priority";
+import { accountContactCast } from "@/lib/research/account-cast";
 
 /**
  * VAR (partner) showcase leads for the SDR worklist — 5 per product line, each
@@ -49,6 +50,12 @@ function slug(name: string): string {
 
 const VAR_ACCOUNTS: Account[] = [];
 const VAR_SDR_LEADS: SdrLead[] = [];
+// Existing (on-file) Salesforce contacts for each VAR account, drawn from the
+// shared per-account cast so they coordinate with the research finds the same
+// way generated demo accounts do — title collisions flag the on-file row
+// "Inactive", the rest stay "In Salesforce". Without these the VAR account's
+// Existing Contacts card would show research finds only (no in-Salesforce rows).
+const VAR_CONTACTS: Contact[] = [];
 
 PRODUCTS.forEach((product, pi) => {
   for (let j = 0; j < 5; j++) {
@@ -107,7 +114,29 @@ PRODUCTS.forEach((product, pi) => {
       email: `${first.toLowerCase()}.${last.toLowerCase()}@${domain}`,
       source: `Partner referral — ${partner}`,
     });
+
+    // On-file contacts for this VAR account. The cast can be lean (0 on-file for
+    // ~1-in-9 accounts); guarantee at least one so every VAR lead's Existing
+    // Contacts card carries an in-Salesforce row, not just research finds.
+    const onFile = accountContactCast(accountId).onFile;
+    const seededOnFile =
+      onFile.length > 0
+        ? onFile
+        : [{ name: `${CONTACTS[(k + 15) % CONTACTS.length][0]}`, title: "Accounting Manager" }];
+    seededOnFile.forEach((person, ci) => {
+      VAR_CONTACTS.push({
+        id: `003-VR${pi}${j}-${ci}`,
+        name: person.name,
+        title: person.title,
+        ownerId: "house",
+        ownerName: "House Account",
+        accountId,
+        // No activity, so these never trip account-level ROE — they only add
+        // depth to the Existing Contacts card (mirrors the demo-account cast).
+        lastActivityDate: null,
+      });
+    });
   }
 });
 
-export { VAR_ACCOUNTS, VAR_SDR_LEADS };
+export { VAR_ACCOUNTS, VAR_SDR_LEADS, VAR_CONTACTS };

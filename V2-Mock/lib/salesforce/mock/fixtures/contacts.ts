@@ -1,6 +1,7 @@
 import type { Contact } from "@/lib/salesforce/types";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 import { DEMO_CONTACTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
+import { VAR_CONTACTS } from "@/lib/salesforce/mock/fixtures/var-leads";
 
 export const CONTACTS: Contact[] = [
   {
@@ -127,4 +128,8 @@ export const CONTACTS: Contact[] = [
 
   // ROE-window contacts for the generated per-product demo accounts.
   ...DEMO_CONTACTS,
+
+  // On-file contacts for the VAR (partner) showcase accounts, so their leads'
+  // Existing Contacts card shows in-Salesforce rows (with Inactive collisions).
+  ...VAR_CONTACTS,
 ];
