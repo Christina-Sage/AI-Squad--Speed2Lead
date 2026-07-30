@@ -266,31 +266,27 @@ export function WorkItPanel({
   // from company research finds — so an account-less lead isn't left without the
   // Existing Contacts view just because there's no Salesforce account behind it.
   const showExistingContacts = !lead || !!leadHasAccount || contactRows.length > 0;
-  // Inactive existing records are not pre-selected and can't be pushed.
-  const initialConfirmed = new Set<string>(
-    lead
-      ? [lead.name.toLowerCase()]
-      : [
-          ...contactRows
-            .filter((row) => row.matched && !row.inactive)
-            .map((row) => row.name.toLowerCase()),
-          ...initialAddedNames.map((n) => n.toLowerCase()),
-        ],
-  );
+  // Matched, in-Salesforce rows (and any find already added) are confirmed and
+  // pre-selected in BOTH modes; inactive rows are neither. In lead mode the
+  // incoming lead is also a confirmed, pre-selected push target. A new find
+  // stays locked (unselectable) until the rep confirms it.
+  const initialConfirmed = new Set<string>([
+    ...contactRows
+      .filter((row) => row.matched && !row.inactive)
+      .map((row) => row.name.toLowerCase()),
+    ...initialAddedNames.map((n) => n.toLowerCase()),
+    ...(lead ? [lead.name.toLowerCase()] : []),
+  ]);
 
-  // Matched records + already-added finds are confirmed and pre-selected; a new
-  // find stays locked (unselectable) until the rep confirms it. In lead mode the
-  // lead is the confirmed, pre-selected target.
   const [confirmed, setConfirmed] = useState<Set<string>>(() => new Set(initialConfirmed));
   const [selected, setSelected] = useState<Set<string>>(
     () =>
-      new Set(
-        lead
-          ? [lead.name]
-          : contactRows
-              .filter((row) => initialConfirmed.has(row.name.toLowerCase()))
-              .map((row) => row.name),
-      ),
+      new Set([
+        ...contactRows
+          .filter((row) => initialConfirmed.has(row.name.toLowerCase()))
+          .map((row) => row.name),
+        ...(lead ? [lead.name] : []),
+      ]),
   );
   const [applied, setApplied] = useState<Set<string>>(() => new Set(initialAppliedFields));
   const [push, setPush] = useState<OutreachPush | null>(initialPush);
@@ -421,14 +417,20 @@ export function WorkItPanel({
     });
   }
 
-  // What can enter a sequence. In lead mode it's just the lead; otherwise the
-  // confirmed contacts from the Existing Contacts card above.
-  const pushable: { name: string; subtitle: string }[] = lead
-    ? [{ name: lead.name, subtitle: lead.title ? `${lead.title} · Lead` : "Lead" }]
-    : confirmedRows.map((row) => ({
+  // What can enter a sequence: the confirmed rows from the card above, plus (in
+  // lead mode) the incoming lead itself, which is always a push target. A
+  // confirmed find on the SDR side therefore flows into this list once added.
+  const pushable: { name: string; subtitle: string }[] = [
+    ...(lead
+      ? [{ name: lead.name, subtitle: lead.title ? `${lead.title} · Incoming lead` : "Incoming lead" }]
+      : []),
+    ...confirmedRows
+      .filter((row) => row.name !== lead?.name)
+      .map((row) => ({
         name: row.name,
         subtitle: `${row.title} · ${row.matched ? "In SFDC" : row.detail}`,
-      }));
+      })),
+  ];
 
   async function pushOutreach() {
     const names = pushable.filter((p) => selected.has(p.name)).map((p) => p.name);
@@ -592,8 +594,7 @@ export function WorkItPanel({
               </span>
               <p className="text-[12.5px] leading-snug">
                 Checked Salesforce on <b>{accountName ?? "this account"}</b> —{" "}
-                <b>{inSalesforceCount}</b> in Salesforce
-                {contactsReadOnly ? "" : " and pre-selected"}.
+                <b>{inSalesforceCount}</b> in Salesforce and pre-selected.
                 {inactiveCount > 0 && (
                   <>
                     {" "}
@@ -622,17 +623,15 @@ export function WorkItPanel({
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border text-[11px] font-bold tracking-[0.5px] text-muted-foreground uppercase">
-                    {!contactsReadOnly && (
-                      <th className="w-9 py-2 pr-2 font-bold">
-                        <input
-                          type="checkbox"
-                          aria-label="Select all confirmed contacts"
-                          className="size-4 accent-success align-middle"
-                          checked={allConfirmedSelected}
-                          onChange={toggleAllContacts}
-                        />
-                      </th>
-                    )}
+                    <th className="w-9 py-2 pr-2 font-bold">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all confirmed rows"
+                        className="size-4 accent-success align-middle"
+                        checked={allConfirmedSelected}
+                        onChange={toggleAllContacts}
+                      />
+                    </th>
                     <th className="py-2 pr-3 font-bold">Contact</th>
                     <th className="py-2 pr-3 font-bold">Title</th>
                     <th className="py-2 pr-3 font-bold">ICP Role</th>
@@ -641,12 +640,11 @@ export function WorkItPanel({
                 </thead>
                 <tbody>
                   {contactRows.map((row) => {
-                    // SDR: a row is "In Salesforce" when it was already matched
-                    // OR the rep just confirmed & added it as a lead. BDR keys off
-                    // push confirmation only.
-                    const conf = contactsReadOnly
-                      ? row.matched || isConfirmed(row.name)
-                      : isConfirmed(row.name);
+                    // A row is "In Salesforce" when it was already matched OR the
+                    // rep just confirmed & added it (as a contact on BDR, a lead
+                    // on SDR). Matched rows are seeded into `confirmed`, so this
+                    // holds in both modes.
+                    const conf = row.matched || isConfirmed(row.name);
                     const rowBg = row.inactive
                       ? "bg-muted/40"
                       : conf
@@ -657,18 +655,16 @@ export function WorkItPanel({
                         key={`${row.name}-${row.title}`}
                         className={`border-b border-border last:border-b-0 ${rowBg}`}
                       >
-                        {!contactsReadOnly && (
-                          <td className="py-3 pr-2 align-top">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${row.name}`}
-                              className="size-4 accent-success align-middle disabled:opacity-40"
-                              checked={selected.has(row.name)}
-                              disabled={!conf || row.inactive}
-                              onChange={() => toggleSelected(row.name)}
-                            />
-                          </td>
-                        )}
+                        <td className="py-3 pr-2 align-top">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${row.name}`}
+                            className="size-4 accent-success align-middle disabled:opacity-40"
+                            checked={selected.has(row.name)}
+                            disabled={!conf || row.inactive}
+                            onChange={() => toggleSelected(row.name)}
+                          />
+                        </td>
                         <td
                           className={`py-3 pr-3 align-top text-[13.5px] font-semibold ${
                             row.inactive ? "text-muted-foreground line-through" : ""
@@ -731,12 +727,18 @@ export function WorkItPanel({
             <div className="mt-3 border-t border-border pt-3 text-[12.5px] text-muted-foreground">
               {contactsReadOnly ? (
                 <>
-                  Existing contacts shown for reference; new finds can be added as leads. Only the
-                  incoming lead is pushed to Outreach.
+                  <b className="text-foreground">{selectedContactCount}</b> selected · pushed to
+                  Outreach with the incoming lead
+                  {reviewCount > 0 && (
+                    <>
+                      {" "}
+                      · <b className="text-warning">{reviewCount}</b> awaiting review
+                    </>
+                  )}
                   {inactiveCount > 0 && (
                     <>
                       {" "}
-                      · <b className="text-foreground">{inactiveCount}</b> inactive
+                      · <b className="text-foreground">{inactiveCount}</b> inactive (excluded)
                     </>
                   )}
                 </>
