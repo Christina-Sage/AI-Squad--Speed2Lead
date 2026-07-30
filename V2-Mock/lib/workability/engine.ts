@@ -112,6 +112,13 @@ function buildReasonAndRecommendation(
   team: Team,
 ): { reason: string; recommendation: string } {
   if (finalStatus === "NOT WORKABLE") {
+    const domainDup = duplicates.find((d) => d.reasons.includes("Domain"));
+    if (domainDup) {
+      return {
+        reason: `Exact duplicate of "${domainDup.name}" — same domain (${domainDup.domain}). This company already has a Salesforce record.`,
+        recommendation: "Do not create a second record. Merge into the existing account instead.",
+      };
+    }
     if (roe.status === "FAIL") {
       const r = roe.violatingRecords[0];
       return {
@@ -294,7 +301,11 @@ function buildChecks(
       label: "Duplicate Account",
       question: "Any duplicate account records?",
       badgeType: "yn",
-      state: duplicates.length > 0 ? "warn" : "pass",
+      state: duplicates.some((d) => d.reasons.includes("Domain"))
+        ? "fail"
+        : duplicates.length > 0
+          ? "warn"
+          : "pass",
       reason: duplicateReason(duplicates),
     },
     {
@@ -339,11 +350,18 @@ export function evaluateWorkability(
   const dqOpp = evaluateDqOpportunities(opportunities);
   const partner = evaluatePartner(account);
 
+  // An exact-domain match is a definitive duplicate — the company already has a
+  // Salesforce record, so working this one would create a second. That hard-
+  // blocks ("Blocked by de-dupe"). A fuzzy match (parent account / location /
+  // similar name only) stays a review — verify before working.
+  const strongDuplicate = duplicates.some((d) => d.reasons.includes("Domain"));
+
   const hardFail =
     roe.status === "FAIL" ||
     openOpp.status === "FAIL" ||
     customerTam.reasonCodes.includes(CUSTOMER_TAM_BLANK) ||
-    customerTam.reasonCodes.includes(CUSTOMER_EXISTING);
+    customerTam.reasonCodes.includes(CUSTOMER_EXISTING) ||
+    strongDuplicate;
 
   const needsReview =
     !hardFail &&
@@ -420,6 +438,8 @@ export function blockedByLabel(result: WorkabilityResult): string {
   return fails
     .map((c) => {
       switch (c.key) {
+        case "duplicate":
+          return "Duplicate account";
         case "customer":
           return "Existing customer";
         case "tam":

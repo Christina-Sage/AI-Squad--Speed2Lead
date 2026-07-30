@@ -38,9 +38,14 @@ export function duplicateReason(matches: DuplicateMatch[]): string {
   if (matches.length === 0) {
     return "No duplicate found — domain, parent account, location, and name all clear";
   }
-  const m = matches[0];
+  // Prefer a domain match as the headline — it's the strongest signal (the same
+  // company already has a Salesforce record), so word it as a definite duplicate.
+  const m = matches.find((d) => d.reasons.includes("Domain")) ?? matches[0];
   const why = m.reasons.join(", ").toLowerCase();
   const extra =
     matches.length > 1 ? ` (and ${matches.length - 1} other record${matches.length - 1 === 1 ? "" : "s"})` : "";
+  if (m.reasons.includes("Domain")) {
+    return `Duplicate of "${m.name}" — same domain (${m.domain})${extra}. Already in Salesforce; don't create a second record.`;
+  }
   return `Possible duplicate of "${m.name}" — matched on ${why}${extra}. Verify before working.`;
 }
