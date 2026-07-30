@@ -198,6 +198,7 @@ export function WorkItPanel({
   initialAddedNames,
   initialPush,
   lead,
+  leadHasAccount,
 }: {
   accountId: string;
   accountName?: string;
@@ -212,11 +213,14 @@ export function WorkItPanel({
   initialAddedNames: string[];
   initialPush: OutreachPush | null;
   /**
-   * SDR-lead mode. When set, the lead itself is the unit of work: the Existing
-   * Contacts card is hidden and the lead is the single, pre-selected contact to
-   * push to Outreach (no account-contact confirm/review flow).
+   * SDR-lead mode. When set, the lead itself is the unit of work: the lead is
+   * the single, pre-selected contact to push to Outreach, and the Existing
+   * Contacts card renders read-only (for awareness) when the lead has a linked
+   * account — see `leadHasAccount`.
    */
   lead?: { name: string; title?: string | null; email?: string | null };
+  /** SDR only: the lead has a linked account, so show the Existing Contacts card. */
+  leadHasAccount?: boolean;
 }) {
   const toast = useToast();
 
@@ -256,7 +260,10 @@ export function WorkItPanel({
   ];
   // SDR view is read-only: contacts are for reference, not push selection.
   const contactsReadOnly = !!lead;
-  const showExistingContacts = !lead || existingRecords.length > 0;
+  // Show for BDR always; for SDR whenever the lead has a linked account (even if
+  // that account has no contacts on file — research finds still surface, and the
+  // empty state reads clearly).
+  const showExistingContacts = !lead || !!leadHasAccount;
   // Inactive existing records are not pre-selected and can't be pushed.
   const initialConfirmed = new Set<string>(
     lead

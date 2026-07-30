@@ -135,6 +135,10 @@ export async function GET(
     signals,
     foundContacts,
     existingRecords,
+    // Drives the read-only Existing Contacts card on the SDR side: show it
+    // whenever the lead has a linked account, even if that account has no
+    // contacts on file yet.
+    leadHasAccount: accountBundle !== null,
     workItState,
   });
 }
