@@ -260,10 +260,12 @@ export function WorkItPanel({
   ];
   // SDR view is read-only: contacts are for reference, not push selection.
   const contactsReadOnly = !!lead;
-  // Show for BDR always; for SDR whenever the lead has a linked account (even if
-  // that account has no contacts on file — research finds still surface, and the
-  // empty state reads clearly).
-  const showExistingContacts = !lead || !!leadHasAccount;
+  // Show for BDR always; for SDR whenever the lead has a linked account OR
+  // research surfaced ICP contacts for the lead's company. A net-new inbound
+  // lead with only a company (no linked account) still gets the card, populated
+  // from company research finds — so an account-less lead isn't left without the
+  // Existing Contacts view just because there's no Salesforce account behind it.
+  const showExistingContacts = !lead || !!leadHasAccount || contactRows.length > 0;
   // Inactive existing records are not pre-selected and can't be pushed.
   const initialConfirmed = new Set<string>(
     lead
