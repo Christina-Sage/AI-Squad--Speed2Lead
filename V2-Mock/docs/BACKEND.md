@@ -180,7 +180,9 @@ The **Work-it page** additionally runs the research path (990 or web/integration
 ## 9. Environments & Deployment
 
 - **Local dev**: `npx convex dev` (links the project + generates `convex/_generated`), then `pnpm dev` in `V2-Mock/`. Needs `.env.local` with `NEXT_PUBLIC_CONVEX_URL` (written by `convex dev`), `SALESFORCE_PROVIDER=mock`, `SALESFORCE_INSTANCE_URL`.
-- **Production**: Vercel project `dedupe-engine-v2` → https://dedupe-engine-v2.vercel.app. Same env vars set in Vercel.
+- **Production**: Vercel project `dedupe-engine-v2` → https://dedupe-engine-v2.vercel.app. Set two Vercel env vars:
+  - `CONVEX_DEPLOY_KEY` — a production deploy key from the Convex dashboard (Settings → Deploy Keys). The Vercel build (`scripts/vercel-build.mjs`) runs `npx convex deploy --cmd 'pnpm build'` when this is present, which pushes the Convex schema + functions and injects `NEXT_PUBLIC_CONVEX_URL` into the build.
+  - `NEXT_PUBLIC_CONVEX_URL` — the production Convex URL. Also set this explicitly so it is present at **runtime** (the server-side `fetchQuery`/`fetchMutation` calls read it per request), not just at build time.
 - **Tests**: `pnpm test` — 44 unit tests covering the workability engine, checks, and provider integration.
 
 ## 10. Today vs. Fully Integrated
@@ -347,7 +349,7 @@ To move existing rows across without data loss:
    npx convex import --table accountOverrides convex-import/accountOverrides.jsonl --append
    npx convex import --table capturedLeads    convex-import/capturedLeads.jsonl    --append
    ```
-4. **Verify** row counts in the Convex dashboard against Neon, then set `NEXT_PUBLIC_CONVEX_URL` in Vercel and deploy (`npx convex deploy` pushes schema + functions).
+4. **Verify** row counts in the Convex dashboard against Neon, then wire Vercel (see §9 Production): add `CONVEX_DEPLOY_KEY` and `NEXT_PUBLIC_CONVEX_URL` as Vercel env vars. The next deploy's build runs `convex deploy` automatically and pushes the schema + functions.
 
 Notes:
 - `captured_leads` is unused by the app but migrated anyway so nothing is lost.
