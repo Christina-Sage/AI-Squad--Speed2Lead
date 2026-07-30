@@ -331,10 +331,18 @@ epoch-ms numbers, the old `audit_log` serial `id` is dropped (Convex assigns
 `_id`), and the app-level keys `savedWorklists.id` / `accountOverrides.accountId`
 are preserved as indexed fields.
 
-**One-command path** (once the Convex project is linked and the Neon
+**No local machine? Run it in CI.** The `.github/workflows/migrate-neon-to-convex.yml`
+workflow does the whole move on GitHub's runners. Add two repository secrets —
+`DATABASE_URL` (Neon) and `CONVEX_DEPLOY_KEY` (a production deploy key from the
+Convex dashboard) — then Actions tab → "Migrate Neon → Convex" → Run workflow.
+Default mode is `replace` (idempotent; Neon is never modified).
+
+**One-command path (local)** (once the Convex project is linked and the Neon
 `DATABASE_URL` is in `.env.local`): `pnpm migrate:neon` runs the export and
-imports every table into the **production** Convex deployment in append mode.
-The manual steps below are the same thing, broken out:
+imports every table into the **production** Convex deployment. With
+`CONVEX_DEPLOY_KEY` set it authenticates non-interactively; set
+`CONVEX_IMPORT_MODE=replace` for an idempotent load. The manual steps below are
+the same thing, broken out:
 
 To move existing rows across without data loss:
 
