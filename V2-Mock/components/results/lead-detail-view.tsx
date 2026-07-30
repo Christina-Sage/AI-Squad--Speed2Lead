@@ -8,11 +8,11 @@ import { useToast } from "@/components/ui/toaster";
 
 function SummaryField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className="mb-0.5 block text-[11px] tracking-[0.5px] text-muted-foreground uppercase">
         {label}
       </label>
-      <div className="text-[13.5px] font-bold">{children}</div>
+      <div className="text-[13.5px] font-bold break-words">{children}</div>
     </div>
   );
 }
@@ -112,7 +112,7 @@ export function LeadDetailView({
           <SummaryField label="Company">{result.company ?? NA}</SummaryField>
           <SummaryField label="Email">
             {result.email ? (
-              <a href={`mailto:${result.email}`} className="text-link hover:underline">
+              <a href={`mailto:${result.email}`} className="text-link break-all hover:underline">
                 {result.email}
               </a>
             ) : (
