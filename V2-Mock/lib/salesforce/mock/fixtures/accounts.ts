@@ -326,6 +326,53 @@ export const ACCOUNTS: Account[] = [
     intacct: { hasOpenOpps: false },
   },
 
+  {
+    // OPEN-OPP SHOWCASE (recent / active deal). An open opportunity created 20
+    // days ago (see opportunities) hard-blocks the account for a BDR — it's an
+    // active deal, coordinate with the owner — so it lands in the blocked list.
+    // Opening it shows the Open Opportunity check with the Opportunity Owner and
+    // Age. Its linked SDR lead (Elena Cruz) surfaces the same open opp as a
+    // review item on the SDR side.
+    id: "0015Y00000NVTK01",
+    name: "Novatek Logistics",
+    domain: "novateklogistics.com",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Manufacturing",
+    type: "Prospect",
+    product: "Intacct",
+    tam: "Intacct",
+    buyingStage: "Consideration",
+    rating: "P2",
+    campaigns: [{ name: "INT_24Q2_NCA_CA_ZiffDavisAppointment", date: "2026-06-22" }],
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false },
+  },
+  {
+    // OPEN-OPP SHOWCASE (stale / re-work). An open opportunity created ~14 months
+    // ago (see opportunities) is past the 12-month stale window, so for a BDR it
+    // is WORKABLE WITH REVIEW — ask the AE/CE to DQ it and re-engage — and stays
+    // in the ranked worklist. Opening it shows the Open Opportunity check with
+    // the Opportunity Owner and Age. Its linked SDR lead (Nadia Osei) shows the
+    // same on the SDR side.
+    id: "0015Y00000SLST01",
+    name: "Solstice Foundation",
+    domain: "solsticefdn.org",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Nonprofit",
+    type: "Prospect",
+    product: "Intacct",
+    tam: "Intacct",
+    buyingStage: "Decision",
+    rating: "P1",
+    campaigns: [{ name: "INT_23Q3_NCA_US_0009NFPProductTour", date: "2026-05-14" }],
+    abmNurtureStatus: null,
+    lastActivityDate: null,
+    intacct: { hasOpenOpps: false },
+  },
+
   // Generated per-product demo accounts (20 per product line) so every Product
   // filter shows a populated worklist and blocked list. See demo-accounts.ts.
   ...DEMO_ACCOUNTS,

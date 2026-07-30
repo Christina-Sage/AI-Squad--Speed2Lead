@@ -137,6 +137,44 @@ export const SDR_LEADS: SdrLead[] = [
     email: "tom.alvarez@myaccesshealth.org",
   },
 
+  {
+    // OPEN-OPP SHOWCASE (SDR) — linked to Novatek Logistics, which has a recent
+    // open opp. On the SDR side an open opp is a review (not a block), so the
+    // lead stays In Review; the Open Opportunity check shows the Opportunity
+    // Owner and Age.
+    id: "00Q5Y00000ELENA1",
+    name: "Elena Cruz",
+    title: "VP Finance",
+    accountId: "0015Y00000NVTK01", // Novatek Logistics — recent open opp
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P1",
+    product: "Intacct",
+    fit: 83,
+    intent: 76,
+    workability: 71,
+    score: 78,
+    email: "elena.cruz@novateklogistics.com",
+  },
+  {
+    // OPEN-OPP SHOWCASE (SDR) — linked to Solstice Foundation, which has a stale
+    // open opp. Shows the same Open Opportunity check (Opportunity Owner + Age)
+    // as a review item.
+    id: "00Q5Y00000NADIA1",
+    name: "Nadia Osei",
+    title: "Director of Finance",
+    accountId: "0015Y00000SLST01", // Solstice Foundation — stale open opp
+    ownerName: "House Account",
+    status: "Open - Not Contacted",
+    priorityGroup: "P1",
+    product: "Intacct",
+    fit: 81,
+    intent: 73,
+    workability: 72,
+    score: 76,
+    email: "nadia.osei@solsticefdn.org",
+  },
+
   // Generated per-product demo leads (10 per product line) exercising a spread
   // of "Can I work this lead?" outcomes. See demo-accounts.ts.
   ...DEMO_SDR_LEADS,

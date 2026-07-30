@@ -107,6 +107,36 @@ export const OPPORTUNITIES: Opportunity[] = [
     },
   },
 
+  {
+    // Open (active) deal on Novatek Logistics, created 20 days ago. Recent, so a
+    // BDR view hard-blocks it as an active deal while an SDR view reviews it.
+    // Surfaces the Opportunity Owner (Pat Lee) and Age on the Open Opportunity check.
+    id: "006-NVTK-1",
+    name: "Novatek Logistics - Intacct Platform",
+    accountId: "0015Y00000NVTK01",
+    ownerId: "u-pat",
+    ownerName: "Pat Lee",
+    createdBy: "Robin Shah",
+    stage: "Discovery",
+    isClosed: false,
+    createdDate: daysAgo(20),
+  },
+  {
+    // Open but STALE deal on Solstice Foundation, created ~14 months ago. Past
+    // the 12-month stale window, so a BDR view downgrades it to review (DQ &
+    // re-engage) rather than blocking. Surfaces the Opportunity Owner (Jamie
+    // Park) and Age on the Open Opportunity check.
+    id: "006-SLST-1",
+    name: "Solstice Foundation - Intacct Fund Accounting",
+    accountId: "0015Y00000SLST01",
+    ownerId: "u-jamie",
+    ownerName: "Jamie Park",
+    createdBy: "Alex Rivera",
+    stage: "Negotiation",
+    isClosed: false,
+    createdDate: daysAgo(430),
+  },
+
   // DQ cooling-off opps for the generated per-product demo accounts.
   ...DEMO_OPPORTUNITIES,
 ];

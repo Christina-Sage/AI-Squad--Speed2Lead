@@ -110,24 +110,18 @@ function MiniBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-/** Channel chip naming the partner (Intacct/Fusion/VAR) on an In Review row. */
-function PartnerChip({
-  hasPartner,
-  partnerSource,
-  partnerName,
-  partnerRegistered,
-}: {
-  hasPartner: boolean;
-  partnerSource: string | null;
-  partnerName: string | null;
-  partnerRegistered: boolean;
-}) {
+/**
+ * Channel chip on an In Review row. It names only the motion (Partner) and the
+ * source database — no partner name, no registration state. The database is
+ * driven by the product line: the Intacct product line reads its partner data
+ * from Intacct; every other product line reads it from Sage Fusion.
+ */
+function PartnerChip({ hasPartner, product }: { hasPartner: boolean; product: string }) {
   if (!hasPartner) return null;
-  const label = [partnerSource, partnerName].filter(Boolean).join(" · ");
+  const database = product === "Intacct" ? "Intacct" : "Fusion";
   return (
     <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[10.5px] font-bold tracking-[0.3px] text-muted-foreground uppercase">
-      Partner{label ? ` · ${label}` : ""}
-      {partnerRegistered ? " · registered" : ""}
+      Partner · {database}
     </span>
   );
 }
@@ -650,12 +644,7 @@ export function WorklistExplorer({
                           </span>
                         )}
                         {!leadOutcome(lead) && (
-                          <PartnerChip
-                            hasPartner={lead.hasPartner}
-                            partnerSource={lead.partnerSource}
-                            partnerName={lead.partnerName}
-                            partnerRegistered={lead.partnerRegistered}
-                          />
+                          <PartnerChip hasPartner={lead.hasPartner} product={product} />
                         )}
                       </div>
                       {lead.accountName && (
@@ -728,12 +717,7 @@ export function WorklistExplorer({
                           Workable
                         </span>
                       )}
-                      <PartnerChip
-                        hasPartner={acct.hasPartner}
-                        partnerSource={acct.partnerSource}
-                        partnerName={acct.partnerName}
-                        partnerRegistered={acct.partnerRegistered}
-                      />
+                      <PartnerChip hasPartner={acct.hasPartner} product={product} />
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {acct.domain} · {acct.industry} · {acct.type}

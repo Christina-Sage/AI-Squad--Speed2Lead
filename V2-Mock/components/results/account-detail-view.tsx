@@ -93,12 +93,19 @@ export function AccountDetailView({
               {result.domain}
             </a>
           </SummaryField>
+          {/* Intacct / Fusion ID is a customer-record id, so it is only shown
+              when the account is an existing Customer; otherwise there is no
+              such record to reference. */}
           <SummaryField label={result.product === "Intacct" ? "Intacct ID" : "Fusion ID"}>
-            <span className="font-mono text-[12.5px] tracking-tight">
-              {result.product === "Intacct"
-                ? intacctId(result.account_id)
-                : fusionId(result.account_id)}
-            </span>
+            {result.type === "Customer" ? (
+              <span className="font-mono text-[12.5px] tracking-tight">
+                {result.product === "Intacct"
+                  ? intacctId(result.account_id)
+                  : fusionId(result.account_id)}
+              </span>
+            ) : (
+              <span className="font-medium text-muted-foreground">N/A</span>
+            )}
           </SummaryField>
           <SummaryField label="Industry">{result.industry}</SummaryField>
           <SummaryField label="Type">{result.type}</SummaryField>

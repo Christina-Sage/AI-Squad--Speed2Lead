@@ -2,9 +2,9 @@
  * Display IDs shown on the Account / Lead summaries. Deterministic and
  * source-agnostic (the mock has no separate Intacct/Fusion systems), formatted
  * to match the real record IDs:
- *   - Intacct ID  — Salesforce account id, starts "001", 18 chars
+ *   - Intacct ID  — Salesforce account id, starts "001", 18 chars, alphanumeric
  *   - Lead ID     — Salesforce lead id (Intacct & GMO), starts "00Q", 18 chars
- *   - Fusion ID   — Sage Fusion partner id, starts "400", 10 chars
+ *   - Fusion ID   — Sage Fusion partner id, starts "400", 10 chars, numeric only
  *
  * Where a real record id already exists (account id, lead id) it's reused and
  * normalized to 18 chars; the Fusion id has no counterpart in the mock, so it's
@@ -12,9 +12,10 @@
  */
 
 const ALNUM = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const DIGITS = "0123456789";
 
-/** N deterministic alphanumeric characters from a seed (FNV-1a based). */
-function chars(seed: string, n: number): string {
+/** N deterministic characters from a seed (FNV-1a based), over `alphabet`. */
+function chars(seed: string, n: number, alphabet: string = ALNUM): string {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < seed.length; i += 1) {
     h ^= seed.charCodeAt(i);
@@ -22,7 +23,7 @@ function chars(seed: string, n: number): string {
   }
   let out = "";
   for (let i = 0; i < n; i += 1) {
-    out += ALNUM[h % ALNUM.length];
+    out += alphabet[h % alphabet.length];
     h = Math.imul(h ^ (h >>> 13), 16777619) >>> 0;
   }
   return out;
@@ -44,7 +45,10 @@ export function leadRecordId(leadId: string): string {
   return normalize(leadId, "00Q", leadId, 18);
 }
 
-/** Sage Fusion partner id — "400…", 10 chars. Derived (no counterpart in the mock). */
+/**
+ * Sage Fusion partner id — "400…", 10 chars, numeric only (no letters). Derived
+ * (no counterpart in the mock).
+ */
 export function fusionId(seed: string): string {
-  return "400" + chars(`fusion:${seed}`, 7);
+  return "400" + chars(`fusion:${seed}`, 7, DIGITS);
 }

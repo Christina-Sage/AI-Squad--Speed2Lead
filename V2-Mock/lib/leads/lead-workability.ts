@@ -304,6 +304,7 @@ export function evaluateLeadWorkability(
     title: lead.title,
     account_id: lead.accountId,
     account_name: account?.name ?? null,
+    account_type: account?.type ?? null,
     // Company name and email travel with the lead even when it has no account.
     company: lead.company ?? account?.name ?? null,
     email: lead.email ?? null,

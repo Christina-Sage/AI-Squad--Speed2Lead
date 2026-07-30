@@ -148,8 +148,10 @@ export function LeadDetailView({
           <SummaryField label="Lead ID">
             <span className="font-mono text-[12.5px] tracking-tight">{leadRecordId(result.lead_id)}</span>
           </SummaryField>
+          {/* Intacct / Fusion ID is a customer-record id, so it is only shown
+              when the linked account is an existing Customer. */}
           <SummaryField label={result.product === "Intacct" ? "Intacct ID" : "Fusion ID"}>
-            {result.account_id ? (
+            {result.account_id && result.account_type === "Customer" ? (
               <span className="font-mono text-[12.5px] tracking-tight">
                 {result.product === "Intacct"
                   ? intacctId(result.account_id)
