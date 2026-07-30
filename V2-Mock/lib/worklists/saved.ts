@@ -1,6 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
-import { savedWorklists } from "@/db/schema";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 /**
  * active    — still being worked; shown in the picker's Active group.
@@ -39,35 +38,27 @@ export async function createSavedWorklist(
   input: { name: string; accountIds: string[]; expiresAt: string | null; source?: string | null },
 ): Promise<string> {
   const id = `swl_${crypto.randomUUID()}`;
-  await db.insert(savedWorklists).values({
+  await fetchMutation(api.savedWorklists.create, {
     id,
     userId,
     name: input.name,
     source: input.source ?? null,
     accountIds: input.accountIds,
-    expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+    expiresAt: input.expiresAt ? new Date(input.expiresAt).getTime() : null,
   });
   return id;
 }
 
 export async function archiveSavedWorklist(userId: string, id: string): Promise<void> {
-  await db
-    .update(savedWorklists)
-    .set({ archivedAt: new Date() })
-    .where(and(eq(savedWorklists.id, id), eq(savedWorklists.userId, userId)));
+  await fetchMutation(api.savedWorklists.archive, { userId, id });
 }
 
 export async function reopenSavedWorklist(userId: string, id: string): Promise<void> {
-  await db
-    .update(savedWorklists)
-    .set({ archivedAt: null })
-    .where(and(eq(savedWorklists.id, id), eq(savedWorklists.userId, userId)));
+  await fetchMutation(api.savedWorklists.reopen, { userId, id });
 }
 
 export async function deleteSavedWorklist(userId: string, id: string): Promise<void> {
-  await db
-    .delete(savedWorklists)
-    .where(and(eq(savedWorklists.id, id), eq(savedWorklists.userId, userId)));
+  await fetchMutation(api.savedWorklists.remove, { userId, id });
 }
 
 /**
@@ -79,21 +70,18 @@ export async function listSavedWorklists(
   userId: string,
   workedEver: Set<string>,
 ): Promise<SavedWorklistView[]> {
-  const rows = await db
-    .select()
-    .from(savedWorklists)
-    .where(eq(savedWorklists.userId, userId))
-    .orderBy(desc(savedWorklists.createdAt));
+  // Rows come back newest-first from Convex, with timestamps as epoch ms.
+  const rows = await fetchQuery(api.savedWorklists.listByUser, { userId });
 
   const now = Date.now();
   const views: SavedWorklistView[] = [];
   for (const row of rows) {
-    const accountIds = Array.isArray(row.accountIds) ? (row.accountIds as string[]) : [];
+    const accountIds = Array.isArray(row.accountIds) ? row.accountIds : [];
     const total = accountIds.length;
     const worked = accountIds.filter((id) => workedEver.has(id)).length;
 
-    const expMs = row.expiresAt ? new Date(row.expiresAt).getTime() : null;
-    const archMs = row.archivedAt ? new Date(row.archivedAt).getTime() : null;
+    const expMs = row.expiresAt ?? null;
+    const archMs = row.archivedAt ?? null;
     const expired = expMs !== null && expMs < now;
 
     // Purge archived or expired lists once they're past the grace period.
@@ -102,7 +90,7 @@ export async function listSavedWorklists(
 
     const complete = total > 0 && worked >= total;
     const status: SavedWorklistStatus =
-      row.archivedAt || complete ? "completed" : expired ? "expired" : "active";
+      archMs || complete ? "completed" : expired ? "expired" : "active";
 
     views.push({
       id: row.id,
@@ -110,8 +98,8 @@ export async function listSavedWorklists(
       source: row.source,
       accountIds,
       createdAt: new Date(row.createdAt).toISOString(),
-      expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
-      archivedAt: row.archivedAt ? new Date(row.archivedAt).toISOString() : null,
+      expiresAt: expMs !== null ? new Date(expMs).toISOString() : null,
+      archivedAt: archMs !== null ? new Date(archMs).toISOString() : null,
       total,
       worked,
       status,

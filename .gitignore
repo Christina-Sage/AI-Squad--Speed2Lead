@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# convex — data dumps from the one-time Neon->Convex migration (may hold data)
+convex-import/
+
 # vercel
 .vercel
 

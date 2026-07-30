@@ -1,0 +1,72 @@
+name: Migrate Neon → Convex (one-time data move)
+
+# Manually-triggered, one-time data migration for V2-Mock: export every row
+# from the Neon Postgres database and import it into the production Convex
+# deployment. Runs on GitHub's runners (open network), so it works without a
+# local machine.
+#
+# Prerequisites — add these as repository secrets
+# (Settings → Secrets and variables → Actions → New repository secret):
+#   - DATABASE_URL       the Neon connection string (source data)
+#   - CONVEX_DEPLOY_KEY  a *production* deploy key from the Convex dashboard
+#                        (Settings → Deploy Keys). Authenticates the import and
+#                        scopes it to the production deployment.
+#
+# Trigger: Actions tab → "Migrate Neon → Convex" → Run workflow. The default
+# import mode is "replace" (idempotent — safe to re-run; Neon is never
+# modified). Choose "append" only if you have a reason to add without clearing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      import_mode:
+        description: "Import mode into Convex"
+        type: choice
+        default: replace
+        options:
+          - replace
+          - append
+
+concurrency:
+  group: migrate-neon-to-convex
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: V2-Mock
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: V2-Mock/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Ensure the production Convex deployment has the current schema +
+      # functions before importing — `convex import` validates rows against the
+      # schema, so it must exist first. Idempotent and independent of whether
+      # Vercel has built yet.
+      - name: Push Convex schema + functions (production)
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy -y
+
+      - name: Export from Neon and import into Convex (production)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          CONVEX_IMPORT_MODE: ${{ inputs.import_mode }}
+        run: pnpm migrate:neon

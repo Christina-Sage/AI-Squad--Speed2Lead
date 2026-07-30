@@ -1,1 +1,0 @@
-ALTER TABLE "captured_leads" ADD COLUMN "product" text DEFAULT 'Intacct' NOT NULL;
