@@ -10,7 +10,7 @@ import { SEQUENCE_GROUPS, type OutreachPush, type SequenceGroup } from "@/lib/ou
 import { NOT_A_FIT_REASONS } from "@/lib/workit/not-a-fit";
 import { ARCHIVE_STATUS_REASONS, OTHER_ARCHIVE_REASON } from "@/lib/workit/archive-lead";
 import { classifyIcpRole, type IcpRole } from "@/lib/research/icp";
-import { buildSalesforceNewContactUrl } from "@/lib/salesforce/urls";
+import { buildSalesforceNewContactUrl, buildSalesforceNewLeadUrl } from "@/lib/salesforce/urls";
 import { OutreachProspectPanel, type OutreachProspect } from "@/components/workit/outreach-prospect-panel";
 
 /** Best-effort work email from a person's name + company domain (mock only). */
@@ -128,10 +128,10 @@ function InSalesforcePill() {
   );
 }
 
-function NewContactPill() {
+function NewContactPill({ label = "New Contact" }: { label?: string }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-bg px-2.5 py-0.5 text-[11.5px] font-bold text-warning">
-      ⚠ New Contact
+      ⚠ {label}
     </span>
   );
 }
@@ -384,7 +384,11 @@ export function WorkItPanel({
       }
       setConfirmed((prev) => new Set(prev).add(row.name.toLowerCase()));
       setSelected((prev) => new Set(prev).add(row.name));
-      toast(`Confirmed — added to Salesforce: ${row.name}`);
+      toast(
+        lead
+          ? `Added as a lead in Salesforce: ${row.name}`
+          : `Confirmed — added to Salesforce: ${row.name}`,
+      );
     } catch {
       toast("Failed to confirm contact");
     } finally {
@@ -397,12 +401,13 @@ export function WorkItPanel({
   const confirmedRows = contactRows.filter((row) => !row.inactive && isConfirmed(row.name));
   const reviewCount = contactRows.filter((row) => !row.inactive && !isConfirmed(row.name)).length;
   const selectedContactCount = contactRows.filter((row) => selected.has(row.name)).length;
-  // Read-only (SDR) counts key off matched-in-Salesforce, not push selection.
+  // Read-only (SDR) counts key off matched-in-Salesforce (plus any find the rep
+  // just confirmed & added as a lead), not push selection.
   const inSalesforceCount = contactsReadOnly
-    ? contactRows.filter((row) => row.matched && !row.inactive).length
+    ? contactRows.filter((row) => (row.matched || isConfirmed(row.name)) && !row.inactive).length
     : confirmedRows.length;
   const newContactCount = contactsReadOnly
-    ? contactRows.filter((row) => !row.inactive && !row.matched).length
+    ? contactRows.filter((row) => !row.inactive && !row.matched && !isConfirmed(row.name)).length
     : reviewCount;
   const allConfirmedSelected =
     confirmedRows.length > 0 && confirmedRows.every((row) => selected.has(row.name));
@@ -571,7 +576,7 @@ export function WorkItPanel({
         title="Existing Contacts"
         sub={
           contactsReadOnly
-            ? "Other ICP contacts on this account — for reference"
+            ? "Other ICP contacts on this account — add new finds as leads"
             : "ICP contacts, checked against Salesforce"
         }
       >
@@ -602,12 +607,13 @@ export function WorkItPanel({
                   <>
                     {" "}
                     <span className="font-semibold text-warning">
-                      {newContactCount} new contact{newContactCount === 1 ? "" : "s"}
+                      {newContactCount} new {contactsReadOnly ? "lead" : "contact"}
+                      {newContactCount === 1 ? "" : "s"}
                     </span>{" "}
                     {contactsReadOnly ? "found." : "to review."}
                   </>
                 ) : (
-                  " No new contacts found."
+                  contactsReadOnly ? " No new leads found." : " No new contacts found."
                 )}
               </p>
             </div>
@@ -635,9 +641,12 @@ export function WorkItPanel({
                 </thead>
                 <tbody>
                   {contactRows.map((row) => {
-                    // In read-only (SDR) mode, status keys off matched-in-SFDC,
-                    // not push confirmation.
-                    const conf = contactsReadOnly ? row.matched : isConfirmed(row.name);
+                    // SDR: a row is "In Salesforce" when it was already matched
+                    // OR the rep just confirmed & added it as a lead. BDR keys off
+                    // push confirmation only.
+                    const conf = contactsReadOnly
+                      ? row.matched || isConfirmed(row.name)
+                      : isConfirmed(row.name);
                     const rowBg = row.inactive
                       ? "bg-muted/40"
                       : conf
@@ -680,28 +689,35 @@ export function WorkItPanel({
                             <InSalesforcePill />
                           ) : (
                             <div className="flex flex-wrap items-center gap-2">
-                              <NewContactPill />
-                              {!contactsReadOnly && (
-                                <>
-                                  <a
-                                    href={buildSalesforceNewContactUrl(accountId, row.name, row.title)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
-                                  >
-                                    Add in Salesforce
-                                    <ExternalLinkIcon className="size-3.5" />
-                                  </a>
-                                  <button
-                                    type="button"
-                                    className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
-                                    disabled={busy === row.name}
-                                    onClick={() => confirmContact(row)}
-                                  >
-                                    {busy === row.name ? "Syncing…" : "Confirm & add"}
-                                  </button>
-                                </>
-                              )}
+                              {/* SDR works leads, so a research find is a New
+                                  Lead and "Add in Salesforce" opens a new Lead;
+                                  BDR creates an account Contact. */}
+                              <NewContactPill label={contactsReadOnly ? "New Lead" : "New Contact"} />
+                              <a
+                                href={
+                                  contactsReadOnly
+                                    ? buildSalesforceNewLeadUrl(row.name, row.title, accountName ?? undefined)
+                                    : buildSalesforceNewContactUrl(accountId, row.name, row.title)
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-[7px] border border-border bg-card px-2.5 py-1 text-[12.5px] font-semibold text-link hover:border-muted-foreground"
+                              >
+                                Add in Salesforce
+                                <ExternalLinkIcon className="size-3.5" />
+                              </a>
+                              <button
+                                type="button"
+                                className="rounded-[7px] border border-warning bg-card px-2.5 py-1 text-[12.5px] font-semibold text-warning hover:brightness-95 disabled:opacity-45"
+                                disabled={busy === row.name}
+                                onClick={() => confirmContact(row)}
+                              >
+                                {busy === row.name
+                                  ? "Syncing…"
+                                  : contactsReadOnly
+                                    ? "Confirm & add lead"
+                                    : "Confirm & add"}
+                              </button>
                             </div>
                           )}
                         </td>
@@ -715,7 +731,8 @@ export function WorkItPanel({
             <div className="mt-3 border-t border-border pt-3 text-[12.5px] text-muted-foreground">
               {contactsReadOnly ? (
                 <>
-                  Shown for reference — only the lead is pushed to Outreach.
+                  Existing contacts shown for reference; new finds can be added as leads. Only the
+                  incoming lead is pushed to Outreach.
                   {inactiveCount > 0 && (
                     <>
                       {" "}

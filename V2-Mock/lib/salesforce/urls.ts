@@ -39,3 +39,28 @@ export function buildSalesforceNewContactUrl(
     .join(",");
   return `${instanceUrl()}/lightning/o/Contact/new?defaultFieldValues=${encodeURIComponent(fields)}`;
 }
+
+/**
+ * Deep link to Salesforce's "New Lead" page, pre-filled with the researched
+ * name/title (and company, which is required on a Lead). The SDR counterpart to
+ * buildSalesforceNewContactUrl: an inbound rep works leads, so a research find
+ * on the SDR side is created as a Lead, not an account Contact.
+ */
+export function buildSalesforceNewLeadUrl(
+  name: string,
+  title?: string,
+  company?: string,
+): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : name.trim();
+  const firstName = parts.length > 1 ? parts.slice(0, -1).join(" ") : "";
+  const fields = [
+    firstName ? `FirstName=${firstName}` : null,
+    `LastName=${lastName}`,
+    title ? `Title=${title}` : null,
+    company ? `Company=${company}` : null,
+  ]
+    .filter(Boolean)
+    .join(",");
+  return `${instanceUrl()}/lightning/o/Lead/new?defaultFieldValues=${encodeURIComponent(fields)}`;
+}
