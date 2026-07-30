@@ -1,5 +1,5 @@
-import { db } from "@/db/client";
-import { auditLog } from "@/db/schema";
+import { fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 import type { SearchType } from "@/lib/salesforce/provider";
 import type { Team } from "@/lib/teams";
 
@@ -28,7 +28,7 @@ export interface AuditLogEntry {
 }
 
 export async function writeAuditLog(entry: AuditLogEntry) {
-  await db.insert(auditLog).values({
+  await fetchMutation(api.auditLog.write, {
     userId: entry.userId,
     userName: entry.userName,
     team: entry.team,

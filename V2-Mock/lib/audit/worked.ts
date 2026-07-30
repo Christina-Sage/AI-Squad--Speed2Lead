@@ -1,6 +1,5 @@
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
-import { db } from "@/db/client";
-import { auditLog } from "@/db/schema";
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 export type WorkedOutcome = "pushed" | "not_fit" | "archived";
 
@@ -11,8 +10,8 @@ export interface WorkedEntry {
 
 // A record counts as "worked" once it's been pushed to Outreach or marked Not
 // a Fit. Both actions live in the audit log, so worked-state needs no schema
-// change and no extra table (locked decision).
-const WORKED_ACTIONS = ["PUSH_OUTREACH", "NOT_A_FIT", "ARCHIVE_LEAD"];
+// change and no extra table (locked decision). The "worked" action set is
+// applied in the Convex query (convex/auditLog.ts:workedByUser).
 
 function startOfToday(): Date {
   const d = new Date();
@@ -26,21 +25,11 @@ function startOfToday(): Date {
  * each day. Keyed by accountId; the most recent action for an account wins.
  */
 export async function getWorkedToday(userId: string): Promise<Map<string, WorkedEntry>> {
-  const rows = await db
-    .select({
-      accountId: auditLog.accountId,
-      action: auditLog.action,
-      reason: auditLog.reason,
-    })
-    .from(auditLog)
-    .where(
-      and(
-        eq(auditLog.userId, userId),
-        inArray(auditLog.action, WORKED_ACTIONS),
-        gte(auditLog.createdAt, startOfToday()),
-      ),
-    )
-    .orderBy(desc(auditLog.createdAt));
+  // Rows come back newest-first from Convex.
+  const rows = await fetchQuery(api.auditLog.workedByUser, {
+    userId,
+    sinceMs: startOfToday().getTime(),
+  });
 
   const worked = new Map<string, WorkedEntry>();
   for (const row of rows) {
@@ -67,10 +56,7 @@ export async function getWorkedToday(userId: string): Promise<Map<string, Worked
  * worked-today set.
  */
 export async function getWorkedAccountIds(userId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ accountId: auditLog.accountId })
-    .from(auditLog)
-    .where(and(eq(auditLog.userId, userId), inArray(auditLog.action, WORKED_ACTIONS)));
+  const rows = await fetchQuery(api.auditLog.workedByUser, { userId });
 
   const ids = new Set<string>();
   for (const row of rows) {

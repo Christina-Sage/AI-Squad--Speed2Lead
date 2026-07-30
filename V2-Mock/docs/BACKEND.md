@@ -10,7 +10,7 @@ The app is a **Next.js application** deployed on Vercel. There is no separate ba
 
 1. **Server-rendered pages** — when you open a page, the server gathers all the data, runs the checks, and sends back finished HTML.
 2. **API routes** — small endpoints the browser calls when you take an action (assign an account, add a contact, push to Outreach).
-3. **A data layer** — a "Salesforce provider" that supplies account data, plus a Postgres database (Neon) for anything that must survive between sessions.
+3. **A data layer** — a "Salesforce provider" that supplies account data, plus a [Convex](https://convex.dev) database for anything that must survive between sessions.
 
 ```
 Browser
@@ -43,11 +43,12 @@ The mock holds fixture data for 11 accounts, each with:
 | Data | Where it lives | Survives restart? |
 |---|---|---|
 | Account/lead/contact/opp fixtures | In memory | Resets to fixtures |
-| Owner + ABM status changes | **Postgres (Neon)** — `account_overrides` table | ✅ Yes |
-| Audit log (every search & action) | **Postgres (Neon)** — `audit_log` table | ✅ Yes |
+| Owner + ABM status changes | **Convex** — `accountOverrides` table | ✅ Yes |
+| Audit log (every search & action) | **Convex** — `auditLog` table | ✅ Yes |
+| Saved worklists | **Convex** — `savedWorklists` table | ✅ Yes |
 | Work-it state (added contacts, applied hygiene, Outreach pushes) | In memory | Resets to fixtures |
 
-Owner changes persist in Postgres because serverless functions don't share memory — an assignment made by one request must be visible to the next. The database is accessed via **Drizzle ORM** (`db/schema.ts`, `db/client.ts`).
+Owner changes persist in Convex because serverless functions don't share memory — an assignment made by one request must be visible to the next. The schema and query/mutation functions live in `convex/` (`convex/schema.ts`, plus `auditLog.ts`, `savedWorklists.ts`, `accountOverrides.ts`). Server code reads and writes through the `convex/nextjs` helpers (`fetchQuery` / `fetchMutation`) — all access is server-side, so there's no React Convex provider or client-side subscription.
 
 ---
 
@@ -178,7 +179,7 @@ The **Work-it page** additionally runs the research path (990 or web/integration
 
 ## 9. Environments & Deployment
 
-- **Local dev**: `pnpm dev` in `V2-Mock/`. Needs `.env.local` with `DATABASE_URL` (Neon Postgres), `SALESFORCE_PROVIDER=mock`, `SALESFORCE_INSTANCE_URL`.
+- **Local dev**: `npx convex dev` (links the project + generates `convex/_generated`), then `pnpm dev` in `V2-Mock/`. Needs `.env.local` with `NEXT_PUBLIC_CONVEX_URL` (written by `convex dev`), `SALESFORCE_PROVIDER=mock`, `SALESFORCE_INSTANCE_URL`.
 - **Production**: Vercel project `dedupe-engine-v2` → https://dedupe-engine-v2.vercel.app. Same env vars set in Vercel.
 - **Tests**: `pnpm test` — 44 unit tests covering the workability engine, checks, and provider integration.
 
@@ -191,8 +192,8 @@ Everything runs through interfaces designed for real integrations, but most sour
 | Data / capability | Today (mock) | Real today? |
 |---|---|---|
 | Account, leads, contacts, opps | Fixture data in the mock provider (11 accounts) | ❌ Mock |
-| Owner / ABM status changes | Neon Postgres (`account_overrides`) | ✅ Real DB |
-| Audit log | Neon Postgres (`audit_log`) | ✅ Real DB |
+| Owner / ABM status changes | Convex (`accountOverrides`) | ✅ Real DB |
+| Audit log | Convex (`auditLog`) | ✅ Real DB |
 | Nonprofit research (990s, officers, revenue) | Live ProPublica scrape | ✅ Real |
 | Website / Wikipedia company history | Live scrape | ✅ Real |
 | Revenue (non-nonprofit) | Fixture labeled "ZoomInfo" | ❌ Mock |
@@ -222,7 +223,7 @@ Everything runs through interfaces designed for real integrations, but most sour
    │  (ABM/intent) │                        │  job boards   │
    └───────────────┘                        └───────────────┘
                         ┌─────────────────────────────┐
-                        │   Neon Postgres (audit log,  │
+                        │   Convex (audit log,         │
                         │   overrides, cached intel)   │
                         └─────────────────────────────┘
 ```
@@ -314,6 +315,41 @@ Client modules live in `lib/integrations/` (`zoominfo.ts`, `outreach.ts`, `sales
 Two seams keep their sync fixture even when a provider is configured, to avoid rippling async through server rendering: `getCompanyIntel()` (used by `scoring.ts`) and the ABM/intent fields on the account. The live ZoomInfo/6sense data flows through the async work-it route instead. Re-point these when you move scoring off the fixture.
 
 ### Known mock limitations
-- In-memory state (fixtures, work-it actions) resets whenever the server restarts, and on Vercel isn't shared between serverless instances. Owner/ABM changes are the exception — they persist in Postgres.
-- V1 and V2 share the same Neon database, so assignments made in one show up in the other.
+- In-memory state (fixtures, work-it actions) resets whenever the server restarts, and on Vercel isn't shared between serverless instances. Owner/ABM changes are the exception — they persist in Convex.
+- **V2 now uses Convex; V1 still uses the Neon Postgres database.** They no longer share a persistence layer, so an assignment made in V1 is not visible in V2 (and vice versa). This diverges from the previous shared-database behaviour — intentional as of the Convex migration, since only V2 was moved.
 - ZoomInfo / LinkedIn Sales Navigator / 6sense / Outreach are represented by fixtures, labeled with their real source names, behind interfaces designed for the real integrations.
+
+---
+
+## 11. Neon → Convex migration (runbook)
+
+V2's persistence moved from Neon Postgres (Drizzle ORM) to Convex. The table
+shapes were ported 1:1 (see `convex/schema.ts`); timestamps are stored as
+epoch-ms numbers, the old `audit_log` serial `id` is dropped (Convex assigns
+`_id`), and the app-level keys `savedWorklists.id` / `accountOverrides.accountId`
+are preserved as indexed fields.
+
+To move existing rows across without data loss:
+
+1. **Link the Convex project** (writes `NEXT_PUBLIC_CONVEX_URL` + `CONVEX_DEPLOYMENT` to `.env.local` and generates `convex/_generated`):
+   ```bash
+   npx convex dev        # leave running, or `npx convex dev --once`
+   ```
+2. **Export from Neon.** With the Neon `DATABASE_URL` still in `.env.local`:
+   ```bash
+   pnpm export:neon      # writes convex-import/<table>.jsonl (git-ignored)
+   ```
+   The script transforms each table to match `convex/schema.ts` and prints the import commands.
+3. **Import into Convex:**
+   ```bash
+   npx convex import --table auditLog         convex-import/auditLog.jsonl         --append
+   npx convex import --table savedWorklists   convex-import/savedWorklists.jsonl   --append
+   npx convex import --table accountOverrides convex-import/accountOverrides.jsonl --append
+   npx convex import --table capturedLeads    convex-import/capturedLeads.jsonl    --append
+   ```
+4. **Verify** row counts in the Convex dashboard against Neon, then set `NEXT_PUBLIC_CONVEX_URL` in Vercel and deploy (`npx convex deploy` pushes schema + functions).
+
+Notes:
+- `captured_leads` is unused by the app but migrated anyway so nothing is lost.
+- `postgres` and `dotenv` are kept as devDependencies **only** for `scripts/export-neon-to-convex.mjs`. Once the migration is verified they (and the script) can be removed.
+- Keep a Neon backup until the Convex data is confirmed. The export does not modify Neon.

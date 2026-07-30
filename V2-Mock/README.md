@@ -13,12 +13,16 @@ V2 keeps all V1 functionality (mock Salesforce provider, workability engine, Pro
 
 ```bash
 pnpm install
-pnpm dev
+npx convex dev   # first run links the Convex project + generates convex/_generated
+pnpm dev         # second terminal
 ```
 
-Requires `.env.local` with `DATABASE_URL` (audit log + owner overrides) — same setup as V1.
+Persistence (audit log, saved worklists, owner overrides) lives in **Convex**.
+Requires `.env.local` with `NEXT_PUBLIC_CONVEX_URL`, which `npx convex dev`
+writes automatically. See [docs/BACKEND.md](docs/BACKEND.md) for the schema and
+the Neon→Convex migration runbook.
 
 ```bash
 pnpm test   # vitest
-pnpm build  # production build
+pnpm build  # production build (needs NEXT_PUBLIC_CONVEX_URL)
 ```

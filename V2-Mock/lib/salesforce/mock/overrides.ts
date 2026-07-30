@@ -1,6 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
-import { accountOverrides } from "@/db/schema";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 export interface AccountOverride {
   ownerId: string;
@@ -9,25 +8,20 @@ export interface AccountOverride {
 }
 
 export async function getOverride(accountId: string): Promise<AccountOverride | undefined> {
-  const [row] = await db
-    .select()
-    .from(accountOverrides)
-    .where(eq(accountOverrides.accountId, accountId))
-    .limit(1);
-  return row;
+  const row = await fetchQuery(api.accountOverrides.get, { accountId });
+  return row ?? undefined;
 }
 
 export async function getAllOverrides(): Promise<Map<string, AccountOverride>> {
-  const rows = await db.select().from(accountOverrides);
-  return new Map(rows.map((r) => [r.accountId, r]));
+  const rows = await fetchQuery(api.accountOverrides.getAll, {});
+  return new Map(
+    rows.map((r) => [
+      r.accountId,
+      { ownerId: r.ownerId, ownerName: r.ownerName, abmNurtureStatus: r.abmNurtureStatus },
+    ]),
+  );
 }
 
 export async function setOverride(accountId: string, override: AccountOverride): Promise<void> {
-  await db
-    .insert(accountOverrides)
-    .values({ accountId, ...override })
-    .onConflictDoUpdate({
-      target: accountOverrides.accountId,
-      set: { ...override, updatedAt: new Date() },
-    });
+  await fetchMutation(api.accountOverrides.set, { accountId, ...override });
 }

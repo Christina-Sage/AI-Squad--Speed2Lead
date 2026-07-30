@@ -12,10 +12,11 @@ A short guide for the AI Squad. Most of us work inside Claude, so the trickiest 
 
 ```bash
 pnpm install
-pnpm dev          # http://localhost:3000
+npx convex dev    # first run: logs in, links the Convex project, generates convex/_generated
+pnpm dev          # http://localhost:3000 (in a second terminal)
 ```
 
-Requires `.env.local` with `DATABASE_URL` (audit log + owner overrides) — same setup as V1.
+Requires `.env.local` with `NEXT_PUBLIC_CONVEX_URL` (the audit log, saved worklists, and owner overrides live in Convex). `npx convex dev` writes this for you and keeps schema/functions in sync while it runs.
 
 ```bash
 pnpm test         # vitest
@@ -90,7 +91,7 @@ Common prefixes: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
 - `app/` — Next.js App Router pages and API routes (`app/api/*`)
 - `components/` — UI (`ui/` primitives, `results/`, `workit/`, `layout/`, `search/`, `home/`)
 - `lib/` — domain logic: `workability/` (the six-check engine), `scoring/`, `leads/`, `research/`, `salesforce/mock/` (mock provider + fixtures)
-- `db/` — Drizzle schema and migrations
+- `convex/` — Convex schema (`schema.ts`), query/mutation functions, and generated types (`_generated/`)
 - `docs/BACKEND.md` — backend notes
 
 See [README.md](README.md) for what V2 adds over V1.
