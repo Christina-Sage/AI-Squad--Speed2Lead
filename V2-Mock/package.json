@@ -11,7 +11,8 @@
     "test": "vitest run",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
-    "export:neon": "node scripts/export-neon-to-convex.mjs"
+    "export:neon": "node scripts/export-neon-to-convex.mjs",
+    "migrate:neon": "node scripts/migrate-neon-to-convex.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

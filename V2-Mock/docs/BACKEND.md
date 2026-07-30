@@ -331,6 +331,11 @@ epoch-ms numbers, the old `audit_log` serial `id` is dropped (Convex assigns
 `_id`), and the app-level keys `savedWorklists.id` / `accountOverrides.accountId`
 are preserved as indexed fields.
 
+**One-command path** (once the Convex project is linked and the Neon
+`DATABASE_URL` is in `.env.local`): `pnpm migrate:neon` runs the export and
+imports every table into the **production** Convex deployment in append mode.
+The manual steps below are the same thing, broken out:
+
 To move existing rows across without data loss:
 
 1. **Link the Convex project** (writes `NEXT_PUBLIC_CONVEX_URL` + `CONVEX_DEPLOYMENT` to `.env.local` and generates `convex/_generated`):
