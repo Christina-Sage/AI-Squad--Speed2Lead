@@ -1,4 +1,5 @@
 import type { AccountBundle, Contact, Lead } from "@/lib/salesforce/types";
+import type { Product } from "@/lib/products";
 import type { Team } from "@/lib/teams";
 import { evaluateRoe, type RoeResult } from "@/lib/workability/roe";
 import { evaluateOpenOpportunities, opportunityAge, type OpenOppResult } from "@/lib/workability/open-opportunity";
@@ -53,6 +54,8 @@ export interface WorkabilityResult {
   domain: string;
   industry: string;
   type: string;
+  /** Sage product line — drives which record ID (Intacct vs Fusion) is shown. */
+  product: Product;
   owner: string;
   tam_status: string;
   abm_nurture_status: string | null;
@@ -385,6 +388,7 @@ export function evaluateWorkability(
     domain: account.domain,
     industry: account.industry,
     type: account.type,
+    product: account.product,
     owner: account.ownerName,
     tam_status: tamLabel(account.tam),
     abm_nurture_status: account.abmNurtureStatus,

@@ -2,6 +2,7 @@
 
 import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import { buildSalesforceLeadUrl } from "@/lib/salesforce/urls";
+import { intacctId, fusionId, leadRecordId } from "@/lib/salesforce/record-ids";
 import { DedupeChecklist } from "@/components/results/dedupe-checklist";
 import { useToast } from "@/components/ui/toaster";
 
@@ -140,6 +141,20 @@ export function LeadDetailView({
               >
                 {result.domain}
               </a>
+            ) : (
+              NA
+            )}
+          </SummaryField>
+          <SummaryField label="Lead ID">
+            <span className="font-mono text-[12.5px] tracking-tight">{leadRecordId(result.lead_id)}</span>
+          </SummaryField>
+          <SummaryField label={result.product === "Intacct" ? "Intacct ID" : "Fusion ID"}>
+            {result.account_id ? (
+              <span className="font-mono text-[12.5px] tracking-tight">
+                {result.product === "Intacct"
+                  ? intacctId(result.account_id)
+                  : fusionId(result.account_id)}
+              </span>
             ) : (
               NA
             )}
