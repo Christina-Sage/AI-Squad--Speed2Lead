@@ -18,9 +18,9 @@ export interface VerticalInfo {
 // focus). Selecting a vertical persists the choice AND filters the worklist to
 // accounts/leads in that vertical (see verticalForIndustry + matchesVertical).
 export const VERTICALS: VerticalInfo[] = [
+  { id: "all", label: "All Vertical" },
   { id: "hospitality", label: "Hospitality" },
   { id: "general-business", label: "General Business" },
-  { id: "all", label: "All Vertical" },
   { id: "nfp", label: "Not For Profit" },
   { id: "healthcare", label: "Healthcare" },
   { id: "financial-services", label: "Financial Services" },
