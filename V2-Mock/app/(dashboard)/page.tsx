@@ -26,6 +26,7 @@ import { scoreAccount } from "@/lib/scoring/scoring";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
 import { getCurrentPriority, PRIORITY_COOKIE } from "@/lib/priority";
 import { getCurrentProduct, PRODUCT_COOKIE } from "@/lib/products";
+import { getCurrentVertical, matchesVertical, VERTICAL_COOKIE } from "@/lib/verticals";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getWorkedToday, getWorkedAccountIds } from "@/lib/audit/worked";
 import {
@@ -44,7 +45,13 @@ export default async function Home({
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
   const priority = getCurrentPriority(cookieStore.get(PRIORITY_COOKIE)?.value);
   const product = getCurrentProduct(cookieStore.get(PRODUCT_COOKIE)?.value);
+  const vertical = getCurrentVertical(cookieStore.get(VERTICAL_COOKIE)?.value);
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
+  // The Vertical selector is shown for Intacct only (see the dashboard layout),
+  // so the vertical filter applies there too. "All Vertical" is the no-filter
+  // state. When active, the whole worklist (accounts + leads) is narrowed to the
+  // selected vertical, mapped from each record's industry.
+  const applyVertical = product === "Intacct" && vertical !== "all";
 
   // Today's worked accounts (pushed / not-a-fit / archived), from the audit log.
   const worked = await getWorkedToday(demoUser.id);
@@ -78,6 +85,7 @@ export default async function Home({
   const blockedRows: BlockedRow[] = [];
   for (const acct of accounts) {
     if (acct.product !== product) continue;
+    if (applyVertical && !matchesVertical(vertical, acct.industry)) continue;
     const bundle = await provider.getAccountBundle(acct.id);
     if (!bundle) continue;
     const duplicates = await provider.findDuplicateAccounts(acct.id);
@@ -140,6 +148,13 @@ export default async function Home({
     for (const item of visibleLeads) {
       const bundle = await provider.getSdrLeadBundle(item.id);
       if (!bundle) continue;
+      // A lead's vertical follows its linked account's industry (when linked),
+      // otherwise the lead's own industry hint. Same Intacct-only vertical filter
+      // as the account worklist.
+      if (applyVertical) {
+        const leadIndustry = bundle.accountBundle?.account.industry ?? bundle.lead.industry ?? null;
+        if (!matchesVertical(vertical, leadIndustry)) continue;
+      }
       const dupInfo = duplicateLeads.get(item.id) ?? null;
       const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, dupInfo);
       if (result.final_status === "NOT WORKABLE") {
