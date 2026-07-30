@@ -94,5 +94,7 @@ export interface LeadWorkabilityResult {
    * account (or the account has no campaigns). Null when neither is known.
    */
   marketing_campaign: MarketingCampaign | null;
+  /** Sage product line — drives which record ID (Intacct vs Fusion) is shown. */
+  product: Product;
   checks: DedupeCheck[];
 }

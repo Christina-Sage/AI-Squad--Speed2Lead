@@ -318,6 +318,9 @@ export function evaluateLeadWorkability(
     reason,
     recommendation,
     marketing_campaign,
+    // Product drives the record ID shown: the lead's own product, else the
+    // linked account's, defaulting to Intacct.
+    product: lead.product ?? account?.product ?? "Intacct",
     checks,
   };
 }

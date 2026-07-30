@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import { buildSalesforceAccountUrl } from "@/lib/salesforce/urls";
-import { intacctId, fusionId, leadRecordId } from "@/lib/salesforce/record-ids";
+import { intacctId, fusionId } from "@/lib/salesforce/record-ids";
 import { DedupeChecklist } from "@/components/results/dedupe-checklist";
 import { OwnerEditor } from "@/components/results/owner-editor";
 import { AbmStatusEditor } from "@/components/results/abm-status-editor";
@@ -93,14 +93,12 @@ export function AccountDetailView({
               {result.domain}
             </a>
           </SummaryField>
-          <SummaryField label="Intacct ID">
-            <span className="font-mono text-[12.5px] tracking-tight">{intacctId(result.account_id)}</span>
-          </SummaryField>
-          <SummaryField label="Fusion ID">
-            <span className="font-mono text-[12.5px] tracking-tight">{fusionId(result.account_id)}</span>
-          </SummaryField>
-          <SummaryField label="Lead ID">
-            <span className="font-mono text-[12.5px] tracking-tight">{leadRecordId(result.account_id)}</span>
+          <SummaryField label={result.product === "Intacct" ? "Intacct ID" : "Fusion ID"}>
+            <span className="font-mono text-[12.5px] tracking-tight">
+              {result.product === "Intacct"
+                ? intacctId(result.account_id)
+                : fusionId(result.account_id)}
+            </span>
           </SummaryField>
           <SummaryField label="Industry">{result.industry}</SummaryField>
           <SummaryField label="Type">{result.type}</SummaryField>
