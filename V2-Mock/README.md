@@ -22,6 +22,27 @@ Requires `.env.local` with `NEXT_PUBLIC_CONVEX_URL`, which `npx convex dev`
 writes automatically. See [docs/BACKEND.md](docs/BACKEND.md) for the schema and
 the Neon→Convex migration runbook.
 
+### Running the CRM data from Convex (instead of in-memory fixtures)
+
+By default (`SALESFORCE_PROVIDER=mock`) the accounts/leads/contacts/opps are
+in-memory fixtures that reset on restart. To run the de-dupe engine against a
+real database instead, point the app at Convex and seed it once:
+
+```bash
+# .env.local
+SALESFORCE_PROVIDER=convex
+ALLOW_DEV_SEED=1
+
+npx convex dev        # terminal 1 — links project, generates convex/_generated
+pnpm dev              # terminal 2
+pnpm seed:convex      # terminal 3 — loads the fixtures into Convex (idempotent)
+```
+
+The six checks, scoring, and duplicate detection then read live Convex rows, and
+assignments / added contacts / hygiene / Outreach pushes persist. Re-run
+`pnpm seed:convex` to reset the demo data. See
+[docs/BACKEND.md §12](docs/BACKEND.md) for details.
+
 ```bash
 pnpm test   # vitest
 pnpm build  # production build (needs NEXT_PUBLIC_CONVEX_URL)

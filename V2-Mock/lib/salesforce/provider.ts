@@ -3,6 +3,7 @@ import type { SdrLead, SdrLeadListItem } from "@/lib/leads/types";
 import type { DuplicateMatch } from "@/lib/workability/duplicate";
 import type { OutreachPush } from "@/lib/outreach";
 import { MockSalesforceProvider } from "@/lib/salesforce/mock/mock-provider";
+import { ConvexSalesforceProvider } from "@/lib/salesforce/convex-provider";
 import { GlobalSalesforceProvider } from "@/lib/salesforce/global-provider";
 
 export type SearchType =
@@ -104,11 +105,15 @@ export function getSalesforceProvider(): SalesforceProvider {
   switch (providerName) {
     case "mock":
       return new MockSalesforceProvider();
+    case "convex":
+      // CRM records (accounts/leads/contacts/opps) live in Convex instead of the
+      // in-memory fixtures. Seed with `pnpm seed:convex` (see docs/BACKEND.md).
+      return new ConvexSalesforceProvider();
     case "global-sf":
       return new GlobalSalesforceProvider();
     default:
       throw new Error(
-        `Unknown SALESFORCE_PROVIDER "${providerName}". Use "mock" or "global-sf".`,
+        `Unknown SALESFORCE_PROVIDER "${providerName}". Use "mock", "convex", or "global-sf".`,
       );
   }
 }

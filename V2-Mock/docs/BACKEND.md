@@ -42,11 +42,16 @@ The mock holds fixture data for 11 accounts, each with:
 
 | Data | Where it lives | Survives restart? |
 |---|---|---|
-| Account/lead/contact/opp fixtures | In memory | Resets to fixtures |
-| Owner + ABM status changes | **Convex** — `accountOverrides` table | ✅ Yes |
+| Account/lead/contact/opp fixtures | In memory (`mock`) **or Convex** (`convex`) | Mock: resets to fixtures · Convex: ✅ persists |
+| Owner + ABM status changes | **Convex** — `accountOverrides` (`mock`) or patched on the `accounts` row (`convex`) | ✅ Yes |
 | Audit log (every search & action) | **Convex** — `auditLog` table | ✅ Yes |
 | Saved worklists | **Convex** — `savedWorklists` table | ✅ Yes |
-| Work-it state (added contacts, applied hygiene, Outreach pushes) | In memory | Resets to fixtures |
+| Work-it state (added contacts, applied hygiene, Outreach pushes) | In memory (`mock`) **or Convex** (`convex` — `contacts`/`workItState`) | Mock: resets · Convex: ✅ persists |
+
+> The last row's behaviour depends on `SALESFORCE_PROVIDER`. With the default
+> `mock` provider the CRM records and work-it state are in-memory fixtures; with
+> `convex` they are rows in Convex and persist across restarts and serverless
+> instances. See [§12](#12-running-the-crm-data-from-convex) for the Convex provider.
 
 Owner changes persist in Convex because serverless functions don't share memory — an assignment made by one request must be visible to the next. The schema and query/mutation functions live in `convex/` (`convex/schema.ts`, plus `auditLog.ts`, `savedWorklists.ts`, `accountOverrides.ts`). Server code reads and writes through the `convex/nextjs` helpers (`fetchQuery` / `fetchMutation`) — all access is server-side, so there's no React Convex provider or client-side subscription.
 
@@ -317,7 +322,7 @@ Client modules live in `lib/integrations/` (`zoominfo.ts`, `outreach.ts`, `sales
 Two seams keep their sync fixture even when a provider is configured, to avoid rippling async through server rendering: `getCompanyIntel()` (used by `scoring.ts`) and the ABM/intent fields on the account. The live ZoomInfo/6sense data flows through the async work-it route instead. Re-point these when you move scoring off the fixture.
 
 ### Known mock limitations
-- In-memory state (fixtures, work-it actions) resets whenever the server restarts, and on Vercel isn't shared between serverless instances. Owner/ABM changes are the exception — they persist in Convex.
+- In-memory state (fixtures, work-it actions) resets whenever the server restarts, and on Vercel isn't shared between serverless instances. Owner/ABM changes are the exception — they persist in Convex. **This limitation applies to the default `mock` provider only** — set `SALESFORCE_PROVIDER=convex` (see [§12](#12-running-the-crm-data-from-convex)) to move the CRM records and work-it state into Convex so they persist and are shared across instances.
 - **V2 now uses Convex; V1 still uses the Neon Postgres database.** They no longer share a persistence layer, so an assignment made in V1 is not visible in V2 (and vice versa). This diverges from the previous shared-database behaviour — intentional as of the Convex migration, since only V2 was moved.
 - ZoomInfo / LinkedIn Sales Navigator / 6sense / Outreach are represented by fixtures, labeled with their real source names, behind interfaces designed for the real integrations.
 
@@ -368,3 +373,86 @@ Notes:
 - `captured_leads` is unused by the app but migrated anyway so nothing is lost.
 - `postgres` and `dotenv` are kept as devDependencies **only** for `scripts/export-neon-to-convex.mjs`. Once the migration is verified they (and the script) can be removed.
 - Keep a Neon backup until the Convex data is confirmed. The export does not modify Neon.
+
+---
+
+## 12. Running the CRM data from Convex
+
+Sections 1–11 describe the default setup: the CRM records (accounts, leads,
+contacts, opportunities, activities, SDR leads) are **in-memory fixtures** and
+only the mutation/persistence layer (audit log, saved worklists, owner/ABM
+overrides) lives in Convex. Setting **`SALESFORCE_PROVIDER=convex`** moves the
+CRM records themselves into Convex so the de-dupe engine runs against a real
+database and every change persists.
+
+### What changes
+
+Nothing in the pages, engine, scoring, or UI. The swap happens entirely behind
+the `SalesforceProvider` seam (§2.1): `getSalesforceProvider()` returns a
+`ConvexSalesforceProvider` (`lib/salesforce/convex-provider.ts`) instead of the
+`MockSalesforceProvider`. Because the provider interface is already `async`, no
+caller changes.
+
+- **Reads** — `getAccountBundle`, `search`, `listAccounts`, `listSdrLeads`, etc.
+  read from Convex via `fetchQuery`. The workability engine, scoring, and
+  `findDuplicates` run in Next.js exactly as before, now against Convex rows.
+- **Writes** — `assignToMe` / `updateAbmStatus` patch the `accounts` row
+  directly (no separate `accountOverrides` layer under this provider);
+  `addContact` inserts a `contacts` row (`researchAdded: true`); hygiene and
+  Outreach pushes write to the `workItState` table.
+
+### Schema
+
+`convex/schema.ts` gains six CRM tables plus a work-it-state table —
+`accounts`, `salesforceLeads`, `contacts`, `opportunities`, `activities`,
+`sdrLeads`, `workItState`. Their field shapes are defined once in
+`convex/validators.ts` and reused by both the table definitions and the seed
+mutations, so the schema, the seed path, and the TypeScript types in
+`lib/salesforce/types.ts` / `lib/leads/types.ts` stay in lock-step. Narrow
+string unions (`Product`, `AccountType`, `ActivityType`, …) are stored as plain
+strings and re-narrowed at the provider read boundary, so a new product or stage
+value never gets rejected by the schema before its TS union is updated.
+
+Business ids (Global Account ID, Lead ID) are kept as indexed fields
+(`by_business_id`) because URLs, cookies, and cross-record joins reference them;
+Convex's `_id` is not used for joins.
+
+### Seeding
+
+The fixtures load into Convex through a guarded dev route,
+`app/api/dev/seed/route.ts` (POST). Running it inside Next.js means the
+TypeScript fixtures and their `@/` path aliases resolve exactly as at runtime —
+no separate TS build step. Each table's `replaceAll` mutation wipes and reloads,
+so seeding is **idempotent** and doubles as a demo reset. A JSON round-trip
+strips `undefined` before the rows hit Convex (Convex's `v.optional(...)` accepts
+an absent key but rejects an explicit `undefined`).
+
+```bash
+# .env.local
+SALESFORCE_PROVIDER=convex
+ALLOW_DEV_SEED=1        # required opt-in guard so the route can't wipe data by accident
+
+npx convex dev          # terminal 1 — links the project, writes NEXT_PUBLIC_CONVEX_URL
+pnpm dev                # terminal 2
+pnpm seed:convex        # terminal 3 — POSTs to /api/dev/seed (or: curl -X POST localhost:3000/api/dev/seed)
+```
+
+`lib/salesforce/mock/fixtures/convex-seed.test.ts` guards the fixture→Convex
+contract in CI (no unknown keys; no `undefined` after the seed clean-up), so a
+fixture change that would fail the live seed fails `pnpm test` first.
+
+### Production
+
+Same as §9 — set `CONVEX_DEPLOY_KEY` + `NEXT_PUBLIC_CONVEX_URL` in Vercel, plus
+`SALESFORCE_PROVIDER=convex`. Seed the production deployment once (point
+`convex dev`/the deploy key at prod, then run the seed against the deployed
+app). **Do not set `ALLOW_DEV_SEED=1` in production** unless you intend the seed
+route to be reachable — it replaces all CRM rows.
+
+### When to use which provider
+
+| Goal | Provider |
+|---|---|
+| Quick demo, predictable reset-on-restart | `mock` (default) |
+| Persistent, shared, DB-backed de-dupe that "actually functions" | `convex` |
+| Real Salesforce org | `global-sf` (§10.3) |

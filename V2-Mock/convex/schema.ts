@@ -1,5 +1,14 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  accountFields,
+  activityFields,
+  contactFields,
+  opportunityFields,
+  salesforceLeadFields,
+  sdrLeadFields,
+  workItStateFields,
+} from "./validators";
 
 // Convex schema, ported 1:1 from the former Drizzle/Postgres schema (db/schema.ts).
 //
@@ -85,4 +94,39 @@ export default defineSchema({
     workability: v.number(),
     score: v.number(),
   }).index("by_business_id", ["id"]),
+
+  // ---------------------------------------------------------------------------
+  // CRM records (formerly the in-memory mock fixtures).
+  //
+  // These back the `convex` Salesforce provider (SALESFORCE_PROVIDER=convex).
+  // Under the `mock` provider they are unused. Business ids (Global Account ID,
+  // Lead ID, etc.) are preserved as indexed fields because URLs, cookies, and
+  // cross-record joins reference them; Convex's `_id` is not used for joins.
+  // Field shapes come from lib/salesforce/types.ts and lib/leads/types.ts via
+  // ./validators so the schema, the seed mutations, and the app types stay in
+  // lock-step.
+  // ---------------------------------------------------------------------------
+  accounts: defineTable(accountFields)
+    .index("by_business_id", ["id"])
+    .index("by_domain", ["domain"]),
+
+  salesforceLeads: defineTable(salesforceLeadFields)
+    .index("by_business_id", ["id"])
+    .index("by_account", ["accountId"]),
+
+  contacts: defineTable(contactFields)
+    .index("by_business_id", ["id"])
+    .index("by_account", ["accountId"]),
+
+  opportunities: defineTable(opportunityFields)
+    .index("by_business_id", ["id"])
+    .index("by_account", ["accountId"]),
+
+  activities: defineTable(activityFields).index("by_account", ["accountId"]),
+
+  sdrLeads: defineTable(sdrLeadFields)
+    .index("by_business_id", ["id"])
+    .index("by_account", ["accountId"]),
+
+  workItState: defineTable(workItStateFields).index("by_account", ["accountId"]),
 });
