@@ -93,8 +93,8 @@ what they already own.
 | System | Tables | Role |
 |---|---|---|
 | **GMO Salesforce** | `accounts`, `leads`, `contacts`, `opportunities`, `activities` | System of record for leads + the accounts SDRs work. Owns TAM, ownership, opp/activity trail. |
-| **Intacct Salesforce** | `accounts`, `contacts`, `opportunities`, `activities` | Customers of **Sage Intacct** only. No leads. |
-| **SAP Fusion** | `accounts` | Customer-ownership record for **every non-Intacct product**. Account level only — no opps/activities. |
+| **Intacct Salesforce** | `accounts`, `contacts`, `opportunities`, `activities` | Customers of **Sage Intacct** and **Sage Intacct Construction**. No leads. |
+| **SAP Fusion** | `accounts` | Customer-ownership record for **every product not tracked in Intacct Salesforce**. Account level only — no opps/activities. |
 
 Plus the existing persistence tables, unchanged: `auditLog`, `savedWorklists`,
 `accountOverrides`, and the work-it state table (`workItState`).
@@ -109,15 +109,21 @@ product→team rollup.
 |---|---|---|
 | `Intacct` | Sage Intacct | **Intacct Salesforce** |
 | `X3` | Sage X3 | SAP Fusion |
-| `CRE` | Sage 300 Construction & Real Estate · Sage 100 Contractor · Sage Intacct Construction | SAP Fusion |
+| `CRE` | Sage 300 Construction & Real Estate → Fusion · Sage 100 Contractor → Fusion · **Sage Intacct Construction → Intacct SF** | **split** (Fusion + Intacct SF) |
 | `BMS` | **Sage 100** · **Sage 300** | SAP Fusion |
 | `S50` | Sage 50 | SAP Fusion |
 | `SSG` | Sage Fixed Assets · Sage HRMS · Sage Timeslips · Sage CRM · Sage BusinessVision · Sage BusinessWorks · Sage Budgeting & Planning | SAP Fusion |
 
 **Name collisions matter** — `Sage 100` (BMS) vs `Sage 100 Contractor` (CRE),
 `Sage 300` (BMS) vs `Sage 300 Construction & Real Estate` (CRE). Identity must
-carry the **full, exact** product name. `Sage Intacct Construction` is a **CRE**
-product and its customers live in **Fusion**, despite the name.
+carry the **full, exact** product name.
+
+**The customer system is per _product_, not per team.** `CRE` is a **split team**:
+`Sage Intacct Construction` customers live in **Intacct Salesforce** (like Sage
+Intacct), while `Sage 300 Construction & Real Estate` and `Sage 100 Contractor`
+live in **Fusion**. So a lead's exact **product** — not its team — decides which
+system holds the customer match. Model the `product → customer system` map at
+product granularity, not team.
 
 > The current `Product` type is `"Intacct" | "X3" | "BMS" | "S50" | "CRE" | "SSG"`
 > — these are **teams**. Add a product-level type + a `product → team` map. `BMS`
@@ -148,7 +154,7 @@ Match the company across GMO / Intacct SF / Fusion, then:
 | Check | GMO | Intacct SF | Fusion |
 |---|---|---|---|
 | Customer / product ownership | (lead origin) | ✓ always | ✓ always |
-| Open opp · DQ opp · activity (ROE) | ✓ always | ✓ **Intacct leads only** | — (no opps) |
+| Open opp · DQ opp · activity (ROE) | ✓ always | ✓ **Intacct-SF products** | — (no opps) |
 | Partner / VAR | ✓ | ✓ | — |
 | TAM | ✓ only | — | — |
 | Ownership (assigned rep) | ✓ only | — | — |
@@ -158,8 +164,12 @@ Match the company across GMO / Intacct SF / Fusion, then:
   regardless of product. Only the **customer** check is product-exact.
 - Fusion products' opportunities are worked in **GMO**, so there is nothing
   opp-level to read in Fusion — it is account-ownership only.
-- **ROE** reads activity in GMO (+ Intacct for Intacct leads); "owned by another
-  rep" is judged from **GMO ownership only**.
+- **ROE** reads activity in GMO (+ Intacct SF for **Intacct-Salesforce products**
+  — Sage Intacct and Sage Intacct Construction); "owned by another rep" is judged
+  from **GMO ownership only**.
+- "**Intacct-SF products**" (not "the Intacct team") is the determinant for the
+  second-system opp/DQ/activity read, because `Sage Intacct Construction` (a CRE
+  product) also lives in Intacct Salesforce. **See the open item in §7.4.**
 
 ### 3.5 Two worked examples
 
@@ -326,10 +336,18 @@ Then **remove `ALLOW_DEV_SEED`** and redeploy so the seed route can't be hit aga
 2. **Sample data source.** Do you have **real (sanitized) exports** from Intacct
    SF and Fusion, or should the implementer **engineer fixtures** that hit each
    verdict path? (The prototype only needs the latter.)
+4. **Opp/DQ/activity sourcing for `Sage Intacct Construction`** *(inferred — needs
+   a yes/no)*. Since its customers live in Intacct Salesforce (which has
+   opps/contacts/activities), the handoff assumes its **open-opp / DQ / activity**
+   checks also read Intacct SF — i.e. the second-system read is keyed on
+   "**Intacct-SF product**," not "Intacct team." Confirm, or tell us Sage Intacct
+   Construction opps are worked elsewhere.
 3. **Confirmed assumptions** (already signed off — listed so reviewers see them):
    - Block is **exact product**; different product (even same team) = review.
    - Open-opp / DQ / activity are **product-agnostic**.
-   - `Sage Intacct Construction` customers are in **Fusion**.
+   - `Sage Intacct Construction` customers are in **Intacct Salesforce**, not
+     Fusion — so **CRE is a split team** and the `product → customer system` map
+     is per product, not per team.
    - **Former** customers → review; only **current** exact-product = block.
    - **Fuzzy-only** (name/geo, no domain) match → review, never a silent block.
    - TAM = GMO only. ROE activity = GMO (+ Intacct for Intacct leads). Ownership

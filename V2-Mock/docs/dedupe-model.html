@@ -103,6 +103,11 @@
   .prodlist b{color:var(--ink);font-weight:600;}
   .syscell{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;}
   .syscell.i{color:var(--sys-intacct);} .syscell.f{color:var(--sys-fusion);}
+  .syscell.split{white-space:normal;color:var(--sys-fusion);line-height:1.5;}
+  .syscell.split .i{color:var(--sys-intacct);}
+  .sysmark{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.03em;padding:2px 6px;border-radius:5px;margin-left:2px;white-space:nowrap;}
+  .sysmark.i{background:color-mix(in srgb,var(--sys-intacct) 16%,transparent);color:var(--sys-intacct);}
+  .sysmark.f{background:color-mix(in srgb,var(--sys-fusion) 16%,transparent);color:var(--sys-fusion);}
   .tick{color:var(--accent);font-weight:700;} .dash{color:var(--ink-faint);}
 
   /* verdict logic */
@@ -225,7 +230,7 @@
         <div class="sys intacct">
           <div class="top">
             <div class="sname">Intacct Salesforce</div>
-            <div class="srole">System of record for <b>Sage Intacct</b> customers — their accounts, opps and activity.</div>
+            <div class="srole">Customers of <b>Sage Intacct</b> and <b>Sage Intacct Construction</b> — their accounts, opps and activity.</div>
           </div>
           <div class="tables">
             <span class="tchip">accounts</span>
@@ -233,12 +238,12 @@
             <span class="tchip">opportunities</span>
             <span class="tchip">activities</span>
           </div>
-          <div class="origin">Intacct customers only</div>
+          <div class="origin">Intacct-Salesforce products</div>
         </div>
         <div class="sys fusion">
           <div class="top">
             <div class="sname">SAP Fusion</div>
-            <div class="srole">Customer-ownership record for <b>every non-Intacct product</b>. Account level only — no opps or activity.</div>
+            <div class="srole">Customer-ownership record for every product <b>not</b> tracked in Intacct Salesforce. Account level only — no opps or activity.</div>
           </div>
           <div class="tables">
             <span class="tchip">accounts</span>
@@ -258,13 +263,14 @@
         <tbody>
           <tr><td class="team"><code>Intacct</code></td><td class="prodlist">Sage Intacct</td><td class="syscell i">Intacct&nbsp;Salesforce</td></tr>
           <tr><td class="team"><code>X3</code></td><td class="prodlist">Sage X3</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
-          <tr><td class="team"><code>CRE</code></td><td class="prodlist">Sage 300 Construction &amp; Real Estate · Sage 100 Contractor · Sage Intacct Construction</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
+          <tr><td class="team"><code>CRE</code></td><td class="prodlist">Sage 300 Construction &amp; Real Estate · Sage 100 Contractor <span class="sysmark f">Fusion</span><br />Sage Intacct Construction <span class="sysmark i">Intacct SF</span></td><td class="syscell split">SAP&nbsp;Fusion <span class="dash">+</span> <span class="i">Intacct&nbsp;SF</span></td></tr>
           <tr><td class="team"><code>BMS</code></td><td class="prodlist"><b>Sage 100</b> · <b>Sage 300</b></td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
           <tr><td class="team"><code>S50</code></td><td class="prodlist">Sage 50</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
           <tr><td class="team"><code>SSG</code></td><td class="prodlist">Fixed Assets · HRMS · Timeslips · Sage CRM · BusinessVision · BusinessWorks · Budgeting &amp; Planning</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
         </tbody>
       </table>
       </div>
+      <p class="fnote"><b>Customer system is per product, not per team.</b> CRE is split — <b>Sage Intacct Construction</b> customers live in <b>Intacct Salesforce</b> (like Sage Intacct); its other two products live in Fusion. So a lead's exact product, not its team, decides which system holds the customer match.</p>
     </section>
 
     <!-- VERDICT LOGIC -->
@@ -380,7 +386,7 @@
           <tr>
             <td class="check">Open opp · DQ opp · activity (ROE)</td>
             <td class="yes">✓ always</td>
-            <td class="cond">Intacct leads</td>
+            <td class="cond">Intacct-SF products</td>
             <td class="no">— no opps</td>
           </tr>
           <tr>
