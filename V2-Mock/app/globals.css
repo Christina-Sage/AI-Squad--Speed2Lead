@@ -151,8 +151,16 @@
   --link: #00ca71;
   --line: #474747;
   --border: #303030;
-  --input: oklch(1 0 0 / 15%);
-  --ring: #00d63980;
+  /* Interactive-control outline (inputs, selects, outline buttons via
+     border-input). Raised 15% → 36% so field edges clear 3:1 on both the card
+     and the black page background (WCAG 1.4.11); decorative --border/--line
+     stay subtle by design. */
+  --input: oklch(1 0 0 / 36%);
+  /* Solid green: components apply the ring at /50 (focus-visible:ring-ring/50),
+     so a token that already carried 50% alpha compounded to ~25% and made the
+     keyboard-focus ring nearly invisible on black. Solid here → a clear ~5:1
+     focus ring, still only shown on focus. */
+  --ring: #00d639;
   --chart-1: #44ed90;
   --chart-2: #00a65c;
   --chart-3: #006362;
@@ -165,7 +173,7 @@
   --sidebar-accent: #303030;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #00d63980;
+  --sidebar-ring: #00d639;
 }
 
 @layer base {
