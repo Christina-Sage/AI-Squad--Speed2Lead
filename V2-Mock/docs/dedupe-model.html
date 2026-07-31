@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WorkIt V2 — De-dupe data model</title>
+</head>
+<body>
+<style>
+  :root {
+    --ground:#f6f8f6; --panel:#ffffff; --panel-2:#eef2ee;
+    --ink:#16211b; --ink-soft:#43504a; --ink-faint:#6d7a72;
+    --line:#d5ddd6; --line-strong:#bcc7bd;
+    --accent:#00794a; --accent-soft:#dcefe4; --accent-ink:#005c39;
+    --block:#b3261e; --block-soft:#f8ded9; --block-line:#e6ad9f; --block-ink:#8f1c16;
+    --review:#8a5d0f; --review-soft:#f7ead0; --review-line:#e4c789; --review-ink:#6e4a0b;
+    --sys-gmo:#0e7c56; --sys-intacct:#265fa6; --sys-fusion:#6a48ac;
+    --mono:ui-monospace,"SF Mono","SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(20,40,30,.06),0 8px 24px rgba(20,40,30,.05);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#0e1512; --panel:#161f1a; --panel-2:#1c2721;
+      --ink:#e7efe9; --ink-soft:#aebbb2; --ink-faint:#7f8d84;
+      --line:#29342d; --line-strong:#3a493f;
+      --accent:#1fb574; --accent-soft:#123027; --accent-ink:#6fe0ad;
+      --block:#f2564a; --block-soft:#331311; --block-line:#5a221c; --block-ink:#ff9084;
+      --review:#e0b256; --review-soft:#2c2413; --review-line:#4d3d1c; --review-ink:#f0cd86;
+      --sys-gmo:#37c48c; --sys-intacct:#6fa4e6; --sys-fusion:#a988e6;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#f6f8f6; --panel:#ffffff; --panel-2:#eef2ee;
+    --ink:#16211b; --ink-soft:#43504a; --ink-faint:#6d7a72;
+    --line:#d5ddd6; --line-strong:#bcc7bd;
+    --accent:#00794a; --accent-soft:#dcefe4; --accent-ink:#005c39;
+    --block:#b3261e; --block-soft:#f8ded9; --block-line:#e6ad9f; --block-ink:#8f1c16;
+    --review:#8a5d0f; --review-soft:#f7ead0; --review-line:#e4c789; --review-ink:#6e4a0b;
+    --sys-gmo:#0e7c56; --sys-intacct:#265fa6; --sys-fusion:#6a48ac;
+    --shadow:0 1px 2px rgba(20,40,30,.06),0 8px 24px rgba(20,40,30,.05);
+  }
+  :root[data-theme="dark"]{
+    --ground:#0e1512; --panel:#161f1a; --panel-2:#1c2721;
+    --ink:#e7efe9; --ink-soft:#aebbb2; --ink-faint:#7f8d84;
+    --line:#29342d; --line-strong:#3a493f;
+    --accent:#1fb574; --accent-soft:#123027; --accent-ink:#6fe0ad;
+    --block:#f2564a; --block-soft:#331311; --block-line:#5a221c; --block-ink:#ff9084;
+    --review:#e0b256; --review-soft:#2c2413; --review-line:#4d3d1c; --review-ink:#f0cd86;
+    --sys-gmo:#37c48c; --sys-intacct:#6fa4e6; --sys-fusion:#a988e6;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  .wrap{background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;padding:clamp(20px,4vw,56px) clamp(16px,4vw,40px) 72px;}
+  .page{max-width:1120px;margin:0 auto;}
+  code,.mono{font-family:var(--mono);}
+
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;display:inline-flex;align-items:center;gap:8px;}
+  .eyebrow::before{content:"";width:22px;height:2px;background:var(--accent);border-radius:2px;}
+  h1{font-size:clamp(28px,4.6vw,46px);line-height:1.04;letter-spacing:-.02em;margin:18px 0 0;text-wrap:balance;font-weight:680;}
+  h1 .thin{color:var(--ink-faint);font-weight:400;}
+  .lede{margin:16px 0 0;max-width:66ch;color:var(--ink-soft);font-size:clamp(15px,1.6vw,17px);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px 12px;margin-top:26px;}
+  .vpill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em;padding:5px 11px;border-radius:99px;border:1px solid transparent;}
+  .vpill .sq{width:9px;height:9px;border-radius:2px;}
+  .vpill.block{background:var(--block-soft);color:var(--block-ink);border-color:var(--block-line);}
+  .vpill.block .sq{background:var(--block);}
+  .vpill.review{background:var(--review-soft);color:var(--review-ink);border-color:var(--review-line);}
+  .vpill.review .sq{background:var(--review);}
+  .vpill.pass{background:var(--accent-soft);color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent) 35%,transparent);}
+  .vpill.pass .sq{background:var(--accent);}
+
+  hr.rule{border:none;border-top:1px solid var(--line);margin:38px 0;}
+  h2{font-size:13px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin:0 0 6px;}
+  .h2sub{font-size:14px;color:var(--ink-soft);margin:0 0 18px;max-width:70ch;}
+  .section{margin-top:44px;}
+
+  /* three systems */
+  .systems{display:grid;grid-template-columns:1.15fr 1fr .8fr;gap:16px;align-items:start;}
+  .sys{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;--sc:var(--ink-faint);}
+  .sys.gmo{--sc:var(--sys-gmo);} .sys.intacct{--sc:var(--sys-intacct);} .sys.fusion{--sc:var(--sys-fusion);}
+  .sys .top{border-top:3px solid var(--sc);padding:15px 17px 13px;}
+  .sys .sname{font-family:var(--mono);font-weight:680;font-size:15px;color:var(--sc);letter-spacing:-.01em;}
+  .sys .srole{font-size:12.5px;color:var(--ink-soft);margin-top:5px;line-height:1.4;}
+  .sys .tables{padding:6px 17px 17px;display:flex;flex-wrap:wrap;gap:7px;}
+  .tchip{font-family:var(--mono);font-size:12px;font-weight:560;padding:5px 10px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);}
+  .tchip.lead{border-color:var(--sc);color:var(--sc);background:color-mix(in srgb,var(--sc) 10%,var(--panel-2));}
+  .sys .origin{margin:0 17px 15px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--sc);font-weight:600;}
+
+  /* catalog table */
+  .scroll{overflow-x:auto;}
+  table.grid{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table.grid th,table.grid td{text-align:left;padding:12px 15px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.grid thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;background:var(--panel-2);}
+  table.grid tbody tr:last-child td{border-bottom:none;}
+  table.grid td.team code{font-weight:680;}
+  .prodlist{color:var(--ink-soft);}
+  .prodlist b{color:var(--ink);font-weight:600;}
+  .syscell{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;}
+  .syscell.i{color:var(--sys-intacct);} .syscell.f{color:var(--sys-fusion);}
+  .tick{color:var(--accent);font-weight:700;} .dash{color:var(--ink-faint);}
+
+  /* verdict logic */
+  .verdict-wrap{display:grid;grid-template-columns:1fr 1.25fr;gap:18px;align-items:start;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+  .card .ch{padding:14px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;}
+  .card .cb{padding:16px 18px;}
+  .match-row{display:flex;flex-direction:column;gap:11px;}
+  .match-item{display:flex;gap:11px;align-items:flex-start;}
+  .match-item .strength{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;flex:none;margin-top:1px;}
+  .strength.strong{background:var(--accent-soft);color:var(--accent-ink);}
+  .strength.fuzzy{background:var(--review-soft);color:var(--review-ink);}
+  .match-item .mt{font-size:13px;color:var(--ink-soft);}
+  .match-item .mt b{color:var(--ink);font-weight:600;}
+  .match-item .mt code{font-size:12px;}
+
+  table.decide{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.decide td{padding:11px 4px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  table.decide tr:last-child td{border-bottom:none;}
+  table.decide td.v{width:96px;text-align:right;white-space:nowrap;}
+  .tag{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:7px;}
+  .tag.block{background:var(--block);color:#fff;}
+  .tag.review{background:var(--review);color:#1c1304;}
+  .tag.pass{background:var(--accent);color:#04140d;}
+  :root[data-theme="dark"] .tag.block{color:#1a0605;} :root[data-theme="dark"] .tag.review{color:#1c1304;} :root[data-theme="dark"] .tag.pass{color:#04140d;}
+  .dtext b{font-weight:640;} .dtext{color:var(--ink-soft);} .dtext b{color:var(--ink);}
+  .dtext em{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--ink-faint);}
+
+  /* examples */
+  .examples{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .ex{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;}
+  .ex .lead{padding:15px 18px;border-bottom:1px solid var(--line);background:var(--panel-2);}
+  .ex .lead .ll{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;}
+  .ex .lead .ln{font-size:16px;font-weight:660;margin-top:3px;letter-spacing:-.01em;}
+  .ex .lead .lp{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);margin-top:4px;}
+  .ex .lead .lp b{color:var(--ink);}
+  .findings{padding:6px 18px 4px;flex:1;}
+  .finding{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-bottom:1px dashed var(--line);}
+  .finding:last-child{border-bottom:none;}
+  .finding .fsys{font-family:var(--mono);font-size:11px;font-weight:680;flex:none;width:74px;padding-top:2px;}
+  .fsys.g{color:var(--sys-gmo);} .fsys.i{color:var(--sys-intacct);} .fsys.f{color:var(--sys-fusion);}
+  .finding .fbody{flex:1;font-size:13px;color:var(--ink-soft);}
+  .finding .fbody b{color:var(--ink);font-weight:600;}
+  .finding .fv{flex:none;}
+  .minitag{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
+  .minitag.block{background:var(--block-soft);color:var(--block-ink);border:1px solid var(--block-line);}
+  .minitag.review{background:var(--review-soft);color:var(--review-ink);border:1px solid var(--review-line);}
+  .minitag.pass{background:var(--accent-soft);color:var(--accent-ink);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);}
+  .verdict-banner{padding:14px 18px;display:flex;align-items:center;gap:12px;border-top:1px solid var(--line);}
+  .verdict-banner.block{background:var(--block-soft);border-top-color:var(--block-line);}
+  .verdict-banner.review{background:var(--review-soft);border-top-color:var(--review-line);}
+  .verdict-banner .bigtag{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.06em;padding:5px 10px;border-radius:7px;flex:none;}
+  .verdict-banner.block .bigtag{background:var(--block);color:#fff;}
+  .verdict-banner.review .bigtag{background:var(--review);color:#1c1304;}
+  :root[data-theme="dark"] .verdict-banner.block .bigtag{color:#1a0605;}
+  .verdict-banner .bexpl{font-size:12.5px;}
+  .verdict-banner.block .bexpl{color:var(--block-ink);} .verdict-banner.review .bexpl{color:var(--review-ink);}
+  .verdict-banner .bexpl b{font-weight:700;}
+
+  /* sourcing matrix */
+  table.source{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table.source th,table.source td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:center;}
+  table.source th:first-child,table.source td:first-child{text-align:left;}
+  table.source thead th{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;background:var(--panel-2);}
+  table.source thead th.g{color:var(--sys-gmo);} table.source thead th.i{color:var(--sys-intacct);} table.source thead th.f{color:var(--sys-fusion);}
+  table.source tbody tr:last-child td{border-bottom:none;}
+  table.source td.check{font-weight:600;color:var(--ink);}
+  table.source .yes{color:var(--accent);font-weight:700;}
+  table.source .cond{font-family:var(--mono);font-size:11px;color:var(--review-ink);}
+  table.source .no{color:var(--ink-faint);}
+  .fnote{font-size:12px;color:var(--ink-faint);margin-top:12px;line-height:1.5;}
+  .fnote code{color:var(--ink-soft);}
+
+  .foot{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint);}
+  .foot code{color:var(--ink-soft);}
+  .status{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--review-ink);background:var(--review-soft);border:1px solid var(--review-line);padding:4px 10px;border-radius:99px;margin-top:14px;}
+
+  @media (max-width:900px){
+    .systems{grid-template-columns:1fr;}
+    .verdict-wrap{grid-template-columns:1fr;}
+    .examples{grid-template-columns:1fr;}
+  }
+</style>
+
+<div class="wrap">
+  <div class="page">
+
+    <header>
+      <span class="eyebrow">WorkIt · De-dupe engine</span>
+      <h1>Can I work this lead? <span class="thin">Checked across three systems.</span></h1>
+      <p class="lede">Every lead originates in GMO Salesforce. Before an SDR works it, the engine matches the company against <strong>Intacct Salesforce</strong> and <strong>SAP Fusion</strong> to see what the company already owns — and the verdict turns on <strong>which product</strong> they own, not just whether they're a customer.</p>
+      <div class="legend">
+        <span class="vpill block"><span class="sq"></span>Block — don't work it</span>
+        <span class="vpill review"><span class="sq"></span>Review — work it, but verify first</span>
+        <span class="vpill pass"><span class="sq"></span>Pass — clear to work</span>
+      </div>
+    </header>
+
+    <hr class="rule" />
+
+    <!-- THREE SYSTEMS -->
+    <section>
+      <h2>The three systems</h2>
+      <p class="h2sub">Ten source tables, moving into Convex. GMO is the system of record for leads and the accounts SDRs work; the other two answer "do they already own something?"</p>
+      <div class="systems">
+        <div class="sys gmo">
+          <div class="top">
+            <div class="sname">GMO Salesforce</div>
+            <div class="srole">Where all leads originate and every account is worked. Owns TAM, ownership, and the leads/opps/activity trail.</div>
+          </div>
+          <div class="tables">
+            <span class="tchip lead">leads</span>
+            <span class="tchip">accounts</span>
+            <span class="tchip">contacts</span>
+            <span class="tchip">opportunities</span>
+            <span class="tchip">activities</span>
+          </div>
+          <div class="origin">◆ Leads originate here</div>
+        </div>
+        <div class="sys intacct">
+          <div class="top">
+            <div class="sname">Intacct Salesforce</div>
+            <div class="srole">System of record for <b>Sage Intacct</b> customers — their accounts, opps and activity.</div>
+          </div>
+          <div class="tables">
+            <span class="tchip">accounts</span>
+            <span class="tchip">contacts</span>
+            <span class="tchip">opportunities</span>
+            <span class="tchip">activities</span>
+          </div>
+          <div class="origin">Intacct customers only</div>
+        </div>
+        <div class="sys fusion">
+          <div class="top">
+            <div class="sname">SAP Fusion</div>
+            <div class="srole">Customer-ownership record for <b>every non-Intacct product</b>. Account level only — no opps or activity.</div>
+          </div>
+          <div class="tables">
+            <span class="tchip">accounts</span>
+          </div>
+          <div class="origin">Product ownership</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CATALOG -->
+    <section class="section">
+      <h2>Products roll up to teams</h2>
+      <p class="h2sub">The app works at team level, but the block decision is <strong>exact product</strong>. A Fusion "Sage 100" customer blocks a Sage 100 lead — not a Sage 300 lead, even though both are BMS.</p>
+      <div class="scroll">
+      <table class="grid">
+        <thead><tr><th>Team</th><th>Products (exact)</th><th>Customers live in</th></tr></thead>
+        <tbody>
+          <tr><td class="team"><code>Intacct</code></td><td class="prodlist">Sage Intacct</td><td class="syscell i">Intacct&nbsp;Salesforce</td></tr>
+          <tr><td class="team"><code>X3</code></td><td class="prodlist">Sage X3</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
+          <tr><td class="team"><code>CRE</code></td><td class="prodlist">Sage 300 Construction &amp; Real Estate · Sage 100 Contractor · Sage Intacct Construction</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
+          <tr><td class="team"><code>BMS</code></td><td class="prodlist"><b>Sage 100</b> · <b>Sage 300</b></td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
+          <tr><td class="team"><code>S50</code></td><td class="prodlist">Sage 50</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
+          <tr><td class="team"><code>SSG</code></td><td class="prodlist">Fixed Assets · HRMS · Timeslips · Sage CRM · BusinessVision · BusinessWorks · Budgeting &amp; Planning</td><td class="syscell f">SAP&nbsp;Fusion</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <!-- VERDICT LOGIC -->
+    <section class="section">
+      <h2>How the verdict is decided</h2>
+      <p class="h2sub">First find the company across systems, then judge what they own.</p>
+      <div class="verdict-wrap">
+        <div class="card">
+          <div class="ch">1 · Match the company</div>
+          <div class="cb">
+            <div class="match-row">
+              <div class="match-item"><span class="strength strong">Strong</span><span class="mt"><b>Domain &amp; website</b> — an exact hit is authoritative.</span></div>
+              <div class="match-item"><span class="strength fuzzy">Fuzzy</span><span class="mt"><b>Company name + address / geography</b> — a name-only match is never a silent block; it downgrades to <em>review</em>.</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch">2 · Judge what they own</div>
+          <div class="cb">
+            <table class="decide">
+              <tbody>
+                <tr><td class="dtext"><b>Current</b> customer of the <b>exact same product</b></td><td class="v"><span class="tag block">Block</span></td></tr>
+                <tr><td class="dtext">Customer of <b>any other product</b> <em>same team or not</em></td><td class="v"><span class="tag review">Review</span></td></tr>
+                <tr><td class="dtext"><b>Former</b> customer of any product</td><td class="v"><span class="tag review">Review</span></td></tr>
+                <tr><td class="dtext">Fuzzy-only match (name / geo, no domain)</td><td class="v"><span class="tag review">Review</span></td></tr>
+                <tr><td class="dtext">No match anywhere</td><td class="v"><span class="tag pass">Pass</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXAMPLES -->
+    <section class="section">
+      <h2>Two leads, two outcomes</h2>
+      <p class="h2sub">Same engine — the product they already own decides it.</p>
+      <div class="examples">
+        <div class="ex">
+          <div class="lead">
+            <div class="ll">Lead · GMO Salesforce</div>
+            <div class="ln">Northwind Traders</div>
+            <div class="lp">Product <b>Sage Intacct</b> · team Intacct</div>
+          </div>
+          <div class="findings">
+            <div class="finding">
+              <span class="fsys i">Intacct SF</span>
+              <span class="fbody">Current <b>Sage Intacct</b> customer — <b>exact product</b></span>
+              <span class="fv"><span class="minitag block">Block</span></span>
+            </div>
+            <div class="finding">
+              <span class="fsys f">Fusion</span>
+              <span class="fbody">Current Sage 100 customer — different product</span>
+              <span class="fv"><span class="minitag review">Review</span></span>
+            </div>
+            <div class="finding">
+              <span class="fsys g">GMO + Intacct</span>
+              <span class="fbody">No open opp, ROE clear</span>
+              <span class="fv"><span class="minitag pass">Pass</span></span>
+            </div>
+          </div>
+          <div class="verdict-banner block">
+            <span class="bigtag">NOT WORKABLE</span>
+            <span class="bexpl">Already a <b>Sage Intacct</b> customer — the exact product. Don't work it.</span>
+          </div>
+        </div>
+
+        <div class="ex">
+          <div class="lead">
+            <div class="ll">Lead · GMO Salesforce</div>
+            <div class="ln">Globex Corporation</div>
+            <div class="lp">Product <b>Sage 300</b> · team BMS</div>
+          </div>
+          <div class="findings">
+            <div class="finding">
+              <span class="fsys f">Fusion</span>
+              <span class="fbody">Current <b>Sage 100</b> customer — same team, <b>different product</b></span>
+              <span class="fv"><span class="minitag review">Review</span></span>
+            </div>
+            <div class="finding">
+              <span class="fsys i">Intacct SF</span>
+              <span class="fbody">Fuzzy name/geo match — former customer</span>
+              <span class="fv"><span class="minitag review">Review</span></span>
+            </div>
+            <div class="finding">
+              <span class="fsys g">GMO</span>
+              <span class="fbody">No open opp, ROE clear, TAM valid</span>
+              <span class="fv"><span class="minitag pass">Pass</span></span>
+            </div>
+          </div>
+          <div class="verdict-banner review">
+            <span class="bigtag">WORKABLE — REVIEW</span>
+            <span class="bexpl">Owns <b>Sage 100</b>, not Sage 300. Genuine cross-sell — confirm before working.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOURCING MATRIX -->
+    <section class="section">
+      <h2>Which systems each check reads</h2>
+      <p class="h2sub">The customer match always hits both other systems. Opportunity, DQ and activity checks only exist where the deals are actually worked.</p>
+      <div class="scroll">
+      <table class="source">
+        <thead><tr><th>Check</th><th class="g">GMO</th><th class="i">Intacct SF</th><th class="f">Fusion</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="check">Customer / product ownership</td>
+            <td class="no">origin</td>
+            <td class="yes">✓ always</td>
+            <td class="yes">✓ always</td>
+          </tr>
+          <tr>
+            <td class="check">Open opp · DQ opp · activity (ROE)</td>
+            <td class="yes">✓ always</td>
+            <td class="cond">Intacct leads</td>
+            <td class="no">— no opps</td>
+          </tr>
+          <tr>
+            <td class="check">Partner / VAR</td>
+            <td class="yes">✓</td>
+            <td class="yes">✓</td>
+            <td class="no">—</td>
+          </tr>
+          <tr>
+            <td class="check">TAM</td>
+            <td class="yes">✓ only</td>
+            <td class="no">—</td>
+            <td class="no">—</td>
+          </tr>
+          <tr>
+            <td class="check">Ownership (assigned rep)</td>
+            <td class="yes">✓ only</td>
+            <td class="no">—</td>
+            <td class="no">—</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="fnote">
+        <b>Open opp / DQ / activity are product-agnostic</b> — any open (or DQ'd within the 6-month cooling-off) opportunity signals the account is already being worked, regardless of product line. Only the <b>customer</b> check is product-exact. Fusion products' opportunities are worked in GMO, so there's nothing opp-level to read in Fusion — it's account-ownership only.
+      </p>
+    </section>
+
+    <div class="foot">
+      Data model for the Convex migration on branch <code>claude/sample-data-convex-migration-qrczr7</code>. Ten source tables (GMO ×5, Intacct SF ×4, Fusion ×1) feed a product-aware de-dupe engine; leads carry a product, teams are the display rollup.
+      <div class="status">◷ Spec confirmed — implementation next (schema · provider · engine · seed · tests)</div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
