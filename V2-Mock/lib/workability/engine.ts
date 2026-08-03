@@ -11,11 +11,23 @@ import {
   CUSTOMER_TAM_BLANK,
   CUSTOMER_EXPIRED_TAM,
   CUSTOMER_EXISTING,
+  CUSTOMER_EXACT_PRODUCT,
+  CUSTOMER_OTHER_PRODUCT,
+  CUSTOMER_FORMER,
+  SEGMENT_MISMATCH,
   TAM_EXPIRED,
   type CustomerTamResult,
 } from "@/lib/workability/customer-tam";
+import { evaluateVertical, WRONG_VERTICAL, type VerticalResult } from "@/lib/workability/vertical";
+import { recommendedAbmStatus } from "@/lib/workability/abm-recommendation";
 import { duplicateReason, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { mostRecentCampaign, type MarketingCampaign } from "@/lib/salesforce/campaigns";
+import {
+  DQ_OPP_COOLING_OFF,
+  PARTNER_REGISTERED,
+  PARTNER_RELATIONSHIP,
+  DUPLICATE_ACCOUNT,
+} from "@/lib/workability/engine-codes";
 
 export type FinalStatus = "WORKABLE" | "WORKABLE WITH REVIEW" | "NOT WORKABLE";
 
@@ -73,6 +85,13 @@ export interface WorkabilityResult {
   reason: string;
   recommendation: string;
   reason_codes: string[];
+  /**
+   * ABM Account Nurture Status the engine sets when the account is blocked by
+   * de-dupe (Current Customer / Duplicate Account / Incorrect Vertical). null
+   * when the account is workable/review (leave the field for the rep) or the
+   * block reason maps to no status. See lib/workability/abm-recommendation.ts.
+   */
+  recommended_abm_status: string | null;
   roe_detail: RoeResult;
   open_opportunity_detail: OpenOppResult;
   dq_opportunity_detail: DqOppResult;
@@ -81,10 +100,14 @@ export interface WorkabilityResult {
   checks: DedupeCheck[];
 }
 
-export const DQ_OPP_COOLING_OFF = "DQ_OPP_COOLING_OFF";
-export const PARTNER_REGISTERED = "PARTNER_REGISTERED";
-export const PARTNER_RELATIONSHIP = "PARTNER_RELATIONSHIP";
-export const DUPLICATE_ACCOUNT = "DUPLICATE_ACCOUNT";
+// Re-exported from the dependency-free codes module (kept here for existing
+// importers of these constants from the engine).
+export {
+  DQ_OPP_COOLING_OFF,
+  PARTNER_REGISTERED,
+  PARTNER_RELATIONSHIP,
+  DUPLICATE_ACCOUNT,
+} from "@/lib/workability/engine-codes";
 
 function recordsForTeam(
   _team: Team,
@@ -109,6 +132,7 @@ function buildReasonAndRecommendation(
   dqOpp: DqOppResult,
   partner: PartnerResult,
   duplicates: DuplicateMatch[],
+  vertical: VerticalResult,
   team: Team,
 ): { reason: string; recommendation: string } {
   if (finalStatus === "NOT WORKABLE") {
@@ -117,6 +141,18 @@ function buildReasonAndRecommendation(
       return {
         reason: `Exact duplicate of "${domainDup.name}" — same domain (${domainDup.domain}). This company already has a Salesforce record.`,
         recommendation: "Do not create a second record. Merge into the existing account instead.",
+      };
+    }
+    if (vertical.status === "WRONG_VERTICAL") {
+      return {
+        reason: vertical.reason,
+        recommendation: "Do not work — wrong vertical/territory. Reassign to the CRE team (nurture status: Incorrect Vertical).",
+      };
+    }
+    if (customerTam.reasonCodes.includes(CUSTOMER_EXACT_PRODUCT)) {
+      return {
+        reason: `Current customer of the exact product being worked — already owns it. Working this is not a new sale.`,
+        recommendation: "Do not work this account. Route to the account owner / Customer Success.",
       };
     }
     if (roe.status === "FAIL") {
@@ -159,6 +195,24 @@ function buildReasonAndRecommendation(
       return {
         reason: `The open opportunity ("${o.name}", stage ${o.stage}) owned by ${o.owner} is over 12 months old.`,
         recommendation: "Review before working — ask the AE/CE to disqualify the stale opp so you can re-engage.",
+      };
+    }
+    if (customerTam.reasonCodes.includes(CUSTOMER_OTHER_PRODUCT)) {
+      return {
+        reason: `Customer of a different product line — not the product being worked. A genuine cross-sell, so review before working.`,
+        recommendation: "Review before working — confirm this is a cross-sell, not the product they already own.",
+      };
+    }
+    if (customerTam.reasonCodes.includes(CUSTOMER_FORMER)) {
+      return {
+        reason: `Former customer — churned off the product. A win-back, so review before working.`,
+        recommendation: "Review before working — confirm the win-back angle with the account owner.",
+      };
+    }
+    if (customerTam.reasonCodes.includes(SEGMENT_MISMATCH)) {
+      return {
+        reason: `The account's TAM territory names a different segment than the one being worked. Verify the segment before working.`,
+        recommendation: "Review before working — confirm this account belongs to your segment.",
       };
     }
     if (customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM)) {
@@ -208,6 +262,7 @@ function buildChecks(
   dqOpp: DqOppResult,
   partner: PartnerResult,
   duplicates: DuplicateMatch[],
+  vertical: VerticalResult,
   team: Team,
 ): DedupeCheck[] {
   const { account } = bundle;
@@ -218,22 +273,39 @@ function buildChecks(
       : customerTam.customerStatus === "WARNING"
         ? "warn"
         : "pass";
+  const codes = customerTam.reasonCodes;
   const customerReason =
     customerState === "pass"
       ? `Type: ${account.type} — not an existing customer`
       : customerState === "warn"
-        ? `Type: Customer with ${account.tam} — verify customer status before working`
-        : customerTam.reasonCodes.includes(CUSTOMER_EXISTING)
-          ? `Type: Customer with an active TAM — existing customer, actively managed. Do not work.`
-          : `Type: Customer with TAM blank — potential direct customer relationship. Route to Customer Success.`;
+        ? codes.includes(CUSTOMER_OTHER_PRODUCT)
+          ? `Customer of a different product line — genuine cross-sell; review before working.`
+          : codes.includes(CUSTOMER_FORMER)
+            ? `Former customer — win-back; review before working.`
+            : `Type: Customer with ${account.tam} — verify customer status before working`
+        : codes.includes(CUSTOMER_EXACT_PRODUCT)
+          ? `Current customer of the exact product being worked — already owns it. Do not work.`
+          : codes.includes(CUSTOMER_EXISTING)
+            ? `Type: Customer with an active TAM — existing customer, actively managed. Do not work.`
+            : `Type: Customer with TAM blank — potential direct customer relationship. Route to Customer Success.`;
 
-  const tamState: CheckState = customerTam.tamStatus === "WARNING" && customerState === "pass" ? "warn" : "pass";
+  // Wrong-vertical surfaces here as a hard TAM/territory failure (not its own
+  // row): a construction account worked under a non-CRE segment is outside this
+  // rep's territory and should never have been assigned.
+  const tamState: CheckState =
+    vertical.status === "WRONG_VERTICAL"
+      ? "fail"
+      : customerTam.tamStatus === "WARNING" && customerState === "pass"
+        ? "warn"
+        : "pass";
   const tamReason =
-    account.tam === null
-      ? "TAM: Blank — falls within team territory"
-      : isExpiredTam(account.tam)
-        ? `TAM: ${account.tam} — verify before working`
-        : `TAM: ${account.tam}`;
+    vertical.status === "WRONG_VERTICAL"
+      ? vertical.reason
+      : account.tam === null
+        ? "TAM: Blank — falls within team territory"
+        : isExpiredTam(account.tam)
+          ? `TAM: ${account.tam} — verify before working`
+          : `TAM: ${account.tam}`;
 
   const roeReason =
     roe.status === "PASS"
@@ -345,10 +417,20 @@ export function evaluateWorkability(
 
   const scoped = recordsForTeam(team, leads, contacts);
   const roe = evaluateRoe(scoped.leads, scoped.contacts);
-  const openOpp = evaluateOpenOpportunities(opportunities, account.intacct, team);
-  const customerTam = evaluateCustomerTam(account.type, account.tam);
+  const openOpp = evaluateOpenOpportunities(opportunities, account.intacct, team, account.fusion);
+  const customerTam = evaluateCustomerTam(account.type, account.tam, {
+    segment: account.product,
+    workedProduct: account.workedProduct,
+    customerProducts: account.customerProducts,
+  });
   const dqOpp = evaluateDqOpportunities(opportunities);
   const partner = evaluatePartner(account);
+  // Wrong-vertical (outbound): a construction account worked under a non-CRE
+  // segment isn't a territory this rep should touch — it should never have been
+  // assigned. It surfaces as a TAM/territory failure (blocks) rather than a new
+  // check row. Inbound (SDR) has no vertical step, so it only runs for BDR.
+  const vertical: VerticalResult =
+    team === "BDR" ? evaluateVertical(account) : { status: "PASS", reason: "" };
 
   // An exact-domain match is a definitive duplicate — the company already has a
   // Salesforce record, so working this one would create a second. That hard-
@@ -361,6 +443,8 @@ export function evaluateWorkability(
     openOpp.status === "FAIL" ||
     customerTam.reasonCodes.includes(CUSTOMER_TAM_BLANK) ||
     customerTam.reasonCodes.includes(CUSTOMER_EXISTING) ||
+    customerTam.reasonCodes.includes(CUSTOMER_EXACT_PRODUCT) ||
+    vertical.status === "WRONG_VERTICAL" ||
     strongDuplicate;
 
   const needsReview =
@@ -368,6 +452,9 @@ export function evaluateWorkability(
     (openOpp.status === "REVIEW" ||
       customerTam.reasonCodes.includes(TAM_EXPIRED) ||
       customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
+      customerTam.reasonCodes.includes(CUSTOMER_OTHER_PRODUCT) ||
+      customerTam.reasonCodes.includes(CUSTOMER_FORMER) ||
+      customerTam.reasonCodes.includes(SEGMENT_MISMATCH) ||
       dqOpp.status === "REVIEW" ||
       partner.status === "REVIEW" ||
       duplicates.length > 0);
@@ -386,6 +473,7 @@ export function evaluateWorkability(
     dqOpp,
     partner,
     duplicates,
+    vertical,
     team,
   );
 
@@ -393,12 +481,18 @@ export function evaluateWorkability(
     ...(roe.status === "FAIL" ? ["ROE_VIOLATION"] : []),
     ...(openOpp.status === "FAIL" ? ["OPEN_OPPORTUNITY"] : []),
     ...(openOpp.status === "REVIEW" ? ["OPEN_OPPORTUNITY_REVIEW"] : []),
+    ...(vertical.status === "WRONG_VERTICAL" ? [WRONG_VERTICAL] : []),
     ...(dqOpp.status === "REVIEW" ? [DQ_OPP_COOLING_OFF] : []),
     ...(partner.registered ? [PARTNER_REGISTERED] : []),
     ...(partner.hasRelationship && !partner.registered ? [PARTNER_RELATIONSHIP] : []),
     ...(duplicates.length > 0 ? [DUPLICATE_ACCOUNT] : []),
     ...customerTam.reasonCodes,
   ];
+
+  // Blocked-by-de-dupe → the engine sets the ABM status; workable/review is left
+  // for the rep, so only compute a status on a hard block.
+  const recommended_abm_status =
+    final_status === "NOT WORKABLE" ? recommendedAbmStatus(reason_codes) : null;
 
   return {
     account_id: account.id,
@@ -423,11 +517,12 @@ export function evaluateWorkability(
     reason,
     recommendation,
     reason_codes,
+    recommended_abm_status,
     roe_detail: roe,
     open_opportunity_detail: openOpp,
     dq_opportunity_detail: dqOpp,
     partner_detail: partner,
-    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner, duplicates, team),
+    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner, duplicates, vertical, team),
   };
 }
 

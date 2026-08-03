@@ -1,8 +1,8 @@
-import type { IntacctFields, Opportunity } from "@/lib/salesforce/types";
+import type { FusionFields, IntacctFields, Opportunity } from "@/lib/salesforce/types";
 import type { Team } from "@/lib/teams";
 
 export interface OpenOpportunityDetail {
-  source: "Salesforce" | "Intacct";
+  source: "Salesforce" | "Intacct" | "Fusion";
   name: string;
   /** AE/CE who owns the opp. */
   owner: string;
@@ -59,6 +59,7 @@ export function evaluateOpenOpportunities(
   opportunities: Opportunity[],
   intacct: IntacctFields,
   team: Team = "BDR",
+  fusion?: FusionFields,
 ): OpenOppResult {
   const openOpportunities: OpenOpportunityDetail[] = [];
 
@@ -75,10 +76,17 @@ export function evaluateOpenOpportunities(
     }
   }
 
-  if (intacct.hasOpenOpps) {
-    for (const detail of intacct.openOppDetails ?? []) {
+  // Open-opp reads are product-agnostic: any open deal in a second system means
+  // the account is already being worked. Intacct SF and Fusion both contribute.
+  for (const [source, fields] of [
+    ["Intacct", intacct] as const,
+    ["Fusion", fusion] as const,
+  ]) {
+    if (!fields?.hasOpenOpps) continue;
+    const details = fields.openOppDetails ?? [];
+    for (const detail of details) {
       openOpportunities.push({
-        source: "Intacct",
+        source,
         name: detail.name,
         owner: detail.owner,
         createdBy: detail.createdBy ?? detail.owner,
@@ -86,10 +94,10 @@ export function evaluateOpenOpportunities(
         createdDate: detail.createdDate,
       });
     }
-    if ((intacct.openOppDetails ?? []).length === 0) {
+    if (details.length === 0) {
       openOpportunities.push({
-        source: "Intacct",
-        name: "Open Opportunity (Intacct)",
+        source,
+        name: `Open Opportunity (${source})`,
         owner: "Unknown",
         createdBy: "Unknown",
         stage: "Open",
