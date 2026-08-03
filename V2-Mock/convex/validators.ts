@@ -55,7 +55,38 @@ export const accountFields = {
     shellAccountStatus: v.optional(v.string()),
     varStatus: v.optional(v.string()),
   }),
-  fusion: v.optional(v.object({ partnerStatus: v.optional(v.string()) })),
+  fusion: v.optional(
+    v.object({
+      partnerStatus: v.optional(v.string()),
+      // Fusion carries opps too (three-system de-dupe) — same shape as Intacct.
+      hasOpenOpps: v.optional(v.boolean()),
+      openOppDetails: v.optional(
+        v.array(
+          v.object({
+            name: v.string(),
+            owner: v.string(),
+            createdBy: v.optional(v.string()),
+            stage: v.string(),
+            createdDate: v.string(),
+          }),
+        ),
+      ),
+    }),
+  ),
+  // Exact product being worked (full name, for name-collision safety). Segment
+  // unions are stored loose as strings — see the modelling note above.
+  workedProduct: v.optional(v.string()),
+  // Product ownership matched across GMO / Intacct SF / Fusion (three-system
+  // de-dupe). `product` kept loose; `system`/`status` are narrow but stable.
+  customerProducts: v.optional(
+    v.array(
+      v.object({
+        product: v.string(),
+        system: v.string(),
+        status: v.string(),
+      }),
+    ),
+  ),
   worklistHidden: v.optional(v.boolean()),
 };
 

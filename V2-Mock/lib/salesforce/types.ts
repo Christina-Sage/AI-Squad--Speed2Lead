@@ -1,4 +1,4 @@
-import type { Product } from "@/lib/products";
+import type { CustomerSystem, ExactProduct, Product } from "@/lib/products";
 
 export type AccountType = "Customer" | "Prospect" | "Partner" | string;
 
@@ -39,14 +39,38 @@ export interface IntacctFields {
 }
 
 /**
- * Partner/VAR relationship read from Sage Fusion. Fusion is not yet wired into
- * the mock, so this is fixture-driven and source-agnostic: the partner check
- * treats an Intacct varStatus and a Fusion partnerStatus the same way. When the
- * real Fusion integration lands, only the provider mapping needs to change.
+ * Records read from Sage Fusion — the customer-ownership system for every
+ * product not tracked in Intacct Salesforce. Fixture-driven and source-agnostic:
+ * the partner check treats an Intacct varStatus and a Fusion partnerStatus the
+ * same way, and Fusion open opps flow through the same open-opportunity check as
+ * Intacct ones. When the real Fusion integration lands, only the provider
+ * mapping needs to change.
  */
 export interface FusionFields {
   /** e.g. "Registered - CloudServe" or "Identified - CloudServe". */
   partnerStatus?: string;
+  /** Fusion carries opps too (read "just in case") — same shape as Intacct. */
+  hasOpenOpps?: boolean;
+  openOppDetails?: {
+    name: string;
+    owner: string;
+    createdBy?: string;
+    stage: string;
+    createdDate: string;
+  }[];
+}
+
+/**
+ * A product a company is (or was) a customer of, matched across the three source
+ * systems (GMO Salesforce, Intacct SF, SAP Fusion) by the de-dupe join. Drives
+ * the product-aware verdict: a *current* customer of the *exact* product being
+ * worked blocks; a customer of any other product — or a former customer of any
+ * product — downgrades to review (genuine cross-sell / win-back).
+ */
+export interface CustomerProductOwnership {
+  product: ExactProduct;
+  system: CustomerSystem;
+  status: "current" | "former";
 }
 
 export interface Account {
@@ -73,8 +97,21 @@ export interface Account {
   abmNurtureStatus: string | null;
   lastActivityDate: string | null;
   intacct: IntacctFields;
-  /** Partner/VAR relationship from Sage Fusion (optional; source-agnostic). */
+  /** Partner/VAR relationship + opps from Sage Fusion (optional; source-agnostic). */
   fusion?: FusionFields;
+  /**
+   * The exact product this account is being worked for (three-system de-dupe).
+   * Optional: when absent the engine falls back to a representative product of
+   * the account's segment (`product`). Carries the full name so name collisions
+   * (Sage 100 vs Sage 100 Contractor) resolve correctly.
+   */
+  workedProduct?: ExactProduct;
+  /**
+   * Products this company owns (current/former), matched across GMO / Intacct SF
+   * / Fusion. When present it drives the exact-product block/review verdict; when
+   * absent the engine falls back to the coarse `type` + `tam` heuristic.
+   */
+  customerProducts?: CustomerProductOwnership[];
   /**
    * Demo-only: keep this account out of the account (BDR) worklist enumeration
    * (`listAccounts`). It stays resolvable by id via `getAccountBundle`, so an SDR

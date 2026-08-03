@@ -1,6 +1,7 @@
 import type { Account } from "@/lib/salesforce/types";
 import { DEMO_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 import { VAR_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/var-leads";
+import { THREE_SYSTEM_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/three-system";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 
 export const ACCOUNTS: Account[] = [
@@ -488,4 +489,9 @@ export const ACCOUNTS: Account[] = [
   // VAR (partner) accounts backing the SDR showcase leads — worklistHidden, so
   // they stay resolvable by id without appearing in the BDR account worklist.
   ...VAR_ACCOUNTS,
+
+  // Three-system de-dupe showcase — one account per verdict path (customer of
+  // exact vs. other product, former customer, segment mismatch, wrong vertical,
+  // Fusion open opp, clean). See three-system.ts.
+  ...THREE_SYSTEM_ACCOUNTS,
 ];
