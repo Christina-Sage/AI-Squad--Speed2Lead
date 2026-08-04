@@ -16,6 +16,7 @@ import type {
 import type * as accountOverrides from "../accountOverrides.js";
 import type * as auditLog from "../auditLog.js";
 import type * as fusionAccounts from "../fusionAccounts.js";
+import type * as health from "../health.js";
 import type * as gmoAccounts from "../gmoAccounts.js";
 import type * as gmoActivities from "../gmoActivities.js";
 import type * as gmoContacts from "../gmoContacts.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   accountOverrides: typeof accountOverrides;
   auditLog: typeof auditLog;
   fusionAccounts: typeof fusionAccounts;
+  health: typeof health;
   gmoAccounts: typeof gmoAccounts;
   gmoActivities: typeof gmoActivities;
   gmoContacts: typeof gmoContacts;
