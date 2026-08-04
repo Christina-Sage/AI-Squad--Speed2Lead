@@ -22,6 +22,13 @@ import type {
 import type { OutreachPush } from "@/lib/outreach";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
 import { detectSearchType, detectLeadSearchType } from "@/lib/salesforce/provider";
+import {
+  assembleAccount,
+  type FusionAccountRow,
+  type GmoAccountRow,
+  type IntacctAccountRow,
+  type IntacctOpportunityRow,
+} from "@/lib/salesforce/source-tables";
 
 // SDR lead ids use the Salesforce Lead prefix (00Q). Lead-scoped work-it (a lead
 // with no linked account) reuses the account work-it mutations keyed by the lead
@@ -30,14 +37,10 @@ function isLeadId(id: string): boolean {
   return id.startsWith("00Q");
 }
 
-// Convex stores the narrow string-union fields (Product, AccountType,
-// ActivityType, …) as plain strings so the schema never rejects a new value
-// before its TS union is updated. These casts re-narrow at the read boundary —
-// the values were written from typed fixtures, so they are sound.
-function toAccount(doc: Awaited<ReturnType<typeof fetchAccountById>>): Account {
-  return doc as unknown as Account;
-}
-
+// Convex stores the narrow string-union fields (Product, AccountType, …) as
+// plain strings so the schema never rejects a new value before its TS union is
+// updated. These casts re-narrow at the read boundary — the values were written
+// from typed fixtures, so they are sound.
 function toMatch(account: Account): AccountSearchMatch {
   return {
     id: account.id,
@@ -48,16 +51,52 @@ function toMatch(account: Account): AccountSearchMatch {
   };
 }
 
-// Small typed helper so `toAccount` can name the query's return shape.
-function fetchAccountById(id: string) {
-  return fetchQuery(api.accounts.getById, { id });
-}
-
 export class ConvexSalesforceProvider implements SalesforceProvider {
+  // Fetch every account, assembling the embedded shape from the three systems.
+  // The join is done in TS (one query per source list) — the same pattern the
+  // former single-table provider used, extended across the split tables.
+  private async allAccounts(): Promise<Account[]> {
+    const [gmo, intacctAccts, intacctOpps, fusionAccts] = await Promise.all([
+      fetchQuery(api.gmoAccounts.list, {}) as unknown as Promise<GmoAccountRow[]>,
+      fetchQuery(api.intacctAccounts.list, {}) as unknown as Promise<IntacctAccountRow[]>,
+      fetchQuery(api.intacctOpportunities.list, {}) as unknown as Promise<IntacctOpportunityRow[]>,
+      fetchQuery(api.fusionAccounts.list, {}) as unknown as Promise<FusionAccountRow[]>,
+    ]);
+
+    const intacctByAccount = new Map(intacctAccts.map((r) => [r.accountId, r]));
+    const fusionByAccount = new Map(fusionAccts.map((r) => [r.accountId, r]));
+    const oppsByAccount = new Map<string, IntacctOpportunityRow[]>();
+    for (const o of intacctOpps) {
+      const list = oppsByAccount.get(o.accountId) ?? [];
+      list.push(o);
+      oppsByAccount.set(o.accountId, list);
+    }
+
+    return gmo.map((g) =>
+      assembleAccount(
+        g,
+        intacctByAccount.get(g.id),
+        fusionByAccount.get(g.id),
+        oppsByAccount.get(g.id) ?? [],
+      ),
+    );
+  }
+
+  private async accountById(id: string): Promise<Account | null> {
+    const gmo = (await fetchQuery(api.gmoAccounts.getById, { id })) as unknown as GmoAccountRow | null;
+    if (!gmo) return null;
+    const [intacctAccount, intacctOpps, fusionAccount] = await Promise.all([
+      fetchQuery(api.intacctAccounts.byAccount, { accountId: id }) as unknown as Promise<IntacctAccountRow | null>,
+      fetchQuery(api.intacctOpportunities.byAccount, { accountId: id }) as unknown as Promise<IntacctOpportunityRow[]>,
+      fetchQuery(api.fusionAccounts.byAccount, { accountId: id }) as unknown as Promise<FusionAccountRow | null>,
+    ]);
+    return assembleAccount(gmo, intacctAccount ?? undefined, fusionAccount ?? undefined, intacctOpps);
+  }
+
   async search(query: string): Promise<SearchOutcome> {
     const trimmed = query.trim();
     const searchType = detectSearchType(trimmed);
-    const all = (await fetchQuery(api.accounts.list, {})) as unknown as Account[];
+    const all = await this.allAccounts();
 
     let matches: Account[] = [];
     if (searchType === "global_account_id") {
@@ -111,16 +150,15 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   }
 
   async getAccountBundle(accountId: string): Promise<AccountBundle | null> {
-    const stored = await fetchAccountById(accountId);
-    if (!stored) return null;
-    const account = toAccount(stored);
+    const account = await this.accountById(accountId);
+    if (!account) return null;
     const product = account.product;
 
     const [leads, contacts, opportunities, activities] = await Promise.all([
-      fetchQuery(api.salesforceLeads.byAccount, { accountId }),
-      fetchQuery(api.contacts.byAccount, { accountId }),
-      fetchQuery(api.opportunities.byAccount, { accountId }),
-      fetchQuery(api.activities.byAccount, { accountId }),
+      fetchQuery(api.gmoLeads.byAccount, { accountId }),
+      fetchQuery(api.gmoContacts.byAccount, { accountId }),
+      fetchQuery(api.gmoOpportunities.byAccount, { accountId }),
+      fetchQuery(api.gmoActivities.byAccount, { accountId }),
     ]);
 
     return {
@@ -133,25 +171,26 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   }
 
   async assignToMe(accountId: string, userId: string, userName: string): Promise<Account> {
-    const updated = await fetchMutation(api.accounts.assign, {
+    await fetchMutation(api.gmoAccounts.assign, {
       id: accountId,
       ownerId: userId,
       ownerName: userName,
       abmNurtureStatus: "Working",
     });
-    return updated as unknown as Account;
+    const account = await this.accountById(accountId);
+    if (!account) throw new Error(`Account ${accountId} not found`);
+    return account;
   }
 
   async updateAbmStatus(accountId: string, abmNurtureStatus: string | null): Promise<Account> {
-    const updated = await fetchMutation(api.accounts.setAbmStatus, {
-      id: accountId,
-      abmNurtureStatus,
-    });
-    return updated as unknown as Account;
+    await fetchMutation(api.gmoAccounts.setAbmStatus, { id: accountId, abmNurtureStatus });
+    const account = await this.accountById(accountId);
+    if (!account) throw new Error(`Account ${accountId} not found`);
+    return account;
   }
 
   async listAccounts(): Promise<AccountListItem[]> {
-    const all = (await fetchQuery(api.accounts.list, {})) as unknown as Account[];
+    const all = await this.allAccounts();
     return all
       // Accounts flagged worklistHidden exist only to back a lead-level checklist
       // state; they stay resolvable by id but never enter the account worklist.
@@ -165,7 +204,7 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   }
 
   async findDuplicateAccounts(accountId: string): Promise<DuplicateMatch[]> {
-    const all = (await fetchQuery(api.accounts.list, {})) as unknown as Account[];
+    const all = await this.allAccounts();
     const account = all.find((a) => a.id === accountId);
     if (!account) return [];
     return findDuplicates(account, all);
@@ -174,11 +213,9 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   async listSdrLeads(): Promise<SdrLeadListItem[]> {
     const [leads, accounts] = await Promise.all([
       fetchQuery(api.sdrLeads.list, {}),
-      fetchQuery(api.accounts.list, {}),
+      this.allAccounts(),
     ]);
-    const accountsById = new Map(
-      (accounts as unknown as Account[]).map((a) => [a.id, a]),
-    );
+    const accountsById = new Map(accounts.map((a) => [a.id, a]));
 
     return (leads as unknown as SdrLead[]).map((lead) => {
       const account = lead.accountId ? accountsById.get(lead.accountId) ?? null : null;
@@ -222,11 +259,11 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
     ownerName: string,
   ): Promise<Contact> {
     if (!isLeadId(accountId)) {
-      const account = await fetchAccountById(accountId);
+      const account = await this.accountById(accountId);
       if (!account) throw new Error(`Account ${accountId} not found`);
     }
 
-    const contact = await fetchMutation(api.contacts.insert, {
+    const contact = await fetchMutation(api.gmoContacts.insert, {
       id: `003-NEW-${Date.now().toString(36)}`,
       name: input.name,
       title: input.title,
@@ -250,7 +287,7 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   async getWorkItState(accountId: string): Promise<WorkItState> {
     const [state, contacts] = await Promise.all([
       fetchQuery(api.workItState.get, { accountId }),
-      fetchQuery(api.contacts.byAccount, { accountId }),
+      fetchQuery(api.gmoContacts.byAccount, { accountId }),
     ]);
     const addedContactNames = (contacts as unknown as (Contact & { researchAdded?: boolean })[])
       .filter((c) => c.researchAdded)
@@ -266,7 +303,7 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   // the account exists for the account case; lead-scoped state has no account.
   private async assertResolvable(accountId: string): Promise<void> {
     if (isLeadId(accountId)) return;
-    const account = await fetchAccountById(accountId);
+    const account = await this.accountById(accountId);
     if (!account) throw new Error(`Account ${accountId} not found`);
   }
 }

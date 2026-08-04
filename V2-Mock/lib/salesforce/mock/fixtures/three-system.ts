@@ -13,7 +13,7 @@ import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
  *   3. Former customer                           → WORKABLE WITH REVIEW (win-back)
  *   4. TAM segment ≠ worked segment (mismatch)   → WORKABLE WITH REVIEW
  *   5. Wrong vertical (construction, non-CRE)    → NOT WORKABLE  (ABM: Incorrect Vertical)
- *   6. Open opp sourced from Fusion              → NOT WORKABLE  (outbound)
+ *   6. Open opp sourced from Intacct SF          → NOT WORKABLE  (outbound)
  *   7. Clean prospect, segment matches           → WORKABLE
  *
  * Matching is deterministic here (explicit ownership / aligned fields); the real
@@ -113,9 +113,10 @@ export const THREE_SYSTEM_ACCOUNTS: Account[] = [
     intacct: { hasOpenOpps: false },
   },
 
-  // 6. Open opportunity sourced from Fusion (product-agnostic open-opp read):
-  // an active Fusion deal means the account is already being worked → outbound
-  // hard block.
+  // 6. Open opportunity sourced from Intacct SF (product-agnostic open-opp read
+  // for an Intacct-SF product): an active Intacct deal means the account is
+  // already being worked → outbound hard block. (Fusion has no opps, so a
+  // non-Intacct product's open opp would instead live in GMO.)
   {
     id: "0015Y0000TRISYS06",
     name: "Stark Fabrication",
@@ -124,17 +125,16 @@ export const THREE_SYSTEM_ACCOUNTS: Account[] = [
     ownerName: "House Account",
     industry: "Industrial Equipment",
     type: "Prospect",
-    product: "X3",
-    tam: "X3",
-    workedProduct: "Sage X3",
+    product: "Intacct",
+    tam: "Intacct",
+    workedProduct: "Sage Intacct",
     abmNurtureStatus: null,
     lastActivityDate: daysAgo(45),
-    intacct: { hasOpenOpps: false },
-    fusion: {
+    intacct: {
       hasOpenOpps: true,
       openOppDetails: [
         {
-          name: "Stark Fabrication — Sage X3 Expansion",
+          name: "Stark Fabrication — Sage Intacct Expansion",
           owner: "Dana Fields",
           createdBy: "Dana Fields",
           stage: "Negotiation",

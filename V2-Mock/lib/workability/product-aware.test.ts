@@ -157,28 +157,29 @@ describe("wrong vertical", () => {
   });
 });
 
-describe("Fusion open opportunities (product-agnostic open-opp read)", () => {
-  const withFusionOpp = (created: number) =>
+describe("Intacct open opportunities (Fusion has none)", () => {
+  const withIntacctOpp = (created: number) =>
     baseAccount({
-      product: "X3",
-      tam: "X3",
-      fusion: {
+      product: "Intacct",
+      tam: "Intacct",
+      workedProduct: "Sage Intacct",
+      intacct: {
         hasOpenOpps: true,
         openOppDetails: [
-          { name: "Fusion Deal", owner: "Dana Fields", stage: "Negotiation", createdDate: daysAgoIso(created) },
+          { name: "Intacct Deal", owner: "Dana Fields", stage: "Negotiation", createdDate: daysAgoIso(created) },
         ],
       },
     });
 
-  it("outbound (BDR): a recent Fusion open opp hard-blocks", () => {
-    const r = evaluateWorkability(bundle(withFusionOpp(20)), "BDR");
+  it("outbound (BDR): a recent Intacct-SF open opp hard-blocks", () => {
+    const r = evaluateWorkability(bundle(withIntacctOpp(20)), "BDR");
     expect(r.open_opportunity_status).toBe("FAIL");
     expect(r.final_status).toBe("NOT WORKABLE");
-    expect(r.open_opportunity_detail.openOpportunities[0].source).toBe("Fusion");
+    expect(r.open_opportunity_detail.openOpportunities[0].source).toBe("Intacct");
   });
 
-  it("inbound (SDR): a Fusion open opp is review, never a hard block", () => {
-    const r = evaluateWorkability(bundle(withFusionOpp(5)), "SDR");
+  it("inbound (SDR): an Intacct-SF open opp is review, never a hard block", () => {
+    const r = evaluateWorkability(bundle(withIntacctOpp(5)), "SDR");
     expect(r.open_opportunity_status).toBe("REVIEW");
     expect(r.final_status).toBe("WORKABLE WITH REVIEW");
   });

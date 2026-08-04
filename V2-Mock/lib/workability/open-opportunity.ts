@@ -1,8 +1,8 @@
-import type { FusionFields, IntacctFields, Opportunity } from "@/lib/salesforce/types";
+import type { IntacctFields, Opportunity } from "@/lib/salesforce/types";
 import type { Team } from "@/lib/teams";
 
 export interface OpenOpportunityDetail {
-  source: "Salesforce" | "Intacct" | "Fusion";
+  source: "Salesforce" | "Intacct";
   name: string;
   /** AE/CE who owns the opp. */
   owner: string;
@@ -59,7 +59,6 @@ export function evaluateOpenOpportunities(
   opportunities: Opportunity[],
   intacct: IntacctFields,
   team: Team = "BDR",
-  fusion?: FusionFields,
 ): OpenOppResult {
   const openOpportunities: OpenOpportunityDetail[] = [];
 
@@ -76,17 +75,13 @@ export function evaluateOpenOpportunities(
     }
   }
 
-  // Open-opp reads are product-agnostic: any open deal in a second system means
-  // the account is already being worked. Intacct SF and Fusion both contribute.
-  for (const [source, fields] of [
-    ["Intacct", intacct] as const,
-    ["Fusion", fusion] as const,
-  ]) {
-    if (!fields?.hasOpenOpps) continue;
-    const details = fields.openOppDetails ?? [];
-    for (const detail of details) {
+  // Open-opp reads are product-agnostic across the systems that hold opps: GMO
+  // (above) and Intacct SF (for Intacct-SF products). Fusion has no opps, so
+  // non-Intacct products' opps are all in GMO.
+  if (intacct.hasOpenOpps) {
+    for (const detail of intacct.openOppDetails ?? []) {
       openOpportunities.push({
-        source,
+        source: "Intacct",
         name: detail.name,
         owner: detail.owner,
         createdBy: detail.createdBy ?? detail.owner,
@@ -94,10 +89,10 @@ export function evaluateOpenOpportunities(
         createdDate: detail.createdDate,
       });
     }
-    if (details.length === 0) {
+    if ((intacct.openOppDetails ?? []).length === 0) {
       openOpportunities.push({
-        source,
-        name: `Open Opportunity (${source})`,
+        source: "Intacct",
+        name: "Open Opportunity (Intacct)",
         owner: "Unknown",
         createdBy: "Unknown",
         stage: "Open",

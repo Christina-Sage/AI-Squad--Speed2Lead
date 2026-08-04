@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { contactFields } from "./validators";
+import { gmoContactFields } from "./validators";
 
 function strip<T extends { _id: unknown; _creationTime: unknown }>(doc: T) {
   const { _id, _creationTime, ...rest } = doc;
@@ -11,17 +11,16 @@ function strip<T extends { _id: unknown; _creationTime: unknown }>(doc: T) {
 
 export const byAccount = query({
   args: { accountId: v.string() },
-  handler: async (ctx, { accountId }) => {
-    const rows = await ctx.db
-      .query("contacts")
-      .withIndex("by_account", (q) => q.eq("accountId", accountId))
-      .collect();
-    return rows.map(strip);
-  },
+  handler: async (ctx, { accountId }) =>
+    (
+      await ctx.db
+        .query("gmoContacts")
+        .withIndex("by_account", (q) => q.eq("accountId", accountId))
+        .collect()
+    ).map(strip),
 });
 
-// Create a research-sourced contact ("+ Add to Salesforce"). Persisted with
-// researchAdded=true and no last-activity date (so it can't trip ROE).
+// Insert a single research-sourced contact (the "+ Add to Salesforce" action).
 export const insert = mutation({
   args: {
     id: v.string(),
@@ -32,18 +31,18 @@ export const insert = mutation({
     accountId: v.string(),
   },
   handler: async (ctx, args) => {
-    const doc = { ...args, lastActivityDate: null, researchAdded: true };
-    await ctx.db.insert("contacts", doc);
-    return doc;
+    const row = { ...args, lastActivityDate: null, researchAdded: true };
+    await ctx.db.insert("gmoContacts", row);
+    return row;
   },
 });
 
 export const replaceAll = mutation({
-  args: { rows: v.array(v.object(contactFields)) },
+  args: { rows: v.array(v.object(gmoContactFields)) },
   handler: async (ctx, { rows }) => {
-    const existing = await ctx.db.query("contacts").collect();
+    const existing = await ctx.db.query("gmoContacts").collect();
     await Promise.all(existing.map((r) => ctx.db.delete(r._id)));
-    await Promise.all(rows.map((r) => ctx.db.insert("contacts", r)));
+    await Promise.all(rows.map((r) => ctx.db.insert("gmoContacts", r)));
     return { inserted: rows.length };
   },
 });

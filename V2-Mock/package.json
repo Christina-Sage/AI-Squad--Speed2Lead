@@ -12,6 +12,7 @@
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "seed:convex": "node scripts/seed-convex.mjs",
+    "dump:source-tables": "node scripts/dump-source-tables.mjs",
     "export:neon": "node scripts/export-neon-to-convex.mjs",
     "migrate:neon": "node scripts/migrate-neon-to-convex.mjs"
   },

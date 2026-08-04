@@ -1,1 +1,4 @@
 .vercel
+
+# Generated dev dump of the source tables (relative dates -> regenerate on demand)
+docs/source-tables/*.json

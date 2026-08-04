@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { salesforceLeadFields } from "./validators";
+import { intacctActivityFields } from "./validators";
 
 function strip<T extends { _id: unknown; _creationTime: unknown }>(doc: T) {
   const { _id, _creationTime, ...rest } = doc;
@@ -11,21 +11,21 @@ function strip<T extends { _id: unknown; _creationTime: unknown }>(doc: T) {
 
 export const byAccount = query({
   args: { accountId: v.string() },
-  handler: async (ctx, { accountId }) => {
-    const rows = await ctx.db
-      .query("salesforceLeads")
-      .withIndex("by_account", (q) => q.eq("accountId", accountId))
-      .collect();
-    return rows.map(strip);
-  },
+  handler: async (ctx, { accountId }) =>
+    (
+      await ctx.db
+        .query("intacctActivities")
+        .withIndex("by_account", (q) => q.eq("accountId", accountId))
+        .collect()
+    ).map(strip),
 });
 
 export const replaceAll = mutation({
-  args: { rows: v.array(v.object(salesforceLeadFields)) },
+  args: { rows: v.array(v.object(intacctActivityFields)) },
   handler: async (ctx, { rows }) => {
-    const existing = await ctx.db.query("salesforceLeads").collect();
+    const existing = await ctx.db.query("intacctActivities").collect();
     await Promise.all(existing.map((r) => ctx.db.delete(r._id)));
-    await Promise.all(rows.map((r) => ctx.db.insert("salesforceLeads", r)));
+    await Promise.all(rows.map((r) => ctx.db.insert("intacctActivities", r)));
     return { inserted: rows.length };
   },
 });

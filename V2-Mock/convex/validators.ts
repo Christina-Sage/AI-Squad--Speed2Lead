@@ -1,24 +1,30 @@
 import { v } from "convex/values";
 
-// Shared field validators for the CRM fixtures ported into Convex.
+// Shared field validators for the ten real source tables (Convex-backed).
 //
-// These are used in two places so the shapes never drift:
+// Used in two places so the shapes never drift:
 //   1. `schema.ts` — `defineTable(<fields>)`.
 //   2. The `replaceAll` seed mutations — `v.array(v.object(<fields>))`.
+//
+// The app's UI reads an embedded `Account` (one account with `intacct`/`fusion`
+// sub-objects). These tables store that data split across the three source
+// systems; lib/salesforce/source-tables.ts decomposes the fixtures into these
+// rows and reassembles them for the provider. See that module for the mapping.
 //
 // Modelling rules (same convention as the persistence tables in schema.ts):
 //   - `foo?: T`         -> v.optional(T)
 //   - `foo: T | null`   -> v.union(T, v.null())
-//   - `foo?: T | null`  -> v.optional(v.union(T, v.null()))
-//   - narrow string unions (Product, AccountType, BuyingStage, PriorityGroup)
-//     are stored as v.string(); the provider casts back to the union at the
-//     read boundary. Keeping them loose avoids the schema rejecting a future
-//     product/stage value before the TS union is updated.
+//   - narrow string unions (Product, ExactProduct, status, …) are stored as
+//     v.string(); the provider re-narrows at the read boundary so the schema
+//     never rejects a new product/status value before its TS union is updated.
 
-export const accountFields = {
-  // App-level Global Account ID (e.g. "0015Y00000ACME01"). Referenced in URLs,
-  // cookies, and cross-record joins, so it is preserved as an indexed field
-  // rather than relying on Convex's `_id`.
+// ── GMO Salesforce — system of record ──────────────────────────────────────
+
+// GMO account = the embedded Account minus the reassembled sub-objects
+// (`intacct` / `fusion` / `customerProducts`), which live in the other systems.
+export const gmoAccountFields = {
+  // App-level Global Account ID (e.g. "0015Y00000ACME01"). Indexed and used as
+  // the join key across all three systems, so preserved rather than using `_id`.
   id: v.string(),
   name: v.string(),
   domain: v.string(),
@@ -32,68 +38,15 @@ export const accountFields = {
   location: v.optional(v.union(v.string(), v.null())),
   buyingStage: v.optional(v.union(v.string(), v.null())),
   rating: v.optional(v.union(v.string(), v.null())),
-  campaigns: v.optional(
-    v.array(v.object({ name: v.string(), date: v.string() })),
-  ),
+  campaigns: v.optional(v.array(v.object({ name: v.string(), date: v.string() }))),
   abmNurtureStatus: v.union(v.string(), v.null()),
   lastActivityDate: v.union(v.string(), v.null()),
-  intacct: v.object({
-    hasOpenOpps: v.boolean(),
-    openOppDetails: v.optional(
-      v.array(
-        v.object({
-          name: v.string(),
-          owner: v.string(),
-          createdBy: v.optional(v.string()),
-          stage: v.string(),
-          createdDate: v.string(),
-        }),
-      ),
-    ),
-    existingCustomerFlag: v.optional(v.boolean()),
-    sageId: v.optional(v.string()),
-    shellAccountStatus: v.optional(v.string()),
-    varStatus: v.optional(v.string()),
-  }),
-  fusion: v.optional(
-    v.object({
-      partnerStatus: v.optional(v.string()),
-      // Fusion carries opps too (three-system de-dupe) — same shape as Intacct.
-      hasOpenOpps: v.optional(v.boolean()),
-      openOppDetails: v.optional(
-        v.array(
-          v.object({
-            name: v.string(),
-            owner: v.string(),
-            createdBy: v.optional(v.string()),
-            stage: v.string(),
-            createdDate: v.string(),
-          }),
-        ),
-      ),
-    }),
-  ),
-  // Exact product being worked (full name, for name-collision safety). Segment
-  // unions are stored loose as strings — see the modelling note above.
+  // Exact product being worked (full name, for name-collision safety).
   workedProduct: v.optional(v.string()),
-  // Product ownership matched across GMO / Intacct SF / Fusion (three-system
-  // de-dupe). `product` kept loose; `system`/`status` are narrow but stable.
-  customerProducts: v.optional(
-    v.array(
-      v.object({
-        product: v.string(),
-        system: v.string(),
-        status: v.string(),
-      }),
-    ),
-  ),
   worklistHidden: v.optional(v.boolean()),
 };
 
-// Salesforce Lead records used for the ROE check (distinct from SDR worklist
-// leads below). `product` is inherited from the account at bundle-assembly time
-// and is not persisted here.
-export const salesforceLeadFields = {
+export const gmoLeadFields = {
   id: v.string(),
   name: v.string(),
   title: v.string(),
@@ -104,7 +57,7 @@ export const salesforceLeadFields = {
   lastActivityDate: v.union(v.string(), v.null()),
 };
 
-export const contactFields = {
+export const gmoContactFields = {
   id: v.string(),
   name: v.string(),
   title: v.string(),
@@ -113,12 +66,10 @@ export const contactFields = {
   accountId: v.string(),
   lastActivityDate: v.union(v.string(), v.null()),
   // True for contacts created via "+ Add to Salesforce" on the work-it page.
-  // Replaces the mock store's in-memory `addedContactNames` set — a persisted
-  // contact row is the durable record of a research-sourced add.
   researchAdded: v.optional(v.boolean()),
 };
 
-export const opportunityFields = {
+export const gmoOpportunityFields = {
   id: v.string(),
   name: v.string(),
   accountId: v.string(),
@@ -141,13 +92,52 @@ export const opportunityFields = {
   ),
 };
 
-export const activityFields = {
+export const gmoActivityFields = {
   id: v.string(),
   accountId: v.string(),
   type: v.string(),
   date: v.string(),
   relatedToId: v.optional(v.string()),
 };
+
+// ── Intacct Salesforce — Sage Intacct + Sage Intacct Construction customers ──
+
+// A product a company owns in a system (current or former).
+const ownedProduct = v.object({ product: v.string(), status: v.string() });
+
+export const intacctAccountFields = {
+  // Join key — the GMO Global Account ID.
+  accountId: v.string(),
+  existingCustomerFlag: v.optional(v.boolean()),
+  sageId: v.optional(v.string()),
+  shellAccountStatus: v.optional(v.string()),
+  varStatus: v.optional(v.string()),
+  products: v.array(ownedProduct),
+};
+
+export const intacctContactFields = gmoContactFields;
+
+export const intacctOpportunityFields = {
+  accountId: v.string(),
+  name: v.string(),
+  owner: v.string(),
+  createdBy: v.optional(v.string()),
+  stage: v.string(),
+  createdDate: v.string(),
+  isClosed: v.boolean(),
+};
+
+export const intacctActivityFields = gmoActivityFields;
+
+// ── SAP Fusion — customer + partner ownership only (no opps, no activity) ────
+
+export const fusionAccountFields = {
+  accountId: v.string(),
+  partnerStatus: v.optional(v.string()),
+  products: v.array(ownedProduct),
+};
+
+// ── Unchanged non-CRM records ────────────────────────────────────────────────
 
 export const sdrLeadFields = {
   id: v.string(),
@@ -169,9 +159,6 @@ export const sdrLeadFields = {
   createdAt: v.optional(v.union(v.string(), v.null())),
 };
 
-// Work-it state that isn't a first-class CRM record: applied data-hygiene fields
-// and the latest Outreach push, keyed by account (or lead) id. Added contacts
-// live in the `contacts` table (researchAdded), so they aren't duplicated here.
 export const outreachPushValidator = v.object({
   sequence: v.string(),
   contactNames: v.array(v.string()),
