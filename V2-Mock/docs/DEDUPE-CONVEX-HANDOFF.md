@@ -336,12 +336,15 @@ Then **remove `ALLOW_DEV_SEED`** and redeploy so the seed route can't be hit aga
 2. **Sample data source.** Do you have **real (sanitized) exports** from Intacct
    SF and Fusion, or should the implementer **engineer fixtures** that hit each
    verdict path? (The prototype only needs the latter.)
-4. **Opp/DQ/activity sourcing for `Sage Intacct Construction`** *(inferred — needs
-   a yes/no)*. Since its customers live in Intacct Salesforce (which has
-   opps/contacts/activities), the handoff assumes its **open-opp / DQ / activity**
-   checks also read Intacct SF — i.e. the second-system read is keyed on
-   "**Intacct-SF product**," not "Intacct team." Confirm, or tell us Sage Intacct
-   Construction opps are worked elsewhere.
+4. **Opp/DQ/activity sourcing for `Sage Intacct Construction`** — ✅ **CONFIRMED**.
+   Sage Intacct Construction opportunities are **worked in GMO** (its reps run the
+   deal in GMO Salesforce), **and** de-dupe additionally **checks Intacct
+   Salesforce for opps** because the customer record lives there. So the
+   second-system opp/DQ/activity read is keyed on "**Intacct-SF product**," as
+   assumed. This matches the code as built: the GMO opp read always runs, and the
+   Intacct-SF opp read fires whenever the company matches an Intacct SF account
+   (which holds both Sage Intacct and Sage Intacct Construction customers). No
+   code change needed.
 3. **Confirmed assumptions** (already signed off — listed so reviewers see them):
    - Block is **exact product**; different product (even same team) = review.
    - Open-opp / DQ / activity are **product-agnostic**.
