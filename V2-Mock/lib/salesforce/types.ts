@@ -39,25 +39,16 @@ export interface IntacctFields {
 }
 
 /**
- * Records read from Sage Fusion — the customer-ownership system for every
- * product not tracked in Intacct Salesforce. Fixture-driven and source-agnostic:
- * the partner check treats an Intacct varStatus and a Fusion partnerStatus the
- * same way, and Fusion open opps flow through the same open-opportunity check as
- * Intacct ones. When the real Fusion integration lands, only the provider
- * mapping needs to change.
+ * Records read from Sage Fusion — the customer + partner ownership system for
+ * every product not tracked in Intacct Salesforce. Fusion holds ONLY customer
+ * ownership and partner relationships: it has no opportunities or activity, so
+ * open-opp / DQ / ROE for non-Intacct products are all read from GMO. The
+ * partner check is source-agnostic — it treats an Intacct varStatus and a Fusion
+ * partnerStatus the same way.
  */
 export interface FusionFields {
   /** e.g. "Registered - CloudServe" or "Identified - CloudServe". */
   partnerStatus?: string;
-  /** Fusion carries opps too (read "just in case") — same shape as Intacct. */
-  hasOpenOpps?: boolean;
-  openOppDetails?: {
-    name: string;
-    owner: string;
-    createdBy?: string;
-    stage: string;
-    createdDate: string;
-  }[];
 }
 
 /**

@@ -1,11 +1,16 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
-  accountFields,
-  activityFields,
-  contactFields,
-  opportunityFields,
-  salesforceLeadFields,
+  gmoAccountFields,
+  gmoActivityFields,
+  gmoContactFields,
+  gmoLeadFields,
+  gmoOpportunityFields,
+  intacctAccountFields,
+  intacctActivityFields,
+  intacctContactFields,
+  intacctOpportunityFields,
+  fusionAccountFields,
   sdrLeadFields,
   workItStateFields,
 } from "./validators";
@@ -96,33 +101,38 @@ export default defineSchema({
   }).index("by_business_id", ["id"]),
 
   // ---------------------------------------------------------------------------
-  // CRM records (formerly the in-memory mock fixtures).
-  //
-  // These back the `convex` Salesforce provider (SALESFORCE_PROVIDER=convex).
-  // Under the `mock` provider they are unused. Business ids (Global Account ID,
-  // Lead ID, etc.) are preserved as indexed fields because URLs, cookies, and
-  // cross-record joins reference them; Convex's `_id` is not used for joins.
-  // Field shapes come from lib/salesforce/types.ts and lib/leads/types.ts via
-  // ./validators so the schema, the seed mutations, and the app types stay in
-  // lock-step.
+  // The ten real source tables (three systems). These back the `convex`
+  // Salesforce provider (SALESFORCE_PROVIDER=convex); under `mock` they are
+  // unused. The GMO Global Account ID is the join key across systems and is
+  // preserved as an indexed field. Field shapes come from ./validators;
+  // lib/salesforce/source-tables.ts decomposes/reassembles the embedded Account.
   // ---------------------------------------------------------------------------
-  accounts: defineTable(accountFields)
+
+  // GMO Salesforce — system of record (leads originate here; accounts worked here).
+  gmoAccounts: defineTable(gmoAccountFields)
     .index("by_business_id", ["id"])
     .index("by_domain", ["domain"]),
-
-  salesforceLeads: defineTable(salesforceLeadFields)
+  gmoLeads: defineTable(gmoLeadFields)
     .index("by_business_id", ["id"])
     .index("by_account", ["accountId"]),
-
-  contacts: defineTable(contactFields)
+  gmoContacts: defineTable(gmoContactFields)
     .index("by_business_id", ["id"])
     .index("by_account", ["accountId"]),
-
-  opportunities: defineTable(opportunityFields)
+  gmoOpportunities: defineTable(gmoOpportunityFields)
     .index("by_business_id", ["id"])
     .index("by_account", ["accountId"]),
+  gmoActivities: defineTable(gmoActivityFields).index("by_account", ["accountId"]),
 
-  activities: defineTable(activityFields).index("by_account", ["accountId"]),
+  // Intacct Salesforce — customers of Sage Intacct + Sage Intacct Construction.
+  intacctAccounts: defineTable(intacctAccountFields).index("by_account", ["accountId"]),
+  intacctContacts: defineTable(intacctContactFields)
+    .index("by_business_id", ["id"])
+    .index("by_account", ["accountId"]),
+  intacctOpportunities: defineTable(intacctOpportunityFields).index("by_account", ["accountId"]),
+  intacctActivities: defineTable(intacctActivityFields).index("by_account", ["accountId"]),
+
+  // SAP Fusion — customer + partner ownership only (no opps, no activity).
+  fusionAccounts: defineTable(fusionAccountFields).index("by_account", ["accountId"]),
 
   sdrLeads: defineTable(sdrLeadFields)
     .index("by_business_id", ["id"])

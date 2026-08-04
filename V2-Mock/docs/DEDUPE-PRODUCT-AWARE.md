@@ -12,19 +12,35 @@ genuine cross-sell for another. This makes the customer verdict compare the
 **exact product** being worked against what the company already owns, matched
 across the three source systems.
 
-## Data model (no table split)
+## Data model — ten Convex source tables
 
-The three systems stay embedded in the existing `Account` shape (the UI reads it
-unchanged). Two additive, optional fields carry the three-system signal:
+The three systems are stored as **ten separate Convex tables** (the real shape),
+while the app UI still reads the embedded `Account` / `AccountBundle`. The
+provider reassembles on read, so the UI is unchanged.
+
+| System | Tables |
+|---|---|
+| **GMO Salesforce** | `gmoAccounts`, `gmoLeads`, `gmoContacts`, `gmoOpportunities`, `gmoActivities` |
+| **Intacct SF** | `intacctAccounts`, `intacctContacts`, `intacctOpportunities`, `intacctActivities` |
+| **SAP Fusion** | `fusionAccounts` **only** — customer + partner ownership; **no opps, no activity** |
+
+`lib/salesforce/source-tables.ts` is the single source of truth for the mapping:
+`decomposeToSourceTables()` splits the embedded fixtures into the ten tables (the
+seed path), and `assembleAccount()` reassembles one embedded `Account` from them
+(the Convex provider). They are inverses.
+
+The embedded `Account` also carries two additive fields used by the verdict:
 
 | Field | Meaning |
 |---|---|
-| `Account.workedProduct?: ExactProduct` | The exact product being worked (full name — resolves Sage 100 vs Sage 100 Contractor). Falls back to a representative product of the segment. |
-| `Account.customerProducts?: CustomerProductOwnership[]` | Products the company owns, each tagged `system` (GMO/Intacct/Fusion) + `status` (current/former). When present, it drives the verdict; when absent the engine falls back to the old `type` + `tam` heuristic. |
+| `Account.workedProduct?: ExactProduct` | Exact product being worked (full name — resolves Sage 100 vs Sage 100 Contractor). Falls back to a representative product of the segment. |
+| `Account.customerProducts?: CustomerProductOwnership[]` | Products the company owns, each tagged `system` (Intacct/Fusion) + `status` (current/former). Reassembled from `intacctAccounts.products` + `fusionAccounts.products`. Drives the verdict; absent → the engine falls back to the `type` + `tam` heuristic. |
 
-`FusionFields` also gained `hasOpenOpps` / `openOppDetails` (Fusion opps are now
-read too). `lib/products.ts` gained the exact-product catalog
-(`PRODUCT_CATALOG`) with the product → team (segment) → customer-system map.
+`lib/products.ts` holds the exact-product catalog (`PRODUCT_CATALOG`) with the
+product → team (segment) → customer-system map.
+
+The default `mock` provider is unchanged (embedded fixtures); the ten tables back
+the `SALESFORCE_PROVIDER=convex` path and are loaded by `/api/dev/seed`.
 
 ## Verdict (customer/TAM)
 
@@ -74,18 +90,21 @@ The two motions differ; the CSVs in `dedupe-audit/` are authoritative.
 | Check | GMO | Intacct SF | Fusion |
 |---|---|---|---|
 | Customer / product ownership | lead origin | ✓ | ✓ |
-| Open opp · DQ opp | ✓ | ✓ | ✓ *(read "just in case")* |
+| Open opp · DQ opp | ✓ | ✓ (Intacct-SF products) | **— none** |
 | Partner / VAR | ✓ | ✓ | ✓ |
 | TAM / ownership / ROE activity | ✓ | — | — |
 
-Activity windows differ by motion (inbound 10-day, outbound 30-day); Sage
-Intacct Construction opps read Intacct SF (keyed on Intacct-SF product).
+**Fusion has no opportunities or activity** — non-Intacct products' opps, DQ, and
+ROE are all read from GMO. Fusion contributes only customer ownership and partner
+relationships. Activity windows differ by motion (inbound 10-day, outbound
+30-day); Sage Intacct Construction opps read Intacct SF (keyed on Intacct-SF
+product).
 
 ## Showcase data
 
 `lib/salesforce/mock/fixtures/three-system.ts` — seven dummy accounts, one per
 verdict path (exact-product block, other-product review, former customer,
-segment mismatch, wrong vertical, Fusion open opp, clean), each replicating a
+segment mismatch, wrong vertical, Intacct-SF open opp, clean), each replicating a
 company matched across the three systems. Asserted in `three-system.test.ts`.
 
 ## Follow-ups

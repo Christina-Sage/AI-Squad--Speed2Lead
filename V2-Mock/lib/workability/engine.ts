@@ -417,7 +417,7 @@ export function evaluateWorkability(
 
   const scoped = recordsForTeam(team, leads, contacts);
   const roe = evaluateRoe(scoped.leads, scoped.contacts);
-  const openOpp = evaluateOpenOpportunities(opportunities, account.intacct, team, account.fusion);
+  const openOpp = evaluateOpenOpportunities(opportunities, account.intacct, team);
   const customerTam = evaluateCustomerTam(account.type, account.tam, {
     segment: account.product,
     workedProduct: account.workedProduct,
