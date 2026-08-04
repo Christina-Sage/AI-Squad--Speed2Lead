@@ -234,6 +234,31 @@ export function evaluateLeadWorkability(
     dqOpp = chk("dqOpp", "Disqualified Opportunity", dqQuestion, "yn", "pass", "No linked account — no disqualified opportunity to check");
   }
 
+  // 6b. Canada SQO (180-day) — only when the linked account is Canadian and a
+  // prior XDR-sourced SQO landed within 180 days. Inbound (SDR) treats it as
+  // review (exceptions can be made); the account workability, computed with this
+  // team, already encodes the SDR=review / BDR=block distinction.
+  let canadaSqo: DedupeCheck | null = null;
+  if (acct && acct.canada_sqo_detail.applies && acct.canada_sqo_status !== "PASS") {
+    const state: DedupeCheck["state"] = acct.canada_sqo_status === "FAIL" ? "fail" : "warn";
+    const c = acct.canada_sqo_detail.conflict;
+    canadaSqo = chk(
+      "canadaSqo",
+      "Canada SQO (180-day)",
+      "XDR paid an SQO here in 180 days?",
+      "yn",
+      state,
+      acct.canada_sqo_detail.reason,
+      c
+        ? [
+            { label: "Credited to", value: c.creditedTo },
+            { label: "Days since SQO", value: String(c.daysSince) },
+            { label: "Window clears", value: new Date(c.windowClearsDate).toLocaleDateString() },
+          ]
+        : undefined,
+    );
+  }
+
   // 7. Partner relationship — flags for review (coordinate with the channel)
   // when the linked account has an active deal registration OR the lead itself
   // came in through a VAR. It does not make the lead unworkable.
@@ -265,8 +290,19 @@ export function evaluateLeadWorkability(
   }
 
   // Ordered to mirror the BDR account checklist, with the SDR-only Account
-  // Association slotted in after the duplicate check.
-  const checks: DedupeCheck[] = [customer, tam, roe, dup, assoc, openOpp, dqOpp, partner];
+  // Association slotted in after the duplicate check. The Canada SQO row only
+  // appears for Canadian accounts with a conflict, slotted after the DQ opp.
+  const checks: DedupeCheck[] = [
+    customer,
+    tam,
+    roe,
+    dup,
+    assoc,
+    openOpp,
+    dqOpp,
+    ...(canadaSqo ? [canadaSqo] : []),
+    partner,
+  ];
 
   // SDR P1 policy: a P1 lead is high-value enough that only a duplicate lead —
   // a data-integrity block the rep can't work around — sends it to "Don't

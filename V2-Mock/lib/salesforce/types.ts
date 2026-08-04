@@ -1,4 +1,5 @@
 import type { CustomerSystem, ExactProduct, Product } from "@/lib/products";
+import type { Team } from "@/lib/teams";
 
 export type AccountType = "Customer" | "Prospect" | "Partner" | string;
 
@@ -74,6 +75,13 @@ export interface Account {
   type: AccountType;
   /** Sage product line this account is associated with — drives the dashboard product filter. */
   product: Product;
+  /**
+   * Billing country of the account. Drives the Canada-only SQO rule: in Canada an
+   * XDR can't be paid for an SQO if another XDR was paid for an SQO on the same
+   * account within the last 180 days. Absent/null = treat as non-Canada (rule
+   * does not apply). Match on "Canada" / "CA" (case-insensitive).
+   */
+  country?: string | null;
   tam: TamStatus;
   /** Parent account name, if this account rolls up to one (duplicate signal). */
   parentAccount?: string | null;
@@ -166,6 +174,26 @@ export interface Opportunity {
    * owner sourced their own deal (createdBy === ownerName).
    */
   createdBy?: string;
+  /**
+   * The XDR team that sourced this opp — SDR (Inbound) or BDR (Outbound). Present
+   * only when an XDR sourced it; absent means AE/CE self-sourced (not
+   * XDR-sourced), which the ROE-after-DQ and Canada-SQO rules both ignore. It is
+   * what makes an opp "XDR-sourced" for those rules.
+   */
+  sourcedByTeam?: Team;
+  /**
+   * Whether the sourcing XDR (`createdBy`) is still on their team. When false the
+   * post-DQ ROE (and any credit) attributes to the overall team (Inbound/Outbound)
+   * rather than the individual rep. Defaults to true (rep still on the team).
+   */
+  sourcedRepActive?: boolean;
+  /**
+   * Date this opp became a Sales Qualified Opportunity — when the sourcing XDR
+   * earns SQO credit. Drives the Canada 180-day rule (an XDR-sourced SQO on the
+   * account within 180 days blocks/reviews a new XDR SQO). Absent = never reached
+   * SQO / no XDR credit.
+   */
+  sqoDate?: string | null;
   stage: string;
   isClosed: boolean;
   createdDate: string;

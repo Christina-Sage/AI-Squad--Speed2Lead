@@ -482,6 +482,30 @@ export const ACCOUNTS: Account[] = [
     worklistHidden: true,
   },
 
+  {
+    // Canada account whose only flag is the 180-day XDR-sourced-SQO rule: a
+    // prior inbound (SDR) XDR was paid for an SQO here 40 days ago. For an
+    // outbound (BDR) view this blocks by de-dupe; for an inbound (SDR) view it's
+    // review (exceptions can be made). Everything else is clean so the rule is
+    // the sole driver. Its SQO opp lives in opportunities.ts (006-MPLC-1).
+    id: "0015Y00000MPLC01",
+    name: "Maplechain Logistics",
+    domain: "maplechain.ca",
+    ownerId: "house",
+    ownerName: "House Account",
+    industry: "Transportation",
+    type: "Prospect",
+    product: "Intacct",
+    country: "Canada",
+    tam: "Intacct",
+    buyingStage: "Consideration",
+    rating: "P2",
+    campaigns: [{ name: "INT_TOO_NCA_CA_ProductTourProgressiveEN", date: "2026-06-05" }],
+    abmNurtureStatus: null,
+    lastActivityDate: daysAgo(75),
+    intacct: { hasOpenOpps: false },
+  },
+
   // Generated per-product demo accounts (20 per product line) so every Product
   // filter shows a populated worklist and blocked list. See demo-accounts.ts.
   ...DEMO_ACCOUNTS,

@@ -4,6 +4,7 @@ import type { Team } from "@/lib/teams";
 import { evaluateRoe, type RoeResult } from "@/lib/workability/roe";
 import { evaluateOpenOpportunities, opportunityAge, type OpenOppResult } from "@/lib/workability/open-opportunity";
 import { evaluateDqOpportunities, type DqOppResult } from "@/lib/workability/dq-opportunity";
+import { evaluateCanadaSqo, type CanadaSqoResult } from "@/lib/workability/canada-sqo";
 import { evaluatePartner, type PartnerResult } from "@/lib/workability/partner";
 import {
   evaluateCustomerTam,
@@ -27,6 +28,8 @@ import {
   PARTNER_REGISTERED,
   PARTNER_RELATIONSHIP,
   DUPLICATE_ACCOUNT,
+  CANADA_SQO_BLOCK,
+  CANADA_SQO_REVIEW,
 } from "@/lib/workability/engine-codes";
 
 export type FinalStatus = "WORKABLE" | "WORKABLE WITH REVIEW" | "NOT WORKABLE";
@@ -78,6 +81,8 @@ export interface WorkabilityResult {
   roe_status: "PASS" | "FAIL";
   open_opportunity_status: "PASS" | "REVIEW" | "FAIL";
   dq_opportunity_status: "PASS" | "REVIEW";
+  /** Canada-only 180-day XDR-sourced-SQO rule: FAIL blocks (BDR), REVIEW (SDR). */
+  canada_sqo_status: "PASS" | "REVIEW" | "FAIL";
   partner_status: "PASS" | "REVIEW";
   customer_status: CustomerTamResult["customerStatus"];
   tam_validation_status: CustomerTamResult["tamStatus"];
@@ -95,6 +100,7 @@ export interface WorkabilityResult {
   roe_detail: RoeResult;
   open_opportunity_detail: OpenOppResult;
   dq_opportunity_detail: DqOppResult;
+  canada_sqo_detail: CanadaSqoResult;
   partner_detail: PartnerResult;
   /** The six-check breakdown driving the "Can I work it?" checklist. */
   checks: DedupeCheck[];
@@ -130,6 +136,7 @@ function buildReasonAndRecommendation(
   openOpp: OpenOppResult,
   customerTam: CustomerTamResult,
   dqOpp: DqOppResult,
+  canadaSqo: CanadaSqoResult,
   partner: PartnerResult,
   duplicates: DuplicateMatch[],
   vertical: VerticalResult,
@@ -167,6 +174,12 @@ function buildReasonAndRecommendation(
       return {
         reason: `An open opportunity ("${o.name}", stage ${o.stage}) owned by ${o.owner} already exists for this account.`,
         recommendation: "Do not work this account. Coordinate with the existing opportunity owner.",
+      };
+    }
+    if (canadaSqo.status === "FAIL") {
+      return {
+        reason: canadaSqo.reason,
+        recommendation: "Do not work this account — an XDR was paid for an SQO here within the last 180 days. Wait until the window clears.",
       };
     }
     if (customerTam.reasonCodes.includes(CUSTOMER_TAM_BLANK)) {
@@ -227,6 +240,12 @@ function buildReasonAndRecommendation(
         recommendation: "Review before assigning account",
       };
     }
+    if (canadaSqo.status === "REVIEW") {
+      return {
+        reason: canadaSqo.reason,
+        recommendation: "Review before working — an XDR-sourced SQO landed on this account within 180 days; confirm an exception is warranted before an SQO is credited.",
+      };
+    }
     if (dqOpp.status === "REVIEW") {
       return {
         reason: dqOpp.reason,
@@ -260,6 +279,7 @@ function buildChecks(
   openOpp: OpenOppResult,
   customerTam: CustomerTamResult,
   dqOpp: DqOppResult,
+  canadaSqo: CanadaSqoResult,
   partner: PartnerResult,
   duplicates: DuplicateMatch[],
   vertical: VerticalResult,
@@ -343,7 +363,7 @@ function buildChecks(
         })()
       : undefined;
 
-  return [
+  const checks: DedupeCheck[] = [
     {
       key: "customer",
       label: "Customer Status",
@@ -406,6 +426,31 @@ function buildChecks(
       reason: partner.reason,
     },
   ];
+
+  // Canada-only 180-day XDR-sourced-SQO row — only shown for Canadian accounts
+  // (elsewhere the rule doesn't apply, so the row would be noise). Outbound (BDR)
+  // blocks (fail), inbound (SDR) reviews (warn).
+  if (canadaSqo.applies) {
+    checks.push({
+      key: "canadaSqo",
+      label: "Canada SQO (180-day)",
+      question: "XDR paid an SQO here in 180 days?",
+      badgeType: "yn",
+      state: canadaSqo.status === "FAIL" ? "fail" : canadaSqo.status === "REVIEW" ? "warn" : "pass",
+      reason: canadaSqo.reason,
+      ...(canadaSqo.conflict
+        ? {
+            facts: [
+              { label: "Credited to", value: canadaSqo.conflict.creditedTo },
+              { label: "Days since SQO", value: String(canadaSqo.conflict.daysSince) },
+              { label: "Window clears", value: new Date(canadaSqo.conflict.windowClearsDate).toLocaleDateString() },
+            ],
+          }
+        : {}),
+    });
+  }
+
+  return checks;
 }
 
 export function evaluateWorkability(
@@ -424,6 +469,9 @@ export function evaluateWorkability(
     customerProducts: account.customerProducts,
   });
   const dqOpp = evaluateDqOpportunities(opportunities);
+  // Canada-only: a prior XDR-sourced SQO on the account inside 180 days blocks a
+  // second XDR SQO for outbound (BDR) and reviews it for inbound (SDR).
+  const canadaSqo = evaluateCanadaSqo(account, opportunities, team);
   const partner = evaluatePartner(account);
   // Wrong-vertical (outbound): a construction account worked under a non-CRE
   // segment isn't a territory this rep should touch — it should never have been
@@ -445,11 +493,13 @@ export function evaluateWorkability(
     customerTam.reasonCodes.includes(CUSTOMER_EXISTING) ||
     customerTam.reasonCodes.includes(CUSTOMER_EXACT_PRODUCT) ||
     vertical.status === "WRONG_VERTICAL" ||
+    canadaSqo.status === "FAIL" ||
     strongDuplicate;
 
   const needsReview =
     !hardFail &&
     (openOpp.status === "REVIEW" ||
+      canadaSqo.status === "REVIEW" ||
       customerTam.reasonCodes.includes(TAM_EXPIRED) ||
       customerTam.reasonCodes.includes(CUSTOMER_EXPIRED_TAM) ||
       customerTam.reasonCodes.includes(CUSTOMER_OTHER_PRODUCT) ||
@@ -471,6 +521,7 @@ export function evaluateWorkability(
     openOpp,
     customerTam,
     dqOpp,
+    canadaSqo,
     partner,
     duplicates,
     vertical,
@@ -483,6 +534,8 @@ export function evaluateWorkability(
     ...(openOpp.status === "REVIEW" ? ["OPEN_OPPORTUNITY_REVIEW"] : []),
     ...(vertical.status === "WRONG_VERTICAL" ? [WRONG_VERTICAL] : []),
     ...(dqOpp.status === "REVIEW" ? [DQ_OPP_COOLING_OFF] : []),
+    ...(canadaSqo.status === "FAIL" ? [CANADA_SQO_BLOCK] : []),
+    ...(canadaSqo.status === "REVIEW" ? [CANADA_SQO_REVIEW] : []),
     ...(partner.registered ? [PARTNER_REGISTERED] : []),
     ...(partner.hasRelationship && !partner.registered ? [PARTNER_RELATIONSHIP] : []),
     ...(duplicates.length > 0 ? [DUPLICATE_ACCOUNT] : []),
@@ -510,6 +563,7 @@ export function evaluateWorkability(
     roe_status: roe.status,
     open_opportunity_status: openOpp.status,
     dq_opportunity_status: dqOpp.status,
+    canada_sqo_status: canadaSqo.status,
     partner_status: partner.status,
     customer_status: customerTam.customerStatus,
     tam_validation_status: customerTam.tamStatus,
@@ -521,8 +575,9 @@ export function evaluateWorkability(
     roe_detail: roe,
     open_opportunity_detail: openOpp,
     dq_opportunity_detail: dqOpp,
+    canada_sqo_detail: canadaSqo,
     partner_detail: partner,
-    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, partner, duplicates, vertical, team),
+    checks: buildChecks(bundle, roe, openOpp, customerTam, dqOpp, canadaSqo, partner, duplicates, vertical, team),
   };
 }
 
@@ -545,6 +600,8 @@ export function blockedByLabel(result: WorkabilityResult): string {
           return "Open opportunity";
         case "dqOpp":
           return "DQ opp cooling-off";
+        case "canadaSqo":
+          return "Canada SQO (180-day)";
         case "partner":
           return "Partner deal registration";
         default:

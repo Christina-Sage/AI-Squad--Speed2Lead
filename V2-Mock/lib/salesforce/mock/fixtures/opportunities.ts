@@ -66,12 +66,17 @@ export const OPPORTUNITIES: Opportunity[] = [
   },
   {
     // Reached Discovery, DQ'd and closed 15 days ago — inside the 30-day
-    // cooling-off, so Halcyon Robotics flags for review.
+    // cooling-off, so Halcyon Robotics flags for review. Sourced by an inbound
+    // (SDR) XDR who has since left the team, so the Inbound team retains ROE for
+    // the rest of the window (the manager's Giulia/Inbound example).
     id: "006-HLCN-1",
     name: "Halcyon Robotics - Intacct Evaluation",
     accountId: "0015Y00000HLCN01",
     ownerId: "u-pat",
     ownerName: "Pat Lee",
+    createdBy: "Giulia Rossi",
+    sourcedByTeam: "SDR",
+    sourcedRepActive: false,
     stage: "Closed Lost - Disqualified",
     isClosed: true,
     createdDate: daysAgo(75),
@@ -135,6 +140,25 @@ export const OPPORTUNITIES: Opportunity[] = [
     stage: "Negotiation",
     isClosed: false,
     createdDate: daysAgo(430),
+  },
+
+  {
+    // Prior inbound (SDR) XDR-sourced SQO on the Canadian account Maplechain
+    // Logistics, credited 40 days ago — inside the 180-day window. Drives the
+    // Canada SQO rule: blocks an outbound (BDR) SQO, reviews an inbound (SDR) one.
+    // Closed Won and past its own DQ/open-opp checks, so the Canada SQO rule is
+    // the sole flag on the account.
+    id: "006-MPLC-1",
+    name: "Maplechain Logistics - Intacct SQO",
+    accountId: "0015Y00000MPLC01",
+    ownerId: "u-pat",
+    ownerName: "Pat Lee",
+    createdBy: "Giulia Rossi",
+    sourcedByTeam: "SDR",
+    sqoDate: daysAgo(40),
+    stage: "Closed Won",
+    isClosed: true,
+    createdDate: daysAgo(70),
   },
 
   // DQ cooling-off opps for the generated per-product demo accounts.

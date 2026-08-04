@@ -33,6 +33,8 @@ export const gmoAccountFields = {
   industry: v.string(),
   type: v.string(),
   product: v.string(),
+  // Billing country — drives the Canada-only 180-day XDR-sourced-SQO rule.
+  country: v.optional(v.union(v.string(), v.null())),
   tam: v.union(v.string(), v.null()),
   parentAccount: v.optional(v.union(v.string(), v.null())),
   location: v.optional(v.union(v.string(), v.null())),
@@ -76,6 +78,11 @@ export const gmoOpportunityFields = {
   ownerId: v.string(),
   ownerName: v.string(),
   createdBy: v.optional(v.string()),
+  // XDR team that sourced the opp (SDR/BDR) + whether that rep is still on it,
+  // and the SQO credit date — drive the post-DQ ROE holder and Canada SQO rules.
+  sourcedByTeam: v.optional(v.string()),
+  sourcedRepActive: v.optional(v.boolean()),
+  sqoDate: v.optional(v.union(v.string(), v.null())),
   stage: v.string(),
   isClosed: v.boolean(),
   createdDate: v.string(),

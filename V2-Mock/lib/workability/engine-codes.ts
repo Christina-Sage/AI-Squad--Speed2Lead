@@ -5,3 +5,6 @@ export const DQ_OPP_COOLING_OFF = "DQ_OPP_COOLING_OFF";
 export const PARTNER_REGISTERED = "PARTNER_REGISTERED";
 export const PARTNER_RELATIONSHIP = "PARTNER_RELATIONSHIP";
 export const DUPLICATE_ACCOUNT = "DUPLICATE_ACCOUNT";
+// Canada 180-day XDR-sourced-SQO rule: BDR (outbound) blocks, SDR (inbound) reviews.
+export const CANADA_SQO_BLOCK = "CANADA_SQO_BLOCK";
+export const CANADA_SQO_REVIEW = "CANADA_SQO_REVIEW";

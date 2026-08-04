@@ -280,6 +280,65 @@ describe("evaluateWorkability", () => {
     expect(result.checks.find((c) => c.key === "openOpp")?.state).toBe("warn");
   });
 
+  const xdrSqo = (over: Partial<Opportunity> = {}): Opportunity => ({
+    id: "006-sqo",
+    name: "Prior XDR SQO",
+    accountId: "0015Y00002ABC123",
+    ownerId: "u-ae",
+    ownerName: "Pat Lee",
+    createdBy: "Giulia Rossi",
+    sourcedByTeam: "SDR",
+    sqoDate: daysAgoIso(30),
+    stage: "Closed Won",
+    isClosed: true,
+    createdDate: daysAgoIso(60),
+    ...over,
+  });
+
+  it("Canada + BDR: a recent XDR-sourced SQO hard-blocks (de-dupe)", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({ country: "Canada" }), { contacts: [cleanContact], opportunities: [xdrSqo()] }),
+      "BDR",
+    );
+    expect(result.canada_sqo_status).toBe("FAIL");
+    expect(result.final_status).toBe("NOT WORKABLE");
+    expect(result.reason_codes).toContain("CANADA_SQO_BLOCK");
+    expect(result.checks.find((c) => c.key === "canadaSqo")?.state).toBe("fail");
+  });
+
+  it("Canada + SDR: the same SQO is WORKABLE WITH REVIEW, not a block", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({ country: "Canada" }), { contacts: [cleanContact], opportunities: [xdrSqo()] }),
+      "SDR",
+    );
+    expect(result.canada_sqo_status).toBe("REVIEW");
+    expect(result.final_status).toBe("WORKABLE WITH REVIEW");
+    expect(result.reason_codes).toContain("CANADA_SQO_REVIEW");
+    expect(result.checks.find((c) => c.key === "canadaSqo")?.state).toBe("warn");
+  });
+
+  it("non-Canada account: the Canada SQO row is not shown and never blocks", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({ country: "United States" }), { contacts: [cleanContact], opportunities: [xdrSqo()] }),
+      "BDR",
+    );
+    expect(result.canada_sqo_status).toBe("PASS");
+    expect(result.final_status).toBe("WORKABLE");
+    expect(result.checks.find((c) => c.key === "canadaSqo")).toBeUndefined();
+  });
+
+  it("Canada + BDR: a non-XDR-sourced prior SQO does not block", () => {
+    const result = evaluateWorkability(
+      bundle(baseAccount({ country: "Canada" }), {
+        contacts: [cleanContact],
+        opportunities: [xdrSqo({ sourcedByTeam: undefined })],
+      }),
+      "BDR",
+    );
+    expect(result.canada_sqo_status).toBe("PASS");
+    expect(result.final_status).toBe("WORKABLE");
+  });
+
   it("ROE violation takes precedence in reason even when other review conditions exist", () => {
     const violatingContact: Contact = { ...cleanContact, lastActivityDate: daysAgoIso(2) };
     const account = baseAccount({ type: "Customer", tam: "Expired Intacct TAM" });
