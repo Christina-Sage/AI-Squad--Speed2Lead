@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { matchImportIdentifiers } from "@/lib/worklist/import-match";
 import type { WorkabilityResult } from "@/lib/workability/engine";
 import type { LeadWorkabilityResult } from "@/lib/leads/types";
 import type { AccountScore } from "@/lib/scoring/scoring";
@@ -98,9 +97,9 @@ function parseHash(): { kind: FocusKind; id: string } | null {
 
 function MiniBar({ label, value }: { label: string; value: number }) {
   return (
-    <div className="w-[74px]">
-      <div className="flex justify-between text-[10px] tracking-[0.3px] text-muted-foreground">
-        <span>{label}</span>
+    <div className="w-[104px]">
+      <div className="flex justify-between gap-1.5 text-[10px] tracking-[0.3px] text-muted-foreground">
+        <span className="truncate">{label}</span>
         <span>{value}</span>
       </div>
       <div className="h-1 overflow-hidden rounded-full border border-border bg-background">
@@ -174,11 +173,10 @@ export function WorklistExplorer({
   team,
   product,
   demoUserName,
-  priorityLabel,
-  accountRows = [],
-  leadRows = [],
-  blockedRows = [],
-  blockedLeadRows = [],
+  accountRows: accountRowsProp = [],
+  leadRows: leadRowsProp = [],
+  blockedRows: blockedRowsProp = [],
+  blockedLeadRows: blockedLeadRowsProp = [],
   workedMap = {},
   justWorkedId = null,
   savedLists = [],
@@ -189,7 +187,6 @@ export function WorklistExplorer({
   team: string;
   product: string;
   demoUserName: string;
-  priorityLabel?: string;
   accountRows?: AccountRow[];
   leadRows?: LeadRow[];
   blockedRows?: BlockedRow[];
@@ -207,22 +204,34 @@ export function WorklistExplorer({
   const backBtnRef = useRef<HTMLButtonElement>(null);
   const focusedKey = focus ? `${focus.kind}-${focus.id}` : null;
 
-  // List import (paste/CSV) filters Today's Worklist to the matches. It matches
-  // whichever worklist the rep is on: accounts for BDR, leads for SDR.
-  const [importIds, setImportIds] = useState<Set<string> | null>(null);
+  // CSV upload (or pasted list) BUILDS a worklist: the identifiers are resolved
+  // against the database, deduped + scored server-side, and REPLACE the demo
+  // worklist. Reset returns to the preloaded lists. Ephemeral — a page refresh
+  // restores the demo (nothing is persisted).
+  type ImportedData = {
+    accountRows: AccountRow[];
+    blockedRows: BlockedRow[];
+    leadRows: LeadRow[];
+    blockedLeadRows: BlockedLeadRow[];
+  };
+  const [imported, setImported] = useState<ImportedData | null>(null);
   const [importReport, setImportReport] = useState<
     { total: number; matched: number; notFound: string[] } | null
   >(null);
-  // Latest rows for the import matcher (the listener is registered once). Kept
-  // current via an effect rather than written during render; the listener only
-  // fires on user-triggered import events, well after the effect has committed.
-  const rowsRef = useRef({ accountRows, blockedRows, leadRows, blockedLeadRows });
-  useEffect(() => {
-    rowsRef.current = { accountRows, blockedRows, leadRows, blockedLeadRows };
-  }, [accountRows, blockedRows, leadRows, blockedLeadRows]);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importActive = imported !== null;
+
+  // Effective rows: the uploaded set when a list is loaded, else the demo props.
+  const accountRows = imported ? imported.accountRows : accountRowsProp;
+  const leadRows = imported ? imported.leadRows : leadRowsProp;
+  const blockedRows = imported ? imported.blockedRows : blockedRowsProp;
+  const blockedLeadRows = imported ? imported.blockedLeadRows : blockedLeadRowsProp;
+
   const clearImport = useCallback(() => {
-    setImportIds(null);
+    setImported(null);
     setImportReport(null);
+    setImportError(null);
   }, []);
 
   // Motion filter (BDR accounts): All / Direct / Partner (VAR). Partner accounts
@@ -310,25 +319,41 @@ export function WorklistExplorer({
     return () => window.removeEventListener("dedupe:open-detail", onOpen as EventListener);
   }, [openFocus]);
 
-  // List import (from AccountImport): match the identifiers against the active
-  // worklist — accounts for BDR, leads for SDR — filter to them, and leave any
-  // focused record so the filtered worklist is visible.
+  // List import (from AccountImport): resolve the identifiers against the
+  // database server-side (dedupe + score), then REPLACE the worklist with the
+  // result. Accounts for BDR, leads for SDR. Leaves any focused record.
   useEffect(() => {
-    function onImport(e: Event) {
+    async function onImport(e: Event) {
       const identifiers = (e as CustomEvent<{ identifiers: string[] }>).detail?.identifiers ?? [];
       if (!identifiers.length) return;
-      const r = rowsRef.current;
-      const rows =
-        mode === "leads" ? [...r.leadRows, ...r.blockedLeadRows] : [...r.accountRows, ...r.blockedRows];
-      const { matchedIds, report } = matchImportIdentifiers(identifiers, rows);
-      setImportIds(matchedIds);
-      setImportReport(report);
+      setImporting(true);
+      setImportError(null);
       if (window.location.hash) {
         window.history.pushState({}, "", window.location.pathname + window.location.search);
       }
       seq.current++;
       setFocus(null);
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+      try {
+        const res = await fetch("/api/worklist/import", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ identifiers, mode }),
+        });
+        if (!res.ok) throw new Error(`Import failed (${res.status})`);
+        const data = await res.json();
+        setImported({
+          accountRows: data.accountRows ?? [],
+          blockedRows: data.blockedRows ?? [],
+          leadRows: data.leadRows ?? [],
+          blockedLeadRows: data.blockedLeadRows ?? [],
+        });
+        setImportReport(data.report ?? null);
+      } catch {
+        setImportError("Couldn’t load your imported list. Check the file and try again.");
+      } finally {
+        setImporting(false);
+      }
     }
     window.addEventListener("workit:import-accounts", onImport as EventListener);
     return () => window.removeEventListener("workit:import-accounts", onImport as EventListener);
@@ -369,10 +394,11 @@ export function WorklistExplorer({
   // works leads — always within the one selected product line.
   const unitOfWork = mode === "leads" ? "Leads" : "Accounts & contacts";
   const workflowLabel = `${team} · ${product} · ${unitOfWork}`;
-  const workableSub =
-    mode === "leads"
-      ? `Ranked by “Should I work it?” score${priorityLabel ? ` · ${priorityLabel}` : ""}`
-      : `Ranked by “Should I work it?” score — Fit 40% · Intent 35% · Workability 25%`;
+  const workableSub = importActive
+    ? "From your uploaded list — checked against the database, deduped, reranked"
+    : mode === "leads"
+      ? "Ranked by “Should I work it?” score"
+      : "Ranked by “Should I work it?” score — Firmographics 40% · Intent 35% · Workability 25%";
 
   // Worked-state. Worked rows keep their DOM position (we map the row props
   // directly — mapping a derived array trips the compiler's ref rule on the row
@@ -384,29 +410,25 @@ export function WorklistExplorer({
   const outcomeLabel = (o: "pushed" | "not_fit" | "archived") =>
     o === "pushed" ? "Worked · Pushed" : o === "archived" ? "Worked · Archived" : "Worked · Not a fit";
 
-  // An active import filters the active worklist to the matched ids — accounts
-  // for BDR, leads for SDR.
-  const importActive = importIds !== null;
   const selectedList = selectedListId
     ? savedLists.find((l) => l.id === selectedListId) ?? null
     : null;
-  const acctVisible = (id: string) => !importActive || importIds!.has(id);
-  // Motion filter is layered on top of the import filter. Partner (VAR) counts
-  // are taken before the motion filter so the toggle always shows the full split.
-  const motionPool = accountRows.filter((a) => acctVisible(a.id));
+  // Motion filter (All / Direct / Partner). Partner (VAR) counts are taken
+  // before the motion filter so the toggle always shows the full split. The
+  // pool is the whole worklist — the demo set, or the uploaded set when active.
+  const motionPool = accountRows;
   const partnerCount = motionPool.filter((a) => a.hasPartner).length;
   const directCount = motionPool.length - partnerCount;
   const motionMatch = (a: AccountRow) =>
     motion === "all" || (motion === "partner" ? a.hasPartner : !a.hasPartner);
-  const acctInView = (a: AccountRow) => acctVisible(a.id) && motionMatch(a);
+  const acctInView = (a: AccountRow) => motionMatch(a);
   const visibleAcctCount = motionPool.filter(motionMatch).length;
-  const leadVisible = (id: string) => !importActive || importIds!.has(id);
   // Motion filter for the SDR lead worklist mirrors the account side: a lead is
   // Partner when its account is a partner or it came in through a VAR.
   const leadMotionMatch = (l: LeadRow) =>
     motion === "all" || (motion === "partner" ? l.hasPartner : !l.hasPartner);
-  const leadInView = (l: LeadRow) => leadVisible(l.id) && leadMotionMatch(l);
-  const leadPool = leadRows.filter((l) => leadVisible(l.id));
+  const leadInView = (l: LeadRow) => leadMotionMatch(l);
+  const leadPool = leadRows;
   const leadPartnerCount = leadPool.filter((l) => l.hasPartner).length;
   const leadDirectCount = leadPool.length - leadPartnerCount;
   const visibleLeadCount = leadPool.filter(leadMotionMatch).length;
@@ -430,10 +452,10 @@ export function WorklistExplorer({
   // for BDR, workItId (accountId ?? leadId) for SDR leads.
   const saveAccountIds = isLeads
     ? importActive
-      ? leadRows.filter((l) => importIds!.has(l.id)).map((l) => l.workItId)
+      ? leadRows.map((l) => l.workItId)
       : worklistAccountIds
     : importActive
-      ? [...importIds!]
+      ? accountRows.map((a) => a.id)
       : worklistAccountIds;
 
   // "Next up" banner after working a record. justWorkedId is an account id (or a
@@ -507,27 +529,48 @@ export function WorklistExplorer({
   // ---- Worklist (default). ----
   return (
     <div id="worklist-focus" className="scroll-mt-20">
-      {importActive && (
+      {importing && (
+        <div className="mb-4 flex items-center gap-2.5 rounded-[12px] border border-border bg-card px-4 py-2.5 text-[13px] text-muted-foreground">
+          <span className="size-4 animate-spin rounded-full border-2 border-border border-t-primary" />
+          Loading your list from the database…
+        </div>
+      )}
+      {!importing && importError && (
+        <div className="mb-4 flex flex-wrap items-center gap-2.5 rounded-[12px] border border-destructive/40 bg-destructive-tint px-4 py-2.5 text-[13px] text-destructive">
+          <span>{importError}</span>
+          <span className="flex-1" />
+          <button
+            onClick={() => setImportError(null)}
+            className="rounded-[9px] border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold text-foreground hover:border-muted-foreground"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {!importing && importActive && (
         <div className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[12px] border border-primary/40 bg-primary-soft px-4 py-2.5 text-[13px]">
           <span className="font-heading font-black text-primary">Imported list</span>
           <span className="text-muted-foreground">
-            Showing {importReport?.matched ?? 0} of {importReport?.total ?? 0} identifier
-            {(importReport?.total ?? 0) === 1 ? "" : "s"}
+            {importReport?.matched ?? 0} of {importReport?.total ?? 0} loaded from the database, deduped
             {importReport && importReport.notFound.length > 0 && (
               <>
                 {" "}
-                · {importReport.notFound.length} not found:{" "}
-                {importReport.notFound.slice(0, 5).join(", ")}
-                {importReport.notFound.length > 5 ? "…" : ""}
+                ·{" "}
+                <span className="text-destructive">
+                  {importReport.notFound.length} not found:{" "}
+                  {importReport.notFound.slice(0, 5).join(", ")}
+                  {importReport.notFound.length > 5 ? "…" : ""}
+                </span>
               </>
             )}
           </span>
           <span className="flex-1" />
           <button
             onClick={clearImport}
-            className="rounded-[9px] border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold hover:border-muted-foreground"
+            title="Return to the preloaded demo worklists"
+            className="inline-flex items-center gap-1.5 rounded-[9px] border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold text-muted-foreground hover:border-muted-foreground hover:text-foreground"
           >
-            Clear import
+            ↺ Reset to demo list
           </button>
         </div>
       )}
@@ -537,10 +580,10 @@ export function WorklistExplorer({
           <h2 className="text-[15.5px] font-semibold">Today&rsquo;s Worklist</h2>
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-[0.4px] uppercase ${
-              mode === "leads" ? "bg-primary-soft text-primary" : "bg-muted text-foreground"
+              importActive || mode === "leads" ? "bg-primary-soft text-primary" : "bg-muted text-foreground"
             }`}
           >
-            {workflowLabel}
+            {importActive ? "⬆ Imported list" : workflowLabel}
           </span>
           <span className="text-[12.5px] text-muted-foreground">{workableSub}</span>
           {activeTotal > 0 && (
@@ -600,14 +643,12 @@ export function WorklistExplorer({
           ? visibleLeadCount === 0
             ? <div className="px-5 py-4 text-[13px] text-muted-foreground">
                 {importActive
-                  ? "None of the imported leads are in the current worklist. Check the “not found” list above, or clear the import."
+                  ? "None of your uploaded lead IDs resolved to a lead in the database. Check the “not found” list above, or reset to the demo list."
                   : motion === "partner"
                     ? "No partner (VAR) leads in this worklist."
                     : motion === "direct"
                       ? "No direct leads in this worklist."
-                      : leadRows.length === 0
-                        ? "No leads in this priority group."
-                        : "No leads in this view."}
+                      : "No leads in this view."}
               </div>
             : (
               <div className="flex flex-col">
@@ -661,7 +702,7 @@ export function WorklistExplorer({
                     ) : (
                       <>
                         <div className="hidden items-center gap-2.5 md:flex">
-                          <MiniBar label="Fit" value={lead.fit} />
+                          <MiniBar label="Firmographics" value={lead.fit} />
                           <MiniBar label="Intent" value={lead.intent} />
                           <MiniBar label="Work" value={lead.workability} />
                         </div>
@@ -678,7 +719,7 @@ export function WorklistExplorer({
           : visibleAcctCount === 0
             ? <div className="px-5 py-4 text-[13px] text-muted-foreground">
                 {importActive
-                  ? "None of the imported accounts are in the current worklist. Check the “not found” list above, or clear the import."
+                  ? "None of your uploaded account IDs resolved to an account in the database. Check the “not found” list above, or reset to the demo list."
                   : motion === "partner"
                     ? "No partner (VAR) accounts in this worklist."
                     : motion === "direct"
@@ -730,7 +771,7 @@ export function WorklistExplorer({
                   ) : (
                     <>
                       <div className="hidden items-center gap-2.5 md:flex">
-                        <MiniBar label="Fit" value={acct.fit} />
+                        <MiniBar label="Firmographics" value={acct.fit} />
                         <MiniBar label="Intent" value={acct.intent} />
                         <MiniBar label="Work" value={acct.workability} />
                       </div>
@@ -756,7 +797,6 @@ export function WorklistExplorer({
         </div>
         {mode === "leads" &&
           blockedLeadRows.map((lead) => {
-            if (!leadVisible(lead.id)) return null;
             return (
             <button
               key={lead.id}
@@ -781,7 +821,6 @@ export function WorklistExplorer({
           })}
         {mode === "accounts" &&
           blockedRows.map((acct) => {
-          if (!acctVisible(acct.id)) return null;
           return (
           <button
             key={acct.id}

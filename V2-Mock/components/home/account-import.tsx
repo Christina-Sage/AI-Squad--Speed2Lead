@@ -45,8 +45,8 @@ function importConfig(team: Team) {
       Unit: "Lead",
       idType: "Lead ID",
       blurb:
-        "Paste Lead IDs, work emails, or lead names — one per line or comma-separated. Or upload a CSV.",
-      placeholder: "00Q5Y00001Ab2Cd\njordan@acme.com\nJordan Lee",
+        "Paste Lead IDs or work emails — one per line or comma-separated. Or upload a CSV. Each is looked up in the database.",
+      placeholder: "00Q5Y00001Ab2Cd\njordan@acme.com",
       example: ["00Q5Y00001Ab2Cd", "00Q5Y00001Kp9Xr"],
       templateName: "workit-lead-import-template.csv",
     };
@@ -56,8 +56,8 @@ function importConfig(team: Team) {
     Unit: "Account",
     idType: "Global Account ID",
     blurb:
-      "Paste domains, Global Account IDs, or account names — one per line or comma-separated. Or upload a CSV.",
-    placeholder: "acme.com\n0015Y00002ABC123\nIronclad Group",
+      "Paste Global Account IDs or website domains — one per line or comma-separated. Or upload a CSV. Each is looked up in the database.",
+    placeholder: "0015Y00002ABC123\nacme.com",
     example: ["0015Y00002ABC123", "0015Y00000WAYN01"],
     templateName: "workit-account-import-template.csv",
   };
