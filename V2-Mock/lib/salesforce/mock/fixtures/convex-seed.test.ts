@@ -11,6 +11,7 @@ import {
   intacctOpportunityFields,
   fusionAccountFields,
   sdrLeadFields,
+  accountResolutionInsertFields,
 } from "@/convex/validators";
 import { ACCOUNTS } from "./accounts";
 import { LEADS } from "./leads";
@@ -19,6 +20,7 @@ import { OPPORTUNITIES } from "./opportunities";
 import { ACTIVITIES } from "./activities";
 import { SDR_LEADS } from "./sdr-leads";
 import { decomposeToSourceTables } from "@/lib/salesforce/source-tables";
+import { resolveAccounts, type MatchAccount } from "@/lib/salesforce/resolver";
 
 // Guards the fixtures -> Convex seed boundary a live deployment would otherwise
 // be first to enforce. The embedded fixtures are decomposed into the ten source
@@ -44,6 +46,31 @@ function hasUndefinedDeep(value: unknown): boolean {
 
 const src = decomposeToSourceTables(ACCOUNTS, LEADS, CONTACTS, OPPORTUNITIES, ACTIVITIES);
 
+const matchAccounts: MatchAccount[] = [
+  ...src.gmoAccounts.map((g) => ({
+    system: "gmo" as const,
+    accountId: g.id,
+    domain: g.domain,
+    company: g.name,
+    address: g.location ?? null,
+  })),
+  ...src.intacctAccounts.map((r) => ({
+    system: "intacct" as const,
+    accountId: r.nativeId ?? r.accountId,
+    domain: r.domain ?? null,
+    company: r.company ?? null,
+    address: r.address1 ?? null,
+  })),
+  ...src.fusionAccounts.map((r) => ({
+    system: "fusion" as const,
+    accountId: r.nativeId ?? r.accountId,
+    domain: r.domain ?? null,
+    company: r.company ?? null,
+    address: r.address1 ?? null,
+  })),
+];
+const resolution = resolveAccounts(matchAccounts);
+
 const TABLES = [
   { name: "gmoAccounts", rows: src.gmoAccounts, fields: gmoAccountFields },
   { name: "gmoLeads", rows: src.gmoLeads, fields: gmoLeadFields },
@@ -56,6 +83,7 @@ const TABLES = [
   { name: "intacctActivities", rows: src.intacctActivities, fields: intacctActivityFields },
   { name: "fusionAccounts", rows: src.fusionAccounts, fields: fusionAccountFields },
   { name: "sdrLeads", rows: SDR_LEADS, fields: sdrLeadFields },
+  { name: "accountResolution", rows: resolution, fields: accountResolutionInsertFields },
 ] as const;
 
 describe("fixtures decompose into Convex-seedable source tables", () => {

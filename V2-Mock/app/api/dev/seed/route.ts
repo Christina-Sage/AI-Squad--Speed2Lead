@@ -8,6 +8,7 @@ import { OPPORTUNITIES } from "@/lib/salesforce/mock/fixtures/opportunities";
 import { ACTIVITIES } from "@/lib/salesforce/mock/fixtures/activities";
 import { SDR_LEADS } from "@/lib/salesforce/mock/fixtures/sdr-leads";
 import { decomposeToSourceTables } from "@/lib/salesforce/source-tables";
+import { resolveAccounts, type MatchAccount } from "@/lib/salesforce/resolver";
 
 // Loads the in-memory mock fixtures into Convex so the `convex` Salesforce
 // provider has data to run the de-dupe engine against. The embedded fixtures are
@@ -48,6 +49,34 @@ export async function POST() {
 
   const src = decomposeToSourceTables(ACCOUNTS, LEADS, CONTACTS, OPPORTUNITIES, ACTIVITIES);
 
+  // Resolve accounts across the three systems into the crosswalk. Uses each
+  // system's native id (GMO: its global id; Intacct/Fusion: the synthesized
+  // nativeId) so the crosswalk holds distinct per-system ids, matched on domain.
+  const matchAccounts: MatchAccount[] = [
+    ...src.gmoAccounts.map((g) => ({
+      system: "gmo" as const,
+      accountId: g.id,
+      domain: g.domain,
+      company: g.name,
+      address: g.location ?? null,
+    })),
+    ...src.intacctAccounts.map((r) => ({
+      system: "intacct" as const,
+      accountId: r.nativeId ?? r.accountId,
+      domain: r.domain ?? null,
+      company: r.company ?? null,
+      address: r.address1 ?? null,
+    })),
+    ...src.fusionAccounts.map((r) => ({
+      system: "fusion" as const,
+      accountId: r.nativeId ?? r.accountId,
+      domain: r.domain ?? null,
+      company: r.company ?? null,
+      address: r.address1 ?? null,
+    })),
+  ];
+  const resolution = resolveAccounts(matchAccounts);
+
   const results = {
     // GMO Salesforce
     gmoAccounts: await fetchMutation(api.gmoAccounts.replaceAll, { rows: clean(src.gmoAccounts) }),
@@ -78,6 +107,10 @@ export async function POST() {
     }),
     // Non-CRM
     sdrLeads: await fetchMutation(api.sdrLeads.replaceAll, { rows: clean(SDR_LEADS) }),
+    // Cross-instance crosswalk (resolver output).
+    accountResolution: await fetchMutation(api.accountResolution.replaceAll, {
+      rows: clean(resolution),
+    }),
   };
 
   return NextResponse.json({ success: true, seeded: results });

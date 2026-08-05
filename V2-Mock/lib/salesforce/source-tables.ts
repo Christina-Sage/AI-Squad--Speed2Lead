@@ -30,16 +30,56 @@ import type { ExactProduct } from "@/lib/products";
 /** GMO account = the embedded Account minus the reassembled sub-objects. */
 export type GmoAccountRow = Omit<Account, "intacct" | "fusion" | "customerProducts">;
 
+// Deterministic (no Date/random) native-id synthesis for the mock seed. The
+// embedded fixtures model a single account id; real GMO/Intacct/Fusion records
+// carry three different ids. These generate stable, system-shaped stand-ins so
+// the crosswalk has distinct per-system ids to resolve.
+function hash32(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** Fusion native id: exactly 10 digits, "400" + 7 (matches isFusionAccountId). */
+export function fusionNativeId(gmoAccountId: string): string {
+  const digits = (hash32(`fusion:${gmoAccountId}`) % 10_000_000).toString().padStart(7, "0");
+  return `400${digits}`;
+}
+
+/** Intacct native id: a 15-char SF-shaped id, distinct from the GMO id. */
+export function intacctNativeId(gmoAccountId: string): string {
+  const body = hash32(`intacct:${gmoAccountId}`).toString(36).toUpperCase().padStart(12, "0").slice(0, 12);
+  return `001${body}`;
+}
+
 /** A product a company owns in one system, current or former. */
 export interface OwnedProduct {
   product: ExactProduct;
   status: "current" | "former";
 }
 
+/** Fields carried on account rows for cross-instance matching (see match-keys). */
+export interface MatchFields {
+  company?: string | null;
+  website?: string | null;
+  domain?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  address3?: string | null;
+  city?: string | null;
+  stateProvince?: string | null;
+  country?: string | null;
+}
+
 /** Intacct SF customer record for an account (Sage Intacct / Intacct Construction). */
-export interface IntacctAccountRow {
-  /** Join key — the GMO Global Account ID. */
+export interface IntacctAccountRow extends MatchFields {
+  /** TRANSITIONAL join key — still the GMO id (see validators.ts). */
   accountId: string;
+  /** Intacct's own native id; distinct from the GMO id. */
+  nativeId?: string;
   existingCustomerFlag?: boolean;
   sageId?: string;
   shellAccountStatus?: string;
@@ -60,8 +100,11 @@ export interface IntacctOpportunityRow {
 }
 
 /** SAP Fusion customer + partner record. No opps or activity live in Fusion. */
-export interface FusionAccountRow {
+export interface FusionAccountRow extends MatchFields {
+  /** TRANSITIONAL join key — still the GMO id (see validators.ts). */
   accountId: string;
+  /** Fusion's own native id ("400" + 7 digits); distinct from the GMO id. */
+  nativeId?: string;
   /** e.g. "Registered - CloudServe". */
   partnerStatus?: string;
   /** Products owned in Fusion (every non-Intacct product). */
@@ -139,6 +182,11 @@ export function decomposeToSourceTables(
       const { existingCustomerFlag, sageId, shellAccountStatus, varStatus } = account.intacct;
       intacctAccounts.push({
         accountId: account.id,
+        nativeId: intacctNativeId(account.id),
+        // Cross-instance match fields, carried from the embedded account.
+        company: account.name,
+        domain: account.domain,
+        ...(account.location ? { address1: account.location } : {}),
         ...(existingCustomerFlag !== undefined ? { existingCustomerFlag } : {}),
         ...(sageId !== undefined ? { sageId } : {}),
         ...(shellAccountStatus !== undefined ? { shellAccountStatus } : {}),
@@ -161,6 +209,11 @@ export function decomposeToSourceTables(
     if (hasFusionData(account)) {
       fusionAccounts.push({
         accountId: account.id,
+        nativeId: fusionNativeId(account.id),
+        // Cross-instance match fields, carried from the embedded account.
+        company: account.name,
+        domain: account.domain,
+        ...(account.location ? { address1: account.location } : {}),
         ...(account.fusion?.partnerStatus !== undefined
           ? { partnerStatus: account.fusion.partnerStatus }
           : {}),

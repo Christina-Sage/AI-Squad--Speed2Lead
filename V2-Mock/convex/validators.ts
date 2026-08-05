@@ -161,9 +161,15 @@ export const gmoActivityFields = {
 const ownedProduct = v.object({ product: v.string(), status: v.string() });
 
 export const intacctAccountFields = {
-  // Intacct SF's OWN account id (native to this instance). It does NOT equal the
-  // GMO account id — the two systems are joined via `domain` (see matchKeyFields).
+  // TRANSITIONAL: still carries the GMO account id, because the provider join
+  // (convex-provider.ts) currently matches Intacct→GMO on `accountId === gmo.id`.
+  // The instance's TRUE, distinct native id is `nativeId`; the crosswalk
+  // (accountResolution) links the two. Once the join moves to the crosswalk this
+  // becomes `nativeId` and the GMO linkage lives only in accountResolution.
   accountId: v.string(),
+  // Intacct SF's own native account id — distinct from the GMO id. What the
+  // resolver records in the crosswalk for this system.
+  nativeId: v.optional(v.string()),
   existingCustomerFlag: v.optional(v.boolean()),
   sageId: v.optional(v.string()),
   shellAccountStatus: v.optional(v.string()),
@@ -193,8 +199,11 @@ export const intacctActivityFields = gmoActivityFields;
 // ── SAP Fusion — customer + partner ownership only (no opps, no activity) ────
 
 export const fusionAccountFields = {
-  // Fusion's OWN account id (native to this instance); not shared with GMO SF.
+  // TRANSITIONAL: still the GMO account id (current provider join key); see the
+  // note on intacctAccountFields.accountId. The true native id is `nativeId`.
   accountId: v.string(),
+  // Fusion's own native account id — 10 digits, "400" + 7 (isFusionAccountId).
+  nativeId: v.optional(v.string()),
   partnerStatus: v.optional(v.string()),
   products: v.array(ownedProduct),
   // Account name + cross-instance match keys (company / website / domain).

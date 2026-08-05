@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as accountOverrides from "../accountOverrides.js";
+import type * as accountResolution from "../accountResolution.js";
 import type * as auditLog from "../auditLog.js";
 import type * as fusionAccounts from "../fusionAccounts.js";
 import type * as health from "../health.js";
@@ -41,6 +42,7 @@ import type * as workItState from "../workItState.js";
  */
 declare const fullApi: ApiFromModules<{
   accountOverrides: typeof accountOverrides;
+  accountResolution: typeof accountResolution;
   auditLog: typeof auditLog;
   fusionAccounts: typeof fusionAccounts;
   health: typeof health;

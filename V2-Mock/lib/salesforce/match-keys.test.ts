@@ -35,14 +35,15 @@ describe("normalizeDomain", () => {
 });
 
 describe("isFusionAccountId", () => {
-  it("accepts the confirmed 400-prefixed all-digit shape", () => {
-    expect(isFusionAccountId("400873098")).toBe(true);
-    expect(isFusionAccountId(" 4008730981 ")).toBe(true); // 10-digit form
+  it("accepts the confirmed 10-digit 400-prefixed shape", () => {
+    expect(isFusionAccountId("4008730981")).toBe(true);
+    expect(isFusionAccountId(" 4000000000 ")).toBe(true);
   });
   it("rejects non-Fusion shapes", () => {
     expect(isFusionAccountId("0015Y00000ACME01")).toBe(false); // GMO global id
-    expect(isFusionAccountId("400")).toBe(false);
-    expect(isFusionAccountId("40087309a")).toBe(false);
+    expect(isFusionAccountId("400873098")).toBe(false); // 9 digits — too short
+    expect(isFusionAccountId("40087309812")).toBe(false); // 11 digits — too long
+    expect(isFusionAccountId("40087309a1")).toBe(false);
     expect(isFusionAccountId(null)).toBe(false);
   });
 });

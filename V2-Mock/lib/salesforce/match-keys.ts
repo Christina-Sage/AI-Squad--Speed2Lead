@@ -45,14 +45,62 @@ export function normalizeDomain(value: string | null | undefined): string | null
   return host === "" ? null : host;
 }
 
+// Common company-name suffixes stripped before comparison so "Acme" and
+// "Acme Corp" collapse to the same token. Intentionally small — aggressive
+// stripping creates false matches.
+const COMPANY_SUFFIXES = new Set([
+  "inc",
+  "incorporated",
+  "corp",
+  "corporation",
+  "co",
+  "company",
+  "llc",
+  "llp",
+  "ltd",
+  "limited",
+  "plc",
+  "gmbh",
+  "sa",
+  "ag",
+]);
+
+/**
+ * Normalize a company name into a comparison token: lowercased, punctuation
+ * removed, whitespace collapsed, and a trailing legal suffix dropped. Used for
+ * the `company + address` fallback match. Returns null when nothing remains.
+ */
+export function normalizeCompanyName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const words = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  while (words.length > 1 && COMPANY_SUFFIXES.has(words[words.length - 1])) {
+    words.pop();
+  }
+  const token = words.join(" ").trim();
+  return token === "" ? null : token;
+}
+
+/** Normalize a free-text address line into a comparison token. */
+export function normalizeAddress(address: string | null | undefined): string | null {
+  if (!address) return null;
+  const token = address
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return token === "" ? null : token;
+}
+
 /**
  * Fusion account-ID shape check — a Fusion-side sanity signal, not a match key.
- * Confirmed example: "400873098". Fusion IDs start with "400" and are all
- * digits. NOTE: the exact total length is unconfirmed — the confirmed example is
- * 9 digits, an earlier note said 10 — so this accepts "400" + 6-or-more digits.
- * Tighten to a fixed length once confirmed.
+ * Fusion IDs are exactly 10 digits: the prefix "400" followed by 7 more digits
+ * (e.g. "4008730981").
  */
 export function isFusionAccountId(id: string | null | undefined): boolean {
   if (!id) return false;
-  return /^400\d{6,}$/.test(id.trim());
+  return /^400\d{7}$/.test(id.trim());
 }
