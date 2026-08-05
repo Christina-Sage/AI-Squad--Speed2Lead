@@ -20,6 +20,49 @@ export const create = mutation({
   },
 });
 
+// Seeds example saved worklists for a user (demo data). Idempotent: each list
+// is keyed by its business id, so re-seeding replaces the existing example row
+// rather than duplicating it, and it never touches lists the user created
+// themselves (those carry random uuids). createdAt/expiresAt are computed by the
+// caller (the seed route) so this mutation stays free of wall-clock reads.
+export const seedExamples = mutation({
+  args: {
+    userId: v.string(),
+    worklists: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        source: v.union(v.string(), v.null()),
+        accountIds: v.array(v.string()),
+        createdAt: v.number(),
+        expiresAt: v.union(v.number(), v.null()),
+      }),
+    ),
+  },
+  handler: async (ctx, { userId, worklists }) => {
+    for (const wl of worklists) {
+      const existing = await ctx.db
+        .query("savedWorklists")
+        .withIndex("by_business_id", (q) => q.eq("id", wl.id))
+        .collect();
+      await Promise.all(
+        existing.filter((d) => d.userId === userId).map((d) => ctx.db.delete(d._id)),
+      );
+      await ctx.db.insert("savedWorklists", {
+        id: wl.id,
+        userId,
+        name: wl.name,
+        source: wl.source,
+        accountIds: wl.accountIds,
+        createdAt: wl.createdAt,
+        expiresAt: wl.expiresAt,
+        archivedAt: null,
+      });
+    }
+    return { inserted: worklists.length };
+  },
+});
+
 // Look up a user's list by its app-level id. Returns the Convex doc or null.
 async function findOwned(ctx: MutationCtx, id: string, userId: string) {
   const doc = await ctx.db

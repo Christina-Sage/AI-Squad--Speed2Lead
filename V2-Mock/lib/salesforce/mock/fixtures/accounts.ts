@@ -2,6 +2,7 @@ import type { Account } from "@/lib/salesforce/types";
 import { DEMO_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/demo-accounts";
 import { VAR_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/var-leads";
 import { THREE_SYSTEM_ACCOUNTS } from "@/lib/salesforce/mock/fixtures/three-system";
+import { EXAMPLE_WORKLIST_ACCOUNTS } from "@/lib/worklists/mock/example-worklists";
 import { daysAgo } from "@/lib/salesforce/mock/fixtures/dates";
 
 export const ACCOUNTS: Account[] = [
@@ -494,4 +495,9 @@ export const ACCOUNTS: Account[] = [
   // exact vs. other product, former customer, segment mismatch, wrong vertical,
   // Fusion open opp, clean). See three-system.ts.
   ...THREE_SYSTEM_ACCOUNTS,
+
+  // Dedicated accounts backing the example Saved Worklists. worklistHidden, so
+  // they never appear on the main BDR worklist — they exist only to give the
+  // saved-list picker progress to measure. See lib/worklists/mock/example-worklists.ts.
+  ...EXAMPLE_WORKLIST_ACCOUNTS,
 ];
