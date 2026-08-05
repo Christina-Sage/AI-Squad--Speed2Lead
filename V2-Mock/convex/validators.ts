@@ -18,16 +18,43 @@ import { v } from "convex/values";
 //     v.string(); the provider re-narrows at the read boundary so the schema
 //     never rejects a new product/status value before its TS union is updated.
 
+// ── Cross-system matching (GMO SF ⇄ Intacct SF ⇄ Fusion) ────────────────────
+//
+// The per-system record IDs are NOT shared: an account in GMO SF and the same
+// company in Intacct SF have different native IDs. Cross-instance matching is
+// therefore done on business attributes, not on `accountId`. The intended match
+// key priority (strongest first) is:
+//   1. `domain`  — normalized email/website domain (e.g. "acme.com"). Best key.
+//   2. `website` — raw website URL, when no clean domain is available.
+//   3. `company` — normalized company/account name. Weakest; fuzzy, last resort.
+// These are added as optional match fields on the tables that need to be joined
+// across instances. `domain` is the field to INDEX and match on; `website` /
+// `company` / `email` are kept raw for display, audit, and fallback matching.
+const matchKeyFields = {
+  // Company / account name, normalized for matching. On person-level tables
+  // (Lead/Contact) this is the ORGANIZATION name, distinct from `name` (person).
+  company: v.optional(v.union(v.string(), v.null())),
+  // Raw website URL as stored in the source system (e.g. "https://acme.com").
+  website: v.optional(v.union(v.string(), v.null())),
+  // Normalized match domain derived from email/website (e.g. "acme.com"). This
+  // is the indexed cross-instance join key.
+  domain: v.optional(v.union(v.string(), v.null())),
+};
+
 // ── GMO Salesforce — system of record ──────────────────────────────────────
 
 // GMO account = the embedded Account minus the reassembled sub-objects
 // (`intacct` / `fusion` / `customerProducts`), which live in the other systems.
 export const gmoAccountFields = {
-  // App-level Global Account ID (e.g. "0015Y00000ACME01"). Indexed and used as
-  // the join key across all three systems, so preserved rather than using `_id`.
+  // App-level Global Account ID (e.g. "0015Y00000ACME01"). Native to GMO SF and
+  // NOT shared with Intacct SF / Fusion — those systems match on `domain` (see
+  // matchKeyFields), not on this id. Indexed, so preserved rather than using `_id`.
   id: v.string(),
   name: v.string(),
+  // Normalized match domain (also the cross-instance join key for accounts).
   domain: v.string(),
+  // Raw website URL, when it differs from the bare `domain`.
+  website: v.optional(v.union(v.string(), v.null())),
   ownerId: v.string(),
   ownerName: v.string(),
   industry: v.string(),
@@ -48,25 +75,39 @@ export const gmoAccountFields = {
 
 export const gmoLeadFields = {
   id: v.string(),
+  // Person name. Company name lives in `company` (see matchKeyFields).
   name: v.string(),
   title: v.string(),
   ownerId: v.string(),
   ownerName: v.string(),
   status: v.string(),
+  // Intra-instance link to the GMO account this lead belongs to.
   accountId: v.string(),
   lastActivityDate: v.union(v.string(), v.null()),
+  // Person email; also the source for the normalized `domain` match key.
+  email: v.optional(v.union(v.string(), v.null())),
+  // company / website / domain — cross-instance match keys.
+  ...matchKeyFields,
 };
 
 export const gmoContactFields = {
   id: v.string(),
+  // Person name. Company name lives in `company` (see matchKeyFields).
   name: v.string(),
   title: v.string(),
   ownerId: v.string(),
   ownerName: v.string(),
+  // Intra-instance link to the account this contact belongs to. NOTE: when this
+  // shape is reused for Intacct contacts, `accountId` is the INTACCT account id,
+  // not a GMO id — cross-instance joins go through `domain`, never this field.
   accountId: v.string(),
   lastActivityDate: v.union(v.string(), v.null()),
   // True for contacts created via "+ Add to Salesforce" on the work-it page.
   researchAdded: v.optional(v.boolean()),
+  // Person email; also the source for the normalized `domain` match key.
+  email: v.optional(v.union(v.string(), v.null())),
+  // company / website / domain — cross-instance match keys.
+  ...matchKeyFields,
 };
 
 export const gmoOpportunityFields = {
@@ -106,13 +147,17 @@ export const gmoActivityFields = {
 const ownedProduct = v.object({ product: v.string(), status: v.string() });
 
 export const intacctAccountFields = {
-  // Join key — the GMO Global Account ID.
+  // Intacct SF's OWN account id (native to this instance). It does NOT equal the
+  // GMO account id — the two systems are joined via `domain` (see matchKeyFields).
   accountId: v.string(),
   existingCustomerFlag: v.optional(v.boolean()),
   sageId: v.optional(v.string()),
   shellAccountStatus: v.optional(v.string()),
   varStatus: v.optional(v.string()),
   products: v.array(ownedProduct),
+  // Account name + cross-instance match keys (company / website / domain). These
+  // are what link an Intacct account back to its GMO counterpart.
+  ...matchKeyFields,
 };
 
 export const intacctContactFields = gmoContactFields;
@@ -132,9 +177,12 @@ export const intacctActivityFields = gmoActivityFields;
 // ── SAP Fusion — customer + partner ownership only (no opps, no activity) ────
 
 export const fusionAccountFields = {
+  // Fusion's OWN account id (native to this instance); not shared with GMO SF.
   accountId: v.string(),
   partnerStatus: v.optional(v.string()),
   products: v.array(ownedProduct),
+  // Account name + cross-instance match keys (company / website / domain).
+  ...matchKeyFields,
 };
 
 // ── Unchanged non-CRM records ────────────────────────────────────────────────

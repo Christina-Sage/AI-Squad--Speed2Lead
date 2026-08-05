@@ -114,25 +114,34 @@ export default defineSchema({
     .index("by_domain", ["domain"]),
   gmoLeads: defineTable(gmoLeadFields)
     .index("by_business_id", ["id"])
-    .index("by_account", ["accountId"]),
+    .index("by_account", ["accountId"])
+    .index("by_domain", ["domain"]),
   gmoContacts: defineTable(gmoContactFields)
     .index("by_business_id", ["id"])
-    .index("by_account", ["accountId"]),
+    .index("by_account", ["accountId"])
+    .index("by_domain", ["domain"]),
   gmoOpportunities: defineTable(gmoOpportunityFields)
     .index("by_business_id", ["id"])
     .index("by_account", ["accountId"]),
   gmoActivities: defineTable(gmoActivityFields).index("by_account", ["accountId"]),
 
   // Intacct Salesforce — customers of Sage Intacct + Sage Intacct Construction.
-  intacctAccounts: defineTable(intacctAccountFields).index("by_account", ["accountId"]),
+  // Native IDs differ from GMO's; the `by_domain` index is the cross-instance
+  // join key (match GMO ⇄ Intacct on normalized domain, not on accountId).
+  intacctAccounts: defineTable(intacctAccountFields)
+    .index("by_account", ["accountId"])
+    .index("by_domain", ["domain"]),
   intacctContacts: defineTable(intacctContactFields)
     .index("by_business_id", ["id"])
-    .index("by_account", ["accountId"]),
+    .index("by_account", ["accountId"])
+    .index("by_domain", ["domain"]),
   intacctOpportunities: defineTable(intacctOpportunityFields).index("by_account", ["accountId"]),
   intacctActivities: defineTable(intacctActivityFields).index("by_account", ["accountId"]),
 
   // SAP Fusion — customer + partner ownership only (no opps, no activity).
-  fusionAccounts: defineTable(fusionAccountFields).index("by_account", ["accountId"]),
+  fusionAccounts: defineTable(fusionAccountFields)
+    .index("by_account", ["accountId"])
+    .index("by_domain", ["domain"]),
 
   sdrLeads: defineTable(sdrLeadFields)
     .index("by_business_id", ["id"])
