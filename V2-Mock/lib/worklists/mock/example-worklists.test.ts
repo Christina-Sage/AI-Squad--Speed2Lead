@@ -6,6 +6,9 @@ import {
   exampleWorklistId,
 } from "@/lib/worklists/mock/example-worklists";
 import { ACCOUNTS } from "@/lib/salesforce/mock/fixtures/accounts";
+import { evaluateWorkability } from "@/lib/workability/engine";
+import { scoreAccount } from "@/lib/scoring/scoring";
+import type { AccountBundle } from "@/lib/salesforce/types";
 
 const EXAMPLE_IDS = new Set(EXAMPLE_WORKLIST_ACCOUNTS.map((a) => a.id));
 
@@ -62,6 +65,24 @@ describe("EXAMPLE_SAVED_WORKLISTS", () => {
 describe("EXAMPLE_WORKLIST_ACCOUNTS", () => {
   it("are all hidden from the main worklist", () => {
     for (const a of EXAMPLE_WORKLIST_ACCOUNTS) expect(a.worklistHidden).toBe(true);
+  });
+
+  it("all evaluate as workable and scored, so a selected list's body populates", () => {
+    // Clean prospects with an active TAM and no linked records → WORKABLE with a
+    // non-null score. If any went NOT WORKABLE it would land in Blocked (or drop
+    // out), leaving the selected-list worklist body empty.
+    for (const account of EXAMPLE_WORKLIST_ACCOUNTS) {
+      const bundle: AccountBundle = {
+        account,
+        leads: [],
+        contacts: [],
+        opportunities: [],
+        activities: [],
+      };
+      const result = evaluateWorkability(bundle, "BDR", []);
+      expect(result.final_status).not.toBe("NOT WORKABLE");
+      expect(scoreAccount(bundle, result)).not.toBeNull();
+    }
   });
 
   it("never collide with any other account by id, domain, or name", () => {

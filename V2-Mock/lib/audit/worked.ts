@@ -19,22 +19,13 @@ function startOfToday(): Date {
   return d;
 }
 
-/**
- * Today's worked accounts for a user, derived from the audit log. Resets daily
- * (entries before local midnight are ignored), so the worklist starts fresh
- * each day. Keyed by accountId; the most recent action for an account wins.
- */
-export async function getWorkedToday(userId: string): Promise<Map<string, WorkedEntry>> {
-  // Rows come back newest-first from Convex.
-  const rows = await fetchQuery(api.auditLog.workedByUser, {
-    userId,
-    sinceMs: startOfToday().getTime(),
-  });
-
+// Rows come back newest-first, so the first entry seen for an account is the
+// most recent — later (older) rows for the same account are skipped.
+function buildWorkedMap(
+  rows: { accountId: string | null; action: string; reason: string | null }[],
+): Map<string, WorkedEntry> {
   const worked = new Map<string, WorkedEntry>();
   for (const row of rows) {
-    // Rows are newest-first, so the first entry seen for an account is the
-    // most recent — later (older) rows for the same account are skipped.
     if (!row.accountId || worked.has(row.accountId)) continue;
     worked.set(row.accountId, {
       outcome:
@@ -47,6 +38,29 @@ export async function getWorkedToday(userId: string): Promise<Map<string, Worked
     });
   }
   return worked;
+}
+
+/**
+ * Today's worked accounts for a user, derived from the audit log. Resets daily
+ * (entries before local midnight are ignored), so the worklist starts fresh
+ * each day. Keyed by accountId; the most recent action for an account wins.
+ */
+export async function getWorkedToday(userId: string): Promise<Map<string, WorkedEntry>> {
+  const rows = await fetchQuery(api.auditLog.workedByUser, {
+    userId,
+    sinceMs: startOfToday().getTime(),
+  });
+  return buildWorkedMap(rows);
+}
+
+/**
+ * Every account a user has ever worked, with outcome — the lifetime view. Used
+ * for a selected saved worklist, whose progress is lifetime (a campaign is done
+ * once every account has been worked, not just today's).
+ */
+export async function getWorkedEverMap(userId: string): Promise<Map<string, WorkedEntry>> {
+  const rows = await fetchQuery(api.auditLog.workedByUser, { userId });
+  return buildWorkedMap(rows);
 }
 
 /**

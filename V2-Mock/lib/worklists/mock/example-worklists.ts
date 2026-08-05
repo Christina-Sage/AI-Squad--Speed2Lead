@@ -51,6 +51,12 @@ interface ExampleDef {
 // for now). The account industries still vary per list for flavour.
 const LIST_PRODUCT = "Intacct" as const;
 
+// Rotated by index so a selected list shows a realistic P1/P2/P3 spread and a
+// mix of scores (fit is rating-driven, intent is buying-stage-driven — see
+// lib/scoring/scoring.ts) rather than 12 identical rows.
+const RATINGS = ["P1", "P2", "P3"] as const;
+const BUYING_STAGES = ["Decision", "Purchase", "Consideration", "Awareness"] as const;
+
 function slug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -127,7 +133,11 @@ for (const def of DEFS) {
       industry: def.industry,
       type: "Prospect",
       product: LIST_PRODUCT,
-      tam: null,
+      // Active TAM + clean (no opp / customer / ROE / duplicate) → WORKABLE, so
+      // a selected list renders scored, workable rows.
+      tam: LIST_PRODUCT,
+      rating: RATINGS[i % RATINGS.length],
+      buyingStage: BUYING_STAGES[i % BUYING_STAGES.length],
       abmNurtureStatus: null,
       lastActivityDate: null,
       intacct: { hasOpenOpps: false },
