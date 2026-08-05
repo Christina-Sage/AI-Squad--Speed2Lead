@@ -8,6 +8,8 @@ import { OPPORTUNITIES } from "@/lib/salesforce/mock/fixtures/opportunities";
 import { ACTIVITIES } from "@/lib/salesforce/mock/fixtures/activities";
 import { SDR_LEADS } from "@/lib/salesforce/mock/fixtures/sdr-leads";
 import { decomposeToSourceTables } from "@/lib/salesforce/source-tables";
+import { DEMO_USERS } from "@/lib/auth/demo-user";
+import { EXAMPLE_SAVED_WORKLISTS, exampleWorklistId } from "@/lib/worklists/mock/example-worklists";
 
 // Loads the in-memory mock fixtures into Convex so the `convex` Salesforce
 // provider has data to run the de-dupe engine against. The embedded fixtures are
@@ -80,5 +82,28 @@ export async function POST() {
     sdrLeads: await fetchMutation(api.sdrLeads.replaceAll, { rows: clean(SDR_LEADS) }),
   };
 
-  return NextResponse.json({ success: true, seeded: results });
+  // Example Saved Worklists (per-user demo data). Seeded for every demo user so
+  // the picker is populated whoever is signed in. createdAt/expiresAt are
+  // computed here (the mutation avoids wall-clock reads); the small decreasing
+  // createdAt offset preserves the definition order (first list shown newest).
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  let savedWorklistRows = 0;
+  for (const user of DEMO_USERS) {
+    const worklists = EXAMPLE_SAVED_WORKLISTS.map((wl, i) => ({
+      id: exampleWorklistId(wl.key, user.id),
+      name: wl.name,
+      source: wl.source,
+      accountIds: wl.accountIds,
+      createdAt: now - i * 1000,
+      expiresAt: wl.expiresInDays !== null ? now + wl.expiresInDays * DAY_MS : null,
+    }));
+    const res = await fetchMutation(api.savedWorklists.seedExamples, { userId: user.id, worklists });
+    savedWorklistRows += res.inserted;
+  }
+
+  return NextResponse.json({
+    success: true,
+    seeded: { ...results, savedWorklists: { inserted: savedWorklistRows } },
+  });
 }

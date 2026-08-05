@@ -45,9 +45,11 @@ curl -X POST https://<your-app>.vercel.app/api/dev/seed
 ```
 
 The route is double-guarded: it refuses unless `ALLOW_DEV_SEED=1` **and**
-`SALESFORCE_PROVIDER=convex`. It loads all 10 source tables + `sdrLeads`, and is
-idempotent (each table's `replaceAll` wipes and reloads), so re-running it just
-resets the demo data.
+`SALESFORCE_PROVIDER=convex`. It loads all 10 source tables + `sdrLeads`, plus a
+few example **Saved Worklists** per demo user (Tradeshow — Money20/20, ABX MV
+Dental, BMS Upsell), and is idempotent (source tables `replaceAll`;
+example worklists are keyed by business id and replaced in place, leaving any
+user-created lists untouched), so re-running it just resets the demo data.
 
 ## 4. Lock it back down
 
