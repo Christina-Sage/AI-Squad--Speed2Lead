@@ -46,10 +46,14 @@ curl -X POST https://<your-app>.vercel.app/api/dev/seed
 
 The route is double-guarded: it refuses unless `ALLOW_DEV_SEED=1` **and**
 `SALESFORCE_PROVIDER=convex`. It loads all 10 source tables + `sdrLeads`, plus a
-few example **Saved Worklists** per demo user (Tradeshow — Money20/20, ABX MV
-Dental, BMS Upsell), and is idempotent (source tables `replaceAll`;
-example worklists are keyed by business id and replaced in place, leaving any
-user-created lists untouched), so re-running it just resets the demo data.
+few example **Saved Worklists** per demo user (Tradeshow — Money20/20, BMS Upsell,
+ABX MV Dental) and backdated "worked" audit entries so those lists look
+pre-worked in the picker (3/12, 10/12, 12/12 → Completed). It's idempotent
+(source tables `replaceAll`; example worklists keyed by business id and replaced
+in place; seeded worked entries — `searchType: "seed"` — cleared and reloaded),
+so re-running it just resets the demo data and never touches user-created lists
+or real worked history. The example lists are backed by their own
+`worklistHidden` accounts, so they don't change the main worklist's counts.
 
 ## 4. Lock it back down
 

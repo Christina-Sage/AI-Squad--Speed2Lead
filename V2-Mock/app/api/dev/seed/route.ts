@@ -9,7 +9,12 @@ import { ACTIVITIES } from "@/lib/salesforce/mock/fixtures/activities";
 import { SDR_LEADS } from "@/lib/salesforce/mock/fixtures/sdr-leads";
 import { decomposeToSourceTables } from "@/lib/salesforce/source-tables";
 import { DEMO_USERS } from "@/lib/auth/demo-user";
-import { EXAMPLE_SAVED_WORKLISTS, exampleWorklistId } from "@/lib/worklists/mock/example-worklists";
+import {
+  EXAMPLE_SAVED_WORKLISTS,
+  EXAMPLE_WORKED_ACCOUNT_IDS,
+  EXAMPLE_WORKLIST_ACCOUNTS,
+  exampleWorklistId,
+} from "@/lib/worklists/mock/example-worklists";
 
 // Loads the in-memory mock fixtures into Convex so the `convex` Salesforce
 // provider has data to run the de-dupe engine against. The embedded fixtures are
@@ -88,7 +93,17 @@ export async function POST() {
   // createdAt offset preserves the definition order (first list shown newest).
   const now = Date.now();
   const DAY_MS = 24 * 60 * 60 * 1000;
+  // Worked entries are backdated so they populate lifetime progress (the picker)
+  // without landing in any user's daily worked-today set.
+  const workedAtMs = now - 2 * DAY_MS;
+  const accountNameById = new Map(EXAMPLE_WORKLIST_ACCOUNTS.map((a) => [a.id, a.name]));
+  const workedAccounts = EXAMPLE_WORKED_ACCOUNT_IDS.map((id) => ({
+    accountId: id,
+    accountName: accountNameById.get(id) ?? null,
+  }));
+
   let savedWorklistRows = 0;
+  let workedRows = 0;
   for (const user of DEMO_USERS) {
     const worklists = EXAMPLE_SAVED_WORKLISTS.map((wl, i) => ({
       id: exampleWorklistId(wl.key, user.id),
@@ -100,10 +115,23 @@ export async function POST() {
     }));
     const res = await fetchMutation(api.savedWorklists.seedExamples, { userId: user.id, worklists });
     savedWorklistRows += res.inserted;
+
+    const workedRes = await fetchMutation(api.auditLog.seedWorked, {
+      userId: user.id,
+      userName: user.name,
+      team: "BDR",
+      createdAt: workedAtMs,
+      accounts: workedAccounts,
+    });
+    workedRows += workedRes.inserted;
   }
 
   return NextResponse.json({
     success: true,
-    seeded: { ...results, savedWorklists: { inserted: savedWorklistRows } },
+    seeded: {
+      ...results,
+      savedWorklists: { inserted: savedWorklistRows },
+      workedSeed: { inserted: workedRows },
+    },
   });
 }

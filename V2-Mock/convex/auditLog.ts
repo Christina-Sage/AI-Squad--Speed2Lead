@@ -26,6 +26,51 @@ export const write = mutation({
   },
 });
 
+// Seeds "worked" audit entries for demo data — used to make the example Saved
+// Worklists look pre-worked in the picker. Marked with searchType "seed" so it's
+// idempotent (prior seeded rows are cleared first) and never disturbs real
+// worked history. `createdAt` is supplied by the caller (kept in the past, so
+// these don't count toward the daily worked-today set).
+export const seedWorked = mutation({
+  args: {
+    userId: v.string(),
+    userName: v.string(),
+    team: v.string(),
+    createdAt: v.number(),
+    accounts: v.array(
+      v.object({ accountId: v.string(), accountName: v.union(v.string(), v.null()) }),
+    ),
+  },
+  handler: async (ctx, { userId, userName, team, createdAt, accounts }) => {
+    const existing = await ctx.db
+      .query("auditLog")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    await Promise.all(
+      existing.filter((r) => r.searchType === "seed").map((r) => ctx.db.delete(r._id)),
+    );
+    for (const a of accounts) {
+      await ctx.db.insert("auditLog", {
+        createdAt,
+        userId,
+        userName,
+        team,
+        searchInput: "seed:example-worklist",
+        searchType: "seed",
+        accountId: a.accountId,
+        domain: null,
+        accountName: a.accountName,
+        finalStatus: "WORKABLE",
+        reason: null,
+        reasonCodes: null,
+        action: "PUSH_OUTREACH",
+        assignmentDetails: null,
+      });
+    }
+    return { inserted: accounts.length };
+  },
+});
+
 // Worked entries for a user, newest-first. `sinceMs` (optional) restricts to
 // entries at/after that epoch-ms instant — used for the daily worked-today set.
 export const workedByUser = query({
