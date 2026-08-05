@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { EXAMPLE_SAVED_WORKLISTS, exampleWorklistId } from "@/lib/worklists/mock/example-worklists";
 import { ACCOUNTS } from "@/lib/salesforce/mock/fixtures/accounts";
+import type { Product } from "@/lib/products";
 
 const ACCOUNT_IDS = new Set(ACCOUNTS.map((a) => a.id));
 
@@ -26,16 +27,15 @@ describe("EXAMPLE_SAVED_WORKLISTS", () => {
     }
   });
 
-  it("scopes the single-line lists to their product", () => {
-    const bms = EXAMPLE_SAVED_WORKLISTS.find((w) => w.key === "bms-upsell")!;
-    for (const id of bms.accountIds) {
-      expect(ACCOUNTS.find((a) => a.id === id)?.product).toBe("BMS");
-    }
-    const dental = EXAMPLE_SAVED_WORKLISTS.find((w) => w.key === "abx-mv-dental")!;
-    for (const id of dental.accountIds) {
-      const acct = ACCOUNTS.find((a) => a.id === id);
-      expect(acct?.product).toBe("Intacct");
-      expect(acct?.industry).toBe("Healthcare");
+  it("spans every product line so the list is populated under any product filter", () => {
+    const allProducts: Product[] = ["Intacct", "X3", "BMS", "S50", "CRE", "SSG"];
+    for (const wl of EXAMPLE_SAVED_WORKLISTS) {
+      const products = new Set(
+        wl.accountIds.map((id) => ACCOUNTS.find((a) => a.id === id)?.product),
+      );
+      for (const p of allProducts) {
+        expect(products.has(p)).toBe(true);
+      }
     }
   });
 

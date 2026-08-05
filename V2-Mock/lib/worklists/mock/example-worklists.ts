@@ -27,57 +27,54 @@ export interface ExampleWorklistSpec {
 // are excluded, mirroring how the worklist itself is built).
 const VISIBLE = ACCOUNTS.filter((a) => !a.worklistHidden);
 
-/** First `n` visible account ids for a product line, in fixture order. */
-function byProduct(product: Product, n: number): string[] {
-  return VISIBLE.filter((a) => a.product === product)
-    .slice(0, n)
-    .map((a) => a.id);
-}
+// These example lists are placeholders whose only job is to show what a saved
+// worklist looks like in the picker, so each spans every product line (rather
+// than being scoped to one product/vertical). That way a list is populated
+// whatever the dashboard product filter is set to.
+const PRODUCT_ORDER: Product[] = ["Intacct", "X3", "BMS", "S50", "CRE", "SSG"];
 
-/** First `n` visible account ids for a product line + industry vertical. */
-function byVertical(product: Product, industry: string, n: number): string[] {
-  return VISIBLE.filter((a) => a.product === product && a.industry === industry)
-    .slice(0, n)
-    .map((a) => a.id);
-}
-
-/** Drop duplicate ids while preserving order. */
-function dedupe(ids: string[]): string[] {
+/**
+ * `perProduct` visible account ids from every product line, starting at
+ * `offset` in each line's pool — so different example lists pick different
+ * accounts. Wraps within a line if it's shorter than the requested window.
+ */
+function acrossProducts(perProduct: number, offset: number): string[] {
+  const ids: string[] = [];
+  for (const product of PRODUCT_ORDER) {
+    const pool = VISIBLE.filter((a) => a.product === product).map((a) => a.id);
+    for (let k = 0; k < perProduct && k < pool.length; k++) {
+      ids.push(pool[(offset + k) % pool.length]);
+    }
+  }
   return [...new Set(ids)];
 }
 
 export const EXAMPLE_SAVED_WORKLISTS: ExampleWorklistSpec[] = [
+  // Expiries are all ≤ 30 days: a saved list is archived on its expiration date
+  // and then kept 30 days, so the picked date should sit inside that window.
   {
-    // A tradeshow booth haul — cross-segment leads scanned at the event, so it
-    // spans several product lines rather than one.
+    // Tradeshow booth haul — leads scanned at the event, across every segment.
     key: "tradeshow-money2020",
     name: "Tradeshow — Money20/20",
     source: "Tradeshow",
-    expiresInDays: 90,
-    accountIds: dedupe([
-      ...byProduct("Intacct", 2),
-      ...byProduct("X3", 1),
-      ...byProduct("BMS", 1),
-      ...byProduct("CRE", 1),
-      ...byProduct("SSG", 1),
-    ]),
+    expiresInDays: 30,
+    accountIds: acrossProducts(2, 0),
   },
   {
-    // Account-based experience play against a single vertical (dental ≈
-    // healthcare in the demo data set).
+    // Account-based experience play (placeholder account set spans all products).
     key: "abx-mv-dental",
     name: "ABX MV Dental",
     source: "ABX",
-    expiresInDays: null,
-    accountIds: dedupe(byVertical("Intacct", "Healthcare", 6)),
+    expiresInDays: 14,
+    accountIds: acrossProducts(2, 2),
   },
   {
-    // Upsell campaign scoped to a single product line (BMS).
+    // Upsell campaign (placeholder account set spans all products).
     key: "bms-upsell",
     name: "BMS Upsell",
     source: "Upsell",
-    expiresInDays: null,
-    accountIds: dedupe(byProduct("BMS", 6)),
+    expiresInDays: 21,
+    accountIds: acrossProducts(2, 4),
   },
 ];
 
