@@ -41,6 +41,18 @@ const matchKeyFields = {
   domain: v.optional(v.union(v.string(), v.null())),
 };
 
+// Postal address, split into the components the source systems export. Account-
+// level only — used for the `company name + address` fallback match when two
+// records share no domain. All optional so existing rows/seeds are unaffected.
+const addressFields = {
+  address1: v.optional(v.union(v.string(), v.null())),
+  address2: v.optional(v.union(v.string(), v.null())),
+  address3: v.optional(v.union(v.string(), v.null())),
+  city: v.optional(v.union(v.string(), v.null())),
+  stateProvince: v.optional(v.union(v.string(), v.null())),
+  country: v.optional(v.union(v.string(), v.null())),
+};
+
 // ── GMO Salesforce — system of record ──────────────────────────────────────
 
 // GMO account = the embedded Account minus the reassembled sub-objects
@@ -55,6 +67,8 @@ export const gmoAccountFields = {
   domain: v.string(),
   // Raw website URL, when it differs from the bare `domain`.
   website: v.optional(v.union(v.string(), v.null())),
+  // Structured postal address (fallback match component).
+  ...addressFields,
   ownerId: v.string(),
   ownerName: v.string(),
   industry: v.string(),
@@ -158,6 +172,8 @@ export const intacctAccountFields = {
   // Account name + cross-instance match keys (company / website / domain). These
   // are what link an Intacct account back to its GMO counterpart.
   ...matchKeyFields,
+  // Structured postal address (fallback match component).
+  ...addressFields,
 };
 
 export const intacctContactFields = gmoContactFields;
@@ -183,6 +199,48 @@ export const fusionAccountFields = {
   products: v.array(ownedProduct),
   // Account name + cross-instance match keys (company / website / domain).
   ...matchKeyFields,
+  // Structured postal address (fallback match component).
+  ...addressFields,
+};
+
+// ── Cross-instance resolution (the crosswalk / resolution table) ─────────────
+//
+// Persisted output of the match resolver. Because per-system account IDs are NOT
+// shared, this table records which native account IDs — across GMO / Intacct /
+// Fusion — resolve to the same real-world company. Each company is a cluster
+// keyed by `entityKey`; a cluster may hold 1..n accounts per system (the
+// "1 or many" case that drives different dedupe / ROE rules). Rows are evidence,
+// not verdicts: `status` carries them through candidate → confirmed / rejected.
+//
+// Match key priority (populated by the resolver, not this schema):
+//   1. `domain`          — normalized email domain (post-`@`) / website. Best.
+//   2. company + address — fallback when no shared domain exists.
+//   3. Fusion `accountId` shape (^400\d+$) is a Fusion-side sanity signal.
+export const accountResolutionInsertFields = {
+  // Canonical cluster key. The normalized domain when a domain match exists;
+  // otherwise a company+address token. Rows sharing this are the same org.
+  entityKey: v.string(),
+  // Source instance — "gmo" | "intacct" | "fusion". Stored as a string per the
+  // house convention (re-narrowed at the read boundary), not a literal union.
+  system: v.string(),
+  // The account's NATIVE id within `system`. Not shared across systems.
+  accountId: v.string(),
+  // Normalized match domain (email post-`@` / website) for this record, if any.
+  domain: v.union(v.string(), v.null()),
+  // How this row was matched into the cluster: "email_domain" | "website_domain"
+  // | "company_address" | "fusion_id" | "manual".
+  matchMethod: v.string(),
+  // Match strength driving the applicable rule: "high" | "medium" | "low".
+  confidence: v.string(),
+  // Review lifecycle: "candidate" | "confirmed" | "rejected".
+  status: v.string(),
+};
+
+// Full stored shape = business fields + server-stamped timestamps.
+export const accountResolutionFields = {
+  ...accountResolutionInsertFields,
+  createdAt: v.number(),
+  updatedAt: v.number(),
 };
 
 // ── Unchanged non-CRM records ────────────────────────────────────────────────

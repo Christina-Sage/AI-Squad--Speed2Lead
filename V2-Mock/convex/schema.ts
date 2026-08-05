@@ -13,6 +13,7 @@ import {
   fusionAccountFields,
   sdrLeadFields,
   workItStateFields,
+  accountResolutionFields,
 } from "./validators";
 
 // Convex schema, ported 1:1 from the former Drizzle/Postgres schema (db/schema.ts).
@@ -148,4 +149,16 @@ export default defineSchema({
     .index("by_account", ["accountId"]),
 
   workItState: defineTable(workItStateFields).index("by_account", ["accountId"]),
+
+  // Cross-instance crosswalk: which native account IDs (GMO / Intacct / Fusion)
+  // resolve to the same company. Populated by the match resolver, not the seed.
+  //   by_entity         — all members of a cluster (the assemble/join lookup).
+  //   by_system_account — reverse lookup: what does THIS record resolve to.
+  //   by_domain         — group/lookup by normalized match domain.
+  //   by_status         — the candidate → confirmed/rejected review queue.
+  accountResolution: defineTable(accountResolutionFields)
+    .index("by_entity", ["entityKey"])
+    .index("by_system_account", ["system", "accountId"])
+    .index("by_domain", ["domain"])
+    .index("by_status", ["status"]),
 });
