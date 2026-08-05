@@ -82,7 +82,7 @@ export function ScoringCard({ accountId, score }: { accountId: string; score: Ac
         </span>
       </div>
       <div className="p-5 pl-6">
-        <Step icon="🎯" name="Fit" weight="40%" pillar={score.fit} animate={visible} />
+        <Step icon="🎯" name="Firmographics" weight="40%" pillar={score.fit} animate={visible} />
         <Step icon="📈" name="Intent" weight="35%" pillar={score.intent} animate={visible} />
         <Step icon="🛠️" name="Workability" weight="25%" pillar={score.workability} animate={visible} />
       </div>

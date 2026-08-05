@@ -191,7 +191,7 @@ export function AccountFitCard({
           </p>
         </div>
         <div className="flex flex-wrap gap-6">
-          <Pillar label="Fit · 40%" value={score.fit.value} />
+          <Pillar label="Firmographics · 40%" value={score.fit.value} />
           <Pillar label="Intent · 35%" value={score.intent.value} />
           <Pillar label="Work · 25%" value={score.workability.value} warn={score.workability.value < 70} />
         </div>
@@ -200,7 +200,7 @@ export function AccountFitCard({
       <div className="flex flex-col gap-4 p-5">
         {/* Firmographics — industry / revenue / employees + intel extras */}
         <div>
-          <p className={sectionLabel}>Fit &amp; firmographics</p>
+          <p className={sectionLabel}>Firmographics</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Cell
               label="Industry"

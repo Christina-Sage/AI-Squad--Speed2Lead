@@ -3,30 +3,13 @@ import { SearchForm } from "@/components/search/search-form";
 import { AccountImport } from "@/components/home/account-import";
 import {
   WorklistExplorer,
-  type AccountRow,
   type BlockedLeadRow,
-  type BlockedRow,
   type LeadRow,
 } from "@/components/home/worklist-explorer";
 import { getSalesforceProvider } from "@/lib/salesforce/provider";
-import { computeDuplicateLeads } from "@/lib/leads/lead-dedupe";
-import { evaluateLeadWorkability } from "@/lib/leads/lead-workability";
-import { evaluateWorkability, blockedByLabel } from "@/lib/workability/engine";
-import { evaluatePartner } from "@/lib/workability/partner";
-
-// Short "why blocked" label for a NOT-WORKABLE lead, keyed by its failing check.
-const LEAD_BLOCK_LABEL: Record<string, string> = {
-  dup: "Duplicate",
-  assoc: "Account blocked",
-  roe: "ROE / owned by rep",
-  openOpp: "Open opportunity",
-  customer: "Existing customer",
-};
-import { scoreAccount } from "@/lib/scoring/scoring";
+import { buildAccountRows, buildLeadRows } from "@/lib/worklist/build";
 import { getCurrentTeam, TEAM_COOKIE } from "@/lib/teams";
-import { getCurrentPriority, PRIORITY_COOKIE } from "@/lib/priority";
 import { getCurrentProduct, PRODUCT_COOKIE } from "@/lib/products";
-import { getCurrentVertical, matchesVertical, VERTICAL_COOKIE } from "@/lib/verticals";
 import { getDemoUser, DEMO_USER_COOKIE } from "@/lib/auth/demo-user";
 import { getWorkedToday, getWorkedAccountIds } from "@/lib/audit/worked";
 import {
@@ -43,15 +26,8 @@ export default async function Home({
   const provider = getSalesforceProvider();
   const cookieStore = await cookies();
   const team = getCurrentTeam(cookieStore.get(TEAM_COOKIE)?.value);
-  const priority = getCurrentPriority(cookieStore.get(PRIORITY_COOKIE)?.value);
   const product = getCurrentProduct(cookieStore.get(PRODUCT_COOKIE)?.value);
-  const vertical = getCurrentVertical(cookieStore.get(VERTICAL_COOKIE)?.value);
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
-  // The Vertical selector is shown for Intacct only (see the dashboard layout),
-  // so the vertical filter applies there too. "All Vertical" is the no-filter
-  // state. When active, the whole worklist (accounts + leads) is narrowed to the
-  // selected vertical, mapped from each record's industry.
-  const applyVertical = product === "Intacct" && vertical !== "all";
 
   // Today's worked accounts (pushed / not-a-fit / archived), from the audit log.
   const worked = await getWorkedToday(demoUser.id);
@@ -81,55 +57,15 @@ export default async function Home({
   // list. Filtered to the selected product so the dashboard shows one product
   // line at a time.
   const accounts = await provider.listAccounts();
-  const accountRows: AccountRow[] = [];
-  const blockedRows: BlockedRow[] = [];
-  for (const acct of accounts) {
-    if (acct.product !== product) continue;
-    if (applyVertical && !matchesVertical(vertical, acct.industry)) continue;
-    const bundle = await provider.getAccountBundle(acct.id);
-    if (!bundle) continue;
-    const duplicates = await provider.findDuplicateAccounts(acct.id);
-    const result = evaluateWorkability(bundle, team, duplicates);
-    const score = scoreAccount(bundle, result);
-    if (score === null) {
-      blockedRows.push({
-        id: result.account_id,
-        name: result.account_name,
-        domain: result.domain,
-        industry: result.industry,
-        type: result.type,
-        blockedBy: blockedByLabel(result),
-      });
-    } else {
-      accountRows.push({
-        id: result.account_id,
-        name: result.account_name,
-        domain: result.domain,
-        industry: result.industry,
-        type: result.type,
-        finalStatus: result.final_status,
-        fit: score.fit.value,
-        intent: score.intent.value,
-        workability: score.workability.value,
-        priority: score.priority,
-        hasPartner: result.partner_detail.hasRelationship,
-        partnerSource: result.partner_detail.source,
-        partnerName: result.partner_detail.partnerName,
-        partnerRegistered: result.partner_detail.registered,
-      });
-    }
-  }
-  // Worklist order (feedback): Workable ranked by score, then In Review
-  // (WORKABLE WITH REVIEW — includes any partner relationship) ranked by score.
-  const reviewRank = (r: AccountRow) => (r.finalStatus === "WORKABLE WITH REVIEW" ? 1 : 0);
-  accountRows.sort((a, b) => reviewRank(a) - reviewRank(b) || b.priority - a.priority);
+  const { rows: accountRows, blocked: blockedRows } = await buildAccountRows(
+    provider,
+    accounts.filter((acct) => acct.product === product),
+    team,
+  );
 
   // Membership of every account currently on the worklist (workable + blocked),
   // used as the default "save this list" set when nothing has been imported.
-  const worklistAccountIds = [
-    ...accountRows.map((r) => r.id),
-    ...blockedRows.map((r) => r.id),
-  ];
+  const worklistAccountIds = [...accountRows.map((r) => r.id), ...blockedRows.map((r) => r.id)];
 
   // When a saved list is selected, narrow the worklist to its members.
   const inSelected = (id: string) => !selectedIds || selectedIds.has(id);
@@ -137,80 +73,24 @@ export default async function Home({
   const visibleBlockedRows = blockedRows.filter((r) => inSelected(r.id));
 
   // SDR lead worklist (SDR mode only): each visible lead gets its full
-  // "Can I work this lead?" verdict. NOT WORKABLE leads drop into the blocked
-  // list; the rest are ranked by score and tagged Workable / Review.
-  const leadRows: LeadRow[] = [];
-  const blockedLeadRows: BlockedLeadRow[] = [];
+  // "Can I work this lead?" verdict. Filtered to the selected product.
+  let leadRows: LeadRow[] = [];
+  let blockedLeadRows: BlockedLeadRow[] = [];
   if (team === "SDR") {
     const allLeads = await provider.listSdrLeads();
-    const duplicateLeads = computeDuplicateLeads(allLeads);
-    const visibleLeads = allLeads.filter((l) => l.product === product && l.priorityGroup === priority);
-    for (const item of visibleLeads) {
-      const bundle = await provider.getSdrLeadBundle(item.id);
-      if (!bundle) continue;
-      // A lead's vertical follows its linked account's industry (when linked),
-      // otherwise the lead's own industry hint. Same Intacct-only vertical filter
-      // as the account worklist.
-      if (applyVertical) {
-        const leadIndustry = bundle.accountBundle?.account.industry ?? bundle.lead.industry ?? null;
-        if (!matchesVertical(vertical, leadIndustry)) continue;
-      }
-      const dupInfo = duplicateLeads.get(item.id) ?? null;
-      const result = evaluateLeadWorkability(bundle.lead, bundle.accountBundle, team, dupInfo);
-      if (result.final_status === "NOT WORKABLE") {
-        const failKey = result.checks.find((c) => c.state === "fail")?.key ?? "";
-        blockedLeadRows.push({
-          id: item.id,
-          name: item.name,
-          subtitle: item.accountName ?? item.title,
-          reason: dupInfo
-            ? `Duplicate ${dupInfo.matchedOn} — matches “${dupInfo.duplicateOf}”`
-            : LEAD_BLOCK_LABEL[failKey] ?? "Not workable",
-          badge: dupInfo ? "Duplicate" : "Don’t work",
-        });
-      } else {
-        // Partner (VAR) motion for a lead: the linked account's partner
-        // relationship (Intacct/Fusion), or a lead that came in through a VAR.
-        const partner = bundle.accountBundle ? evaluatePartner(bundle.accountBundle.account) : null;
-        const varLead = /\bVAR\b|reseller|value[- ]?added/i.test(bundle.lead.source ?? "");
-        const hasPartner = (partner?.hasRelationship ?? false) || varLead;
-        leadRows.push({
-          id: item.id,
-          name: item.name,
-          title: item.title,
-          accountId: item.accountId,
-          accountName: item.accountName,
-          domain: item.domain,
-          fit: item.fit,
-          intent: item.intent,
-          workability: item.workability,
-          score: item.score,
-          finalStatus:
-            result.final_status === "WORKABLE WITH REVIEW" ? "WORKABLE WITH REVIEW" : "WORKABLE",
-          hasPartner,
-          partnerSource: partner?.hasRelationship ? partner.source : varLead ? "VAR" : null,
-          partnerName: partner?.hasRelationship
-            ? partner.partnerName
-            : varLead
-              ? bundle.lead.source ?? "VAR lead"
-              : null,
-          partnerRegistered: partner?.registered ?? false,
-          // Worked-state / saved-list member id: account id when linked, else the lead id.
-          workItId: item.accountId ?? item.id,
-        });
-      }
-    }
-    // Order (same as accounts): Workable ranked by score, then In Review by score.
-    const leadReviewRank = (l: LeadRow) => (l.finalStatus === "WORKABLE WITH REVIEW" ? 1 : 0);
-    leadRows.sort((a, b) => leadReviewRank(a) - leadReviewRank(b) || b.score - a.score);
+    const built = await buildLeadRows(
+      provider,
+      allLeads.filter((l) => l.product === product),
+      team,
+      allLeads,
+    );
+    leadRows = built.rows;
+    blockedLeadRows = built.blocked;
   }
 
   // Saved-list membership for SDR is keyed by workItId (accountId ?? leadId),
   // the same id worked-state is recorded under, so completion lines up.
-  const leadMemberIds = [
-    ...leadRows.map((l) => l.workItId),
-    ...blockedLeadRows.map((b) => b.id),
-  ];
+  const leadMemberIds = [...leadRows.map((l) => l.workItId), ...blockedLeadRows.map((b) => b.id)];
   const visibleLeadRows = leadRows.filter((l) => !selectedIds || selectedIds.has(l.workItId));
   const visibleBlockedLeadRows = blockedLeadRows.filter(
     (b) => !selectedIds || selectedIds.has(b.id),
@@ -241,7 +121,6 @@ export default async function Home({
         team={team}
         product={product}
         demoUserName={demoUser.name}
-        priorityLabel={team === "SDR" ? priority : undefined}
         accountRows={visibleAccountRows}
         leadRows={visibleLeadRows}
         blockedRows={mode === "accounts" ? visibleBlockedRows : []}
