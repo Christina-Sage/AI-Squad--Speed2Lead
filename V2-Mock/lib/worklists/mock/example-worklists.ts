@@ -1,5 +1,4 @@
 import type { Account } from "@/lib/salesforce/types";
-import type { Product } from "@/lib/products";
 
 /**
  * Example Saved Worklists shown in the demo. Saved worklists live in Convex
@@ -47,9 +46,10 @@ interface ExampleDef {
   companies: string[];
 }
 
-// Rotated across each list's accounts so the dedicated set still spans every
-// product line (kept for internal consistency; these accounts are hidden).
-const PRODUCT_ROTATION: Product[] = ["Intacct", "X3", "BMS", "S50", "CRE", "SSG"];
+// A worklist belongs to one product line — reps don't work across products — so
+// every dedicated account here is Intacct (all three example lists are Intacct
+// for now). The account industries still vary per list for flavour.
+const LIST_PRODUCT = "Intacct" as const;
 
 function slug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -126,7 +126,7 @@ for (const def of DEFS) {
       ownerName: "House Account",
       industry: def.industry,
       type: "Prospect",
-      product: PRODUCT_ROTATION[i % PRODUCT_ROTATION.length],
+      product: LIST_PRODUCT,
       tam: null,
       abmNurtureStatus: null,
       lastActivityDate: null,

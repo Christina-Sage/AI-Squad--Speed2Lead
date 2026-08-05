@@ -6,7 +6,6 @@ import {
   exampleWorklistId,
 } from "@/lib/worklists/mock/example-worklists";
 import { ACCOUNTS } from "@/lib/salesforce/mock/fixtures/accounts";
-import type { Product } from "@/lib/products";
 
 const EXAMPLE_IDS = new Set(EXAMPLE_WORKLIST_ACCOUNTS.map((a) => a.id));
 
@@ -54,13 +53,9 @@ describe("EXAMPLE_SAVED_WORKLISTS", () => {
     expect(new Set(EXAMPLE_WORKED_ACCOUNT_IDS).size).toBe(EXAMPLE_WORKED_ACCOUNT_IDS.length);
   });
 
-  it("spans every product line across each list's accounts", () => {
-    const allProducts: Product[] = ["Intacct", "X3", "BMS", "S50", "CRE", "SSG"];
-    const byId = new Map(EXAMPLE_WORKLIST_ACCOUNTS.map((a) => [a.id, a]));
-    for (const wl of EXAMPLE_SAVED_WORKLISTS) {
-      const products = new Set(wl.accountIds.map((id) => byId.get(id)?.product));
-      for (const p of allProducts) expect(products.has(p)).toBe(true);
-    }
+  it("keeps every list on a single product line (Intacct)", () => {
+    // A worklist belongs to one product — reps don't work across products.
+    for (const a of EXAMPLE_WORKLIST_ACCOUNTS) expect(a.product).toBe("Intacct");
   });
 });
 
