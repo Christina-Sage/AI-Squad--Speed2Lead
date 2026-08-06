@@ -21,6 +21,7 @@ import type {
 } from "@/lib/salesforce/provider";
 import type { OutreachPush } from "@/lib/outreach";
 import { findDuplicates, type DuplicateMatch } from "@/lib/workability/duplicate";
+import { getExampleAccountBundle } from "@/lib/worklists/mock/example-worklists";
 import { detectSearchType, detectLeadSearchType } from "@/lib/salesforce/provider";
 import {
   assembleAccount,
@@ -150,6 +151,14 @@ export class ConvexSalesforceProvider implements SalesforceProvider {
   }
 
   async getAccountBundle(accountId: string): Promise<AccountBundle | null> {
+    // Example Saved Worklist members are in-memory demo accounts (worklistHidden,
+    // not in Convex), so resolve them from memory. Without this the selected
+    // example-list body is empty on a Convex deployment. findDuplicateAccounts
+    // already returns [] for them (not in allAccounts), which is correct — the
+    // example accounts are deliberately duplicate-free.
+    const example = getExampleAccountBundle(accountId);
+    if (example) return example;
+
     const account = await this.accountById(accountId);
     if (!account) return null;
     const product = account.product;
