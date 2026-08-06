@@ -45,15 +45,16 @@ curl -X POST https://<your-app>.vercel.app/api/dev/seed
 ```
 
 The route is double-guarded: it refuses unless `ALLOW_DEV_SEED=1` **and**
-`SALESFORCE_PROVIDER=convex`. It loads all 10 source tables + `sdrLeads`, plus a
-few example **Saved Worklists** per demo user (Tradeshow — Money20/20, BMS Upsell,
-ABX MV Dental) and backdated "worked" audit entries so those lists look
-pre-worked in the picker (3/12, 10/12, 12/12 → Completed). It's idempotent
-(source tables `replaceAll`; example worklists keyed by business id and replaced
-in place; seeded worked entries — `searchType: "seed"` — cleared and reloaded),
-so re-running it just resets the demo data and never touches user-created lists
-or real worked history. The example lists are backed by their own
-`worklistHidden` accounts, so they don't change the main worklist's counts.
+`SALESFORCE_PROVIDER=convex`. It loads all 10 source tables + `sdrLeads`. It's
+idempotent (source tables `replaceAll`), so re-running it just resets the CRM
+demo data and never touches user-created lists or real worked history.
+
+The example **Saved Worklists** (Tradeshow — Money20/20, BMS Upsell, ABX MV
+Dental) are **no longer seeded** — they're in-memory demo data
+(`lib/worklists/saved.ts` → `buildExampleWorklistViews`), so they appear in the
+picker (pre-worked 3/12, 10/12, 12/12 → Completed) whether or not Convex is
+wired or seeded. They're backed by their own `worklistHidden` accounts, so they
+don't change the main worklist's counts.
 
 ## 4. Lock it back down
 

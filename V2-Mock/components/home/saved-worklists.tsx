@@ -291,31 +291,37 @@ export function SavedWorklistBar({ list }: { list: SavedWorklistView }) {
         <span className="h-1.5 w-[130px] overflow-hidden rounded-full bg-muted">
           <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
         </span>
-        {list.status === "active" && (
-          <button
-            onClick={() => mutate("archive")}
-            disabled={pending}
-            className="rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold hover:border-muted-foreground disabled:opacity-60"
-          >
-            Archive
-          </button>
+        {/* Example (demo) lists are read-only in-memory data — there's no Convex
+            row to archive/reopen/remove, so the manage actions are hidden. */}
+        {!list.readOnly && (
+          <>
+            {list.status === "active" && (
+              <button
+                onClick={() => mutate("archive")}
+                disabled={pending}
+                className="rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold hover:border-muted-foreground disabled:opacity-60"
+              >
+                Archive
+              </button>
+            )}
+            {list.archivedAt && (
+              <button
+                onClick={() => mutate("reopen")}
+                disabled={pending}
+                className="rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold hover:border-muted-foreground disabled:opacity-60"
+              >
+                Reopen
+              </button>
+            )}
+            <button
+              onClick={() => mutate("delete")}
+              disabled={pending}
+              className="rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold text-destructive hover:border-destructive disabled:opacity-60"
+            >
+              Remove
+            </button>
+          </>
         )}
-        {list.archivedAt && (
-          <button
-            onClick={() => mutate("reopen")}
-            disabled={pending}
-            className="rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold hover:border-muted-foreground disabled:opacity-60"
-          >
-            Reopen
-          </button>
-        )}
-        <button
-          onClick={() => mutate("delete")}
-          disabled={pending}
-          className="rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[12px] font-semibold text-destructive hover:border-destructive disabled:opacity-60"
-        >
-          Remove
-        </button>
       </div>
     </div>
   );

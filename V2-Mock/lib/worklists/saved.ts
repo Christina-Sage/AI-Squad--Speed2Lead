@@ -1,5 +1,10 @@
 import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
+import {
+  EXAMPLE_SAVED_WORKLISTS,
+  EXAMPLE_WORKLIST_ID_PREFIX,
+  exampleViewId,
+} from "@/lib/worklists/mock/example-worklists";
 
 /**
  * active    — still being worked; shown in the picker's Active group.
@@ -20,11 +25,47 @@ export interface SavedWorklistView {
   total: number;
   worked: number;
   status: SavedWorklistStatus;
+  /**
+   * In-memory example (demo) list, not a user-created Convex row. Read-only —
+   * the picker hides the archive/reopen/remove actions for these.
+   */
+  readOnly?: boolean;
 }
 
 // Locked decision: on expiry a list is archived, then purged after a grace
 // period rather than hard-deleted on the date.
 const GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The example Saved Worklists as in-memory views — demo data shown in the
+ * picker without Convex or the seed route. Their pre-worked progress
+ * (3/12, 10/12, 12/12 → Completed) comes from each spec's `workedCount`, so the
+ * picker looks pre-worked even when the audit log is empty. createdAt is offset
+ * by definition index so the first list sorts newest, matching the old seed.
+ */
+export function buildExampleWorklistViews(): SavedWorklistView[] {
+  const now = Date.now();
+  return EXAMPLE_SAVED_WORKLISTS.map((wl, i) => {
+    const total = wl.accountIds.length;
+    const worked = Math.min(wl.workedCount, total);
+    const complete = total > 0 && worked >= total;
+    const expiresAt = wl.expiresInDays !== null ? now + wl.expiresInDays * DAY_MS : null;
+    return {
+      id: exampleViewId(wl.key),
+      name: wl.name,
+      source: wl.source,
+      accountIds: wl.accountIds,
+      createdAt: new Date(now - i * 1000).toISOString(),
+      expiresAt: expiresAt !== null ? new Date(expiresAt).toISOString() : null,
+      archivedAt: null,
+      total,
+      worked,
+      status: complete ? "completed" : "active",
+      readOnly: true,
+    };
+  });
+}
 
 export const SAVED_WORKLIST_COOKIE = "saved_worklist";
 
@@ -70,12 +111,27 @@ export async function listSavedWorklists(
   userId: string,
   workedEver: Set<string>,
 ): Promise<SavedWorklistView[]> {
-  // Rows come back newest-first from Convex, with timestamps as epoch ms.
-  const rows = await fetchQuery(api.savedWorklists.listByUser, { userId });
+  // Example lists are in-memory demo data — always present, and independent of
+  // Convex, so the picker is populated even on the mock demo.
+  const examples = buildExampleWorklistViews();
+
+  // Rows come back newest-first from Convex, with timestamps as epoch ms. If
+  // Convex is unavailable (the in-memory demo), fall back to just the examples
+  // rather than failing the whole picker.
+  let rows: Awaited<ReturnType<typeof fetchQuery<typeof api.savedWorklists.listByUser>>> = [];
+  try {
+    rows = await fetchQuery(api.savedWorklists.listByUser, { userId });
+  } catch (err) {
+    console.error("[worklist] saved worklists (convex) unavailable:", err);
+  }
 
   const now = Date.now();
   const views: SavedWorklistView[] = [];
   for (const row of rows) {
+    // Drop any legacy Convex-seeded example rows — the in-memory examples above
+    // are now the single source, so keeping both would double them.
+    if (typeof row.id === "string" && row.id.startsWith(EXAMPLE_WORKLIST_ID_PREFIX)) continue;
+
     const accountIds = Array.isArray(row.accountIds) ? row.accountIds : [];
     const total = accountIds.length;
     const worked = accountIds.filter((id) => workedEver.has(id)).length;
@@ -105,5 +161,5 @@ export async function listSavedWorklists(
       status,
     });
   }
-  return views;
+  return [...examples, ...views];
 }
