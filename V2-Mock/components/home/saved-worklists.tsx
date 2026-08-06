@@ -61,21 +61,32 @@ export function SavedWorklistPicker({
   async function select(id: string) {
     setOpen(false);
     setPending(true);
-    await post("/api/saved-worklists/select", { id });
-    router.refresh();
+    try {
+      await post("/api/saved-worklists/select", { id });
+      router.refresh();
+    } finally {
+      // router.refresh() re-renders the server tree but keeps this client
+      // component mounted, so pending must be cleared explicitly — otherwise the
+      // trigger button stays disabled and the picker won't open again.
+      setPending(false);
+    }
   }
 
   async function save() {
     if (!name.trim() || saveAccountIds.length === 0) return;
     setPending(true);
-    await post("/api/saved-worklists", {
-      name: name.trim(),
-      expiresAt: expires || null,
-      accountIds: saveAccountIds,
-    });
-    setDialog(false);
-    setName("");
-    router.refresh();
+    try {
+      await post("/api/saved-worklists", {
+        name: name.trim(),
+        expiresAt: expires || null,
+        accountIds: saveAccountIds,
+      });
+      setDialog(false);
+      setName("");
+      router.refresh();
+    } finally {
+      setPending(false);
+    }
   }
 
   function listRow(l: SavedWorklistView) {
@@ -250,8 +261,14 @@ export function SavedWorklistBar({ list }: { list: SavedWorklistView }) {
 
   async function mutate(action: "archive" | "reopen" | "delete") {
     setPending(true);
-    await post(`/api/saved-worklists/${list.id}`, { action });
-    router.refresh();
+    try {
+      await post(`/api/saved-worklists/${list.id}`, { action });
+      router.refresh();
+    } finally {
+      // Keep the control usable after refresh — router.refresh() doesn't remount
+      // this client component, so pending won't reset on its own.
+      setPending(false);
+    }
   }
 
   const done = list.status !== "active";
