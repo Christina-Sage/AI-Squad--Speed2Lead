@@ -4,6 +4,8 @@ import {
   EXAMPLE_WORKED_ACCOUNT_IDS,
   EXAMPLE_WORKLIST_ACCOUNTS,
   exampleWorklistId,
+  isExampleAccountId,
+  getExampleAccountBundle,
 } from "@/lib/worklists/mock/example-worklists";
 import { ACCOUNTS } from "@/lib/salesforce/mock/fixtures/accounts";
 import { evaluateWorkability } from "@/lib/workability/engine";
@@ -94,6 +96,29 @@ describe("EXAMPLE_WORKLIST_ACCOUNTS", () => {
       expect(ACCOUNTS.filter((x) => x.domain === a.domain)).toHaveLength(1);
       expect(ACCOUNTS.filter((x) => x.name === a.name)).toHaveLength(1);
     }
+  });
+});
+
+describe("getExampleAccountBundle", () => {
+  it("resolves every example account id to a standalone, workable bundle", () => {
+    // This is what lets a Convex deployment (where these worklistHidden accounts
+    // don't exist) still render a selected example list's body.
+    for (const a of EXAMPLE_WORKLIST_ACCOUNTS) {
+      expect(isExampleAccountId(a.id)).toBe(true);
+      const bundle = getExampleAccountBundle(a.id);
+      expect(bundle).not.toBeNull();
+      expect(bundle!.account.id).toBe(a.id);
+      // Standalone prospect — no linked records.
+      expect(bundle!.leads).toEqual([]);
+      expect(bundle!.contacts).toEqual([]);
+      expect(bundle!.opportunities).toEqual([]);
+      expect(bundle!.activities).toEqual([]);
+    }
+  });
+
+  it("returns null / false for a non-example id", () => {
+    expect(isExampleAccountId("0015Y00002ABC123")).toBe(false);
+    expect(getExampleAccountBundle("0015Y00002ABC123")).toBeNull();
   });
 });
 

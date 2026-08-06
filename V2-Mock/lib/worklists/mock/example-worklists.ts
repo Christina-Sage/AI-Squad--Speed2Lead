@@ -1,4 +1,4 @@
-import type { Account } from "@/lib/salesforce/types";
+import type { Account, AccountBundle } from "@/lib/salesforce/types";
 
 /**
  * Example Saved Worklists shown in the demo. These are in-memory demo data:
@@ -162,6 +162,26 @@ for (const def of DEFS) {
 
 /** Dedicated (hidden) accounts backing the example lists. Merged into the CRM fixtures. */
 export const EXAMPLE_WORKLIST_ACCOUNTS: Account[] = accounts;
+
+const EXAMPLE_ACCOUNT_BY_ID = new Map(accounts.map((a) => [a.id, a]));
+
+/** True if `id` is one of the example lists' dedicated backing accounts. */
+export function isExampleAccountId(id: string): boolean {
+  return EXAMPLE_ACCOUNT_BY_ID.has(id);
+}
+
+/**
+ * In-memory bundle for an example backing account — a standalone prospect with
+ * no linked leads/contacts/opps/activities. Lets any Salesforce provider resolve
+ * an example list's members without those accounts existing in its data store
+ * (they live only in the mock fixtures), so the selected-list body renders on
+ * the deployed demo whatever provider it runs on. Returns null for other ids.
+ */
+export function getExampleAccountBundle(id: string): AccountBundle | null {
+  const account = EXAMPLE_ACCOUNT_BY_ID.get(id);
+  if (!account) return null;
+  return { account, leads: [], contacts: [], opportunities: [], activities: [] };
+}
 
 export const EXAMPLE_SAVED_WORKLISTS: ExampleWorklistSpec[] = specs;
 
