@@ -8,13 +8,6 @@ import { OPPORTUNITIES } from "@/lib/salesforce/mock/fixtures/opportunities";
 import { ACTIVITIES } from "@/lib/salesforce/mock/fixtures/activities";
 import { SDR_LEADS } from "@/lib/salesforce/mock/fixtures/sdr-leads";
 import { decomposeToSourceTables } from "@/lib/salesforce/source-tables";
-import { DEMO_USERS } from "@/lib/auth/demo-user";
-import {
-  EXAMPLE_SAVED_WORKLISTS,
-  EXAMPLE_WORKED_ACCOUNT_IDS,
-  EXAMPLE_WORKLIST_ACCOUNTS,
-  exampleWorklistId,
-} from "@/lib/worklists/mock/example-worklists";
 
 // Loads the in-memory mock fixtures into Convex so the `convex` Salesforce
 // provider has data to run the de-dupe engine against. The embedded fixtures are
@@ -87,51 +80,11 @@ export async function POST() {
     sdrLeads: await fetchMutation(api.sdrLeads.replaceAll, { rows: clean(SDR_LEADS) }),
   };
 
-  // Example Saved Worklists (per-user demo data). Seeded for every demo user so
-  // the picker is populated whoever is signed in. createdAt/expiresAt are
-  // computed here (the mutation avoids wall-clock reads); the small decreasing
-  // createdAt offset preserves the definition order (first list shown newest).
-  const now = Date.now();
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  // Worked entries are backdated so they populate lifetime progress (the picker)
-  // without landing in any user's daily worked-today set.
-  const workedAtMs = now - 2 * DAY_MS;
-  const accountNameById = new Map(EXAMPLE_WORKLIST_ACCOUNTS.map((a) => [a.id, a.name]));
-  const workedAccounts = EXAMPLE_WORKED_ACCOUNT_IDS.map((id) => ({
-    accountId: id,
-    accountName: accountNameById.get(id) ?? null,
-  }));
+  // NOTE: the example Saved Worklists (Tradeshow — Money20/20, BMS Upsell,
+  // ABX MV Dental) and their pre-worked audit entries are no longer seeded here.
+  // They're in-memory demo data now (see lib/worklists/saved.ts →
+  // buildExampleWorklistViews), so they show in the picker without Convex or the
+  // seed route. This route only loads the CRM source tables + sdrLeads.
 
-  let savedWorklistRows = 0;
-  let workedRows = 0;
-  for (const user of DEMO_USERS) {
-    const worklists = EXAMPLE_SAVED_WORKLISTS.map((wl, i) => ({
-      id: exampleWorklistId(wl.key, user.id),
-      name: wl.name,
-      source: wl.source,
-      accountIds: wl.accountIds,
-      createdAt: now - i * 1000,
-      expiresAt: wl.expiresInDays !== null ? now + wl.expiresInDays * DAY_MS : null,
-    }));
-    const res = await fetchMutation(api.savedWorklists.seedExamples, { userId: user.id, worklists });
-    savedWorklistRows += res.inserted;
-
-    const workedRes = await fetchMutation(api.auditLog.seedWorked, {
-      userId: user.id,
-      userName: user.name,
-      team: "BDR",
-      createdAt: workedAtMs,
-      accounts: workedAccounts,
-    });
-    workedRows += workedRes.inserted;
-  }
-
-  return NextResponse.json({
-    success: true,
-    seeded: {
-      ...results,
-      savedWorklists: { inserted: savedWorklistRows },
-      workedSeed: { inserted: workedRows },
-    },
-  });
+  return NextResponse.json({ success: true, seeded: results });
 }

@@ -18,6 +18,7 @@ import {
   getSelectedWorklistId,
   SAVED_WORKLIST_COOKIE,
 } from "@/lib/worklists/saved";
+import { EXAMPLE_WORKED_ACCOUNT_IDS } from "@/lib/worklists/mock/example-worklists";
 
 export default async function Home({
   searchParams,
@@ -31,7 +32,14 @@ export default async function Home({
   const demoUser = getDemoUser(cookieStore.get(DEMO_USER_COOKIE)?.value);
 
   // Today's worked accounts (pushed / not-a-fit / archived), from the audit log.
-  const worked = await getWorkedToday(demoUser.id);
+  // Defensive: if Convex is unavailable (the in-memory demo), the worklist still
+  // renders (no worked-today highlights) rather than 500-ing the whole page.
+  let worked: Awaited<ReturnType<typeof getWorkedToday>> = new Map();
+  try {
+    worked = await getWorkedToday(demoUser.id);
+  } catch (err) {
+    console.error("[worklist] worked-today unavailable:", err);
+  }
   const todayWorkedMap: Record<string, "pushed" | "not_fit" | "archived"> = Object.fromEntries(
     Array.from(worked, ([id, entry]) => [id, entry.outcome]),
   );
@@ -45,6 +53,14 @@ export default async function Home({
     workedEverMap = await getWorkedEverMap(demoUser.id);
   } catch (err) {
     console.error("[worklist] worked history unavailable:", err);
+  }
+
+  // The example lists are in-memory demo data with faked pre-worked progress
+  // (see buildExampleWorklistViews). Fold their worked accounts into the
+  // lifetime map so a selected example list's body renders those members as
+  // "Worked · Pushed", matching the picker's counts. Real audit entries win.
+  for (const id of EXAMPLE_WORKED_ACCOUNT_IDS) {
+    if (!workedEverMap.has(id)) workedEverMap.set(id, { outcome: "pushed", reason: null });
   }
 
   // Saved Worklists (per-user). Loading is defensive: if the saved_worklists

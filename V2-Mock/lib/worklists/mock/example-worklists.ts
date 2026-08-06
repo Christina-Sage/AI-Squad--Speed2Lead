@@ -1,9 +1,12 @@
 import type { Account } from "@/lib/salesforce/types";
 
 /**
- * Example Saved Worklists shown in the demo. Saved worklists live in Convex
- * (per user), so these are loaded by the dev seed route (`/api/dev/seed`) for
- * every demo user, exactly like the CRM fixtures.
+ * Example Saved Worklists shown in the demo. These are in-memory demo data:
+ * the picker gets them from `buildExampleWorklistViews()` (see
+ * `lib/worklists/saved.ts`), independent of Convex, so they appear in the
+ * deployed demo whether or not Convex is wired or seeded. Their pre-worked
+ * state is likewise faked in memory (see `EXAMPLE_WORKED_ACCOUNT_IDS`), not
+ * read from the audit log. The dev seed route no longer loads them.
  *
  * IMPORTANT: these lists reference their OWN dedicated accounts
  * (`EXAMPLE_WORKLIST_ACCOUNTS`), NOT the accounts on the main BDR worklist. The
@@ -166,11 +169,28 @@ export const EXAMPLE_SAVED_WORKLISTS: ExampleWorklistSpec[] = specs;
 export const EXAMPLE_WORKED_ACCOUNT_IDS: string[] = workedIds;
 
 /**
- * The Convex business id for an example list, per user. Encoding the user id
- * keeps ids globally unique — the saved-worklist lookup (`by_business_id`)
- * resolves an id to a single row before checking ownership, so two users must
- * never share one business id.
+ * Shared prefix for every example-worklist id (both the in-memory view id and
+ * any legacy per-user Convex business id). `listSavedWorklists` drops Convex
+ * rows with this prefix so a previously-seeded example can't double the
+ * in-memory one.
+ */
+export const EXAMPLE_WORKLIST_ID_PREFIX = "swl_example_";
+
+/**
+ * Stable id for an in-memory example list. User-independent: the examples are
+ * the same demo data for whoever is signed in, so the id doesn't encode a user.
+ */
+export function exampleViewId(key: string): string {
+  return `${EXAMPLE_WORKLIST_ID_PREFIX}${key}`;
+}
+
+/**
+ * The Convex business id for an example list, per user. Retained for the legacy
+ * seed path and its tests; the live demo uses `exampleViewId` (in-memory).
+ * Encoding the user id keeps ids globally unique — the saved-worklist lookup
+ * (`by_business_id`) resolves an id to a single row before checking ownership,
+ * so two users must never share one business id.
  */
 export function exampleWorklistId(key: string, userId: string): string {
-  return `swl_example_${key}_${userId}`;
+  return `${EXAMPLE_WORKLIST_ID_PREFIX}${key}_${userId}`;
 }
